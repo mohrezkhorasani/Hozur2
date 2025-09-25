@@ -10,10 +10,12 @@ namespace Domain.Entity
     {
         public long ID { get; set; }
         public string FriendlyID { get; set; }   
-        public int Status { get; set; }
-        public int Type { get; set; }
-        public string Explain { get; set; }
+        public MainEntity_Status Status { get; set; }
+        public MainEntity_Types Type { get; set; }
+        public string? Explain { get; set; }
         public DateTime DateInsert { get; set; }
         public string Title { get; set; }
+        public ICollection<MeetingTBL> MeetingTBLs { get; set;  }
+        public ICollection<UserTBLToMeetingTBL> UserTBLToMeetingTBLs { get; set; }
     }
 }

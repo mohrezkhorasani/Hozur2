@@ -45,11 +45,11 @@ namespace Presistence.Entities
             builder.HasKey(x => x.ID);
 
             builder.Property(e => e.Explain).IsRequired(false).HasMaxLength(3000);
-            builder.Property(e=>e.DateInsert).HasDefaultValueSql("CONVERT(varchar, SYSDATETIME(), 121)");
+            builder.Property(e=>e.DateInsert).HasDefaultValueSql("SYSDATETIME()");
             builder.Property(e=>e.Status).HasDefaultValue(100);
             builder.Property(e=>e.Type).HasDefaultValue(1);
              
-
+    
 
             //builder.HasOne(e => e.StateTBL).WithMany(c => c.ConfigTBLs)
             //.HasForeignKey(x=>x.StateTBLID).OnDelete(DeleteBehavior.Restrict);
