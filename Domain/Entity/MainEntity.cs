@@ -2,7 +2,7 @@
 {
     public interface MainEntity
     {
-        public int ID { get; set; }
+        public long ID { get; set; }
         /** Statuses: >0 => ok 
          * Enable,Succedd:100
          * IsWaiting: 98

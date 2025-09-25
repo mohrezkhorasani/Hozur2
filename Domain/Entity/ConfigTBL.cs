@@ -8,7 +8,7 @@ namespace Domain.Entity
 {
     public class ConfigTBL : MainEntity
     {
-        public int ID { get; set; }
+        public long ID { get; set; }
         public int Status { get; set; }
         public int Type { get; set; }
         public string Explain { get; set; }
