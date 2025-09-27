@@ -17,7 +17,12 @@ namespace Presistence.Entities
 {
     public class DBContext : DbContext, IDBContext
     {
-        public DbSet<ConfigTBL> ConfigTBLs { get; set; }//454
+          public DbSet<ConfigTBL> ConfigTBLs { get; set; }
+        public DbSet<CertificateTBL> CertificateTBLs { get; set; }
+        public DbSet<MeetingTBL> MeetingTBLs { get; set; }
+        public DbSet<RoomTBL> RoomTBLs { get; set; }
+        public DbSet<UserTBL> UserTBLs { get; set; }
+        public DbSet<UserTBLToMeetingTBL> UserTBLToMeetingTBLs { get; set; }
 
         public class BloggingContextfactory : IDesignTimeDbContextFactory<DBContext>
         {
@@ -25,7 +30,7 @@ namespace Presistence.Entities
             {
                 var optioonbuilder = new DbContextOptionsBuilder<DBContext>();
 
-                optioonbuilder.UseSqlServer(@"Data Source=201.414.111.22;Initial Catalog=dbname;User ID=user;Password=pass;TrustServerCertificate=True", builder =>
+                optioonbuilder.UseSqlServer(@"Data Source=162.55.86.86,2022;Initial Catalog=eitherir_maj;User ID=eitherir_hekmatadmindb;Password=~JRi44#sicBn8izv;TrustServerCertificate=True", builder =>
                 {
                     builder.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null);
                 });
@@ -47,6 +52,11 @@ namespace Presistence.Entities
             
             
             #region 8/6/2023
+            modelBuilder.ApplyConfiguration(new CertificateTBLConfiguration());
+            modelBuilder.ApplyConfiguration(new MeetingTBLConfiguration());
+            modelBuilder.ApplyConfiguration(new RoomTBLConfiguration());
+            modelBuilder.ApplyConfiguration(new UserTBLConfiguration());
+            modelBuilder.ApplyConfiguration(new UserTBLToMeetingTBLConfiguration());
             modelBuilder.ApplyConfiguration(new ConfigTBLConfiguration());
             #endregion
         }

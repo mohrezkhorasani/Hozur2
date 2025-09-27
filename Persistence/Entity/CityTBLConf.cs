@@ -46,8 +46,8 @@ namespace Presistence.Entities
 
             builder.Property(e => e.Explain).IsRequired(false).HasMaxLength(3000);
             builder.Property(e=>e.DateInsert).HasDefaultValueSql("SYSDATETIME()");
-            builder.Property(e=>e.Status).HasDefaultValue(100);
-            builder.Property(e=>e.Type).HasDefaultValue(1);
+            builder.Property(e => e.Status).HasDefaultValue(MainEntity_Status.Deactive);
+            builder.Property(e => e.Type).HasDefaultValue(MainEntity_Types.Normal);
              
     
 
