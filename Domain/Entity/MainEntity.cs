@@ -2,17 +2,22 @@
 {
     public enum MainEntity_Status
     {
+        Deactive = 0,
+        Default = 101,
+        IsWaiting = 98,
         Succedd = 100,
-        Enabled = 100,
-        IsWaiting = 98
-, Default = 101
-         , Pin = 999
+        Enabled = 100
          , Special = 110
+         , MEETING_STARTED_LATER = 250 // started meeting but not configured[title,teacher]
+         , MEETING_LIVE = 251 // started meeting and configured 
+         , MEETING_END = 252
+         , Pin = 999
          , Disable = -100
+         , Canceled = -101
          , Delete = -400
          , Forbidden = -403
-         , Canceled = -101
          , Ban = -403
+
     }
     public enum MainEntity_Types
     {
@@ -26,7 +31,7 @@
         USER_USER = 505,
         USER_CREATOR = 506,
         USER_VIEWER = 507,
-        USER_TEACHER=508
+        USER_TEACHER = 508,
 
     }
     public interface MainEntity

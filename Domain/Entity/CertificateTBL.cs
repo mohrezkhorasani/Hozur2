@@ -14,11 +14,10 @@ namespace Domain.Entity
         public string? Explain { get; set; }
         public DateTime DateInsert { get; set; }
         public string Title { get; set; }
+        public long IDUserTBLToMeetingTBL { get; set;   }
         public UserTBLToMeetingTBL UserTBLToMeetingTBL { get; set; }
-        public string UUID { get; set; }
-        public string MeetID { get; set; }
         public string? FilePath { get; set; }
         public string? FileURL { get; set; }
-        
+        public bool Validation { get; set; }=false;
     }
 }

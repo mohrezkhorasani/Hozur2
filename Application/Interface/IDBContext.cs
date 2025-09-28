@@ -12,6 +12,11 @@ namespace Application.Interfaces
     {
 
         public DbSet<ConfigTBL> ConfigTBLs { get; set; }
+        public DbSet<CertificateTBL> CertificateTBLs { get; set; }
+        public DbSet<MeetingTBL> MeetingTBLs { get; set; }
+        public DbSet<RoomTBL> RoomTBLs { get; set; }
+        public DbSet<UserTBL> UserTBLs { get; set; }
+        public DbSet<UserTBLToMeetingTBL> UserTBLToMeetingTBLs { get; set; }
         public int SaveChanges();
         public Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default);
         public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);

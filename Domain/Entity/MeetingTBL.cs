@@ -17,9 +17,10 @@ namespace Domain.Entity
         public DateTime? EndDate { get; set; }
         public string? JalaliDate { get; set; }
         public string? Title { get; set; }
-        public long IDRoomTBL { get; set; }
+        public string RoomFriendlyID { get; set; }
         public RoomTBL RoomTBL { get; set; }
         public UserTBL Teacher { get; set; }
         public long? IDTeacher { get; set; }
+        public ICollection<UserTBLToMeetingTBL> UserTBLToMeetingTBLs { get; set; }
     }
 }

@@ -30,7 +30,7 @@ namespace Presistence.Entities
             {
                 var optioonbuilder = new DbContextOptionsBuilder<DBContext>();
 
-                optioonbuilder.UseSqlServer(@"Data Source=162.55.86.86,2022;Initial Catalog=eitherir_maj;User ID=eitherir_hekmatadmindb;Password=~JRi44#sicBn8izv;TrustServerCertificate=True", builder =>
+                optioonbuilder.UseSqlServer(@"Data Source=162.55.86.86,2022;Initial Catalog=eitherir_maj;User ID=eitherir_hekmatadmindb;Password=c?58r35Je;TrustServerCertificate=True", builder =>
                 {
                     builder.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null);
                 });

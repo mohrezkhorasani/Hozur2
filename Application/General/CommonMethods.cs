@@ -1,5 +1,7 @@
 ﻿using Application.Interfaces;
+using Domain.Entity;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
@@ -30,8 +32,25 @@ namespace Application.General
             _db1 = db1;
             _hosting = hosting;
         }
-        
 
+
+        public async Task NewUser(UserTBL user)
+        {
+            if (user.ID != 0) return;
+
+        }
+
+        public async Task<bool> CheckUserExist(UserTBL user)
+        {
+            return await _db.UserTBLs.AnyAsync(x =>
+                x.ID == user.ID ||
+                (x.UUID == user.UUID || (x.UUID == null && user.UUID == null)) ||
+                (x.Email == user.Email || (x.Email == null && user.Email == null)) ||
+                (x.PhoneNumber == user.PhoneNumber || (x.PhoneNumber == null && user.PhoneNumber == null)) ||
+                (x.NationalCode == user.NationalCode || (x.NationalCode == null && user.NationalCode == null))
+                );
+
+        }
 
     }
 }

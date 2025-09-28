@@ -1,0 +1,142 @@
+﻿using Application.DTO.Generals;
+using Application.DTO.Models;
+using Application.Interface.IUsecase;
+using System;
+using System.Collections.Generic;
+using static Application.General.Statics;
+
+namespace Application.DTO
+{
+    #region NewUser
+    public class NewUserRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<NewUserResponse>>
+    {
+        public string? UUID { get; set; }
+        public string? Firstname { get; set; }
+        public string? Lastname { get; set; }
+        public string? NationalCode { get; set; }
+        public string? PhoneNumber { get; set; }
+        public string? ExtId { get; set; }
+        public string? IP { get; set; }
+        public string? Email { get; set; }
+        public string? AllowedGUID { get; set; }
+
+    }
+
+    public class NewUserResponse : BaseParentResponce
+    {
+
+    }
+    #endregion
+    #region NewUserMeetingLog
+    public class NewUserMeetingLogRequest : NewUserRequest, IUseCaseRequest<GenericResponse<NewUserMeetingLogResponse>>
+    {
+        public string MeetID { get; set; }
+        public string KeyLog { get; set; } //left,join, activity
+        public string ValueLog { get; set; } //raised hand, microphone opened, microphone closed,file share,screen share open,screen share close,file share close,
+        public string Role { get; set; }
+    }
+
+    public class NewUserMeetingLogResponse : BaseParentResponce
+    {
+
+    }
+    #endregion
+
+    //NewMeeting 
+    #region NewMeeting
+    public class NewMeetingRequest : NewUserRequest, IUseCaseRequest<GenericResponse<NewMeetingResponse>>
+    {
+        public string MeetID { get; set; }
+        public string UUIDCreator { get; set; }
+        public string RoomID { get; set; }
+    }
+
+    public class NewMeetingResponse : BaseParentResponce
+    {
+
+    }
+    #endregion
+
+
+    //UpdateMeeting 
+    #region UpdateMeeting
+    public class UpdateMeetingRequest : NewUserRequest, IUseCaseRequest<GenericResponse<UpdateMeetingResponse>>
+    {
+        public string MeetID { get; set; }
+        public string Teacher { get; set; }
+        public string Title { get; set; }
+        public string JalaliDate { get; set; }
+        public string Explain { get; set; }
+    }
+    public class UpdateMeetingResponse : BaseParentResponce
+    {
+
+    }
+    #endregion
+
+
+    //NewUserMeetings
+    #region NewUserMettings
+    public class NewUserMettingsRequest : NewUserRequest, IUseCaseRequest<GenericResponse<NewUserMettingsResponse>>
+    {
+        public string MeetID { get; set; }
+        public string Role { get; set; }
+        public string NickName { get; set; }
+
+    }
+
+    public class NewUserMettingsResponse : BaseParentResponce
+    {
+
+    }
+    #endregion
+
+    //Get Teacher list [by Name]
+    #region GetTeacherList
+    public class GetTeacherListRequest : NewUserRequest, IUseCaseRequest<GenericResponse<GetTeacherListResponse>>
+    {
+        public string Query { get; set; }
+    }
+
+    public class GetTeacherListResponse : BaseParentResponce
+    {
+
+    }
+    #endregion
+    
+    //Add Teacher 
+    #region NewTeacher
+    public class NewTeacherRequest : NewUserRequest, IUseCaseRequest<GenericResponse<NewTeacherResponse>>
+    {
+        public string FullName { get; set; }
+        public string? Username { get; set; }
+    }
+
+    public class NewTeacherResponse : BaseParentResponce
+    {
+        
+    }
+    #endregion
+    
+
+    //GuarantCertificate
+
+    //GetCertificateFile
+
+    //GetMeetings [ by title?,teacher-name?,jalali-date?, room-id? ]
+
+    //GetRooms [ by title ]
+
+    //GetUsersInAMeeting [ by meet-id ]
+
+    //Get user meetings [ by national-code? | phone? | uuid? | email? | extId? | ]
+
+
+
+    //CheckUser
+
+
+
+
+
+}

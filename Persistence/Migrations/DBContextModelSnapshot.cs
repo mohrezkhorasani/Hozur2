@@ -259,6 +259,14 @@ namespace Persistence.Migrations
                     b.Property<string>("NationalCode")
                         .HasColumnType("nvarchar(450)");
 
+                    b.Property<byte[]>("PasswordHash")
+                        .IsRequired()
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<byte[]>("PasswordSalt")
+                        .IsRequired()
+                        .HasColumnType("varbinary(max)");
+
                     b.Property<string>("PhoneNumber")
                         .HasColumnType("nvarchar(450)");
 
@@ -275,6 +283,9 @@ namespace Persistence.Migrations
                     b.Property<string>("UUID")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Username")
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("ID");
 
@@ -327,6 +338,9 @@ namespace Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
+                    b.Property<string>("Role")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<long?>("RoomTBLID")
                         .HasColumnType("bigint");
 
@@ -347,6 +361,10 @@ namespace Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
+                    b.Property<string>("UserNickName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.HasKey("ID");
 
                     b.HasIndex("MeetID");
@@ -357,6 +375,46 @@ namespace Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("UserTBLToMeetingTBL", "GeneralInfo");
+                });
+
+            modelBuilder.Entity("Domain.Entity.UserTBLToMeetingTBLLogs", b =>
+                {
+                    b.Property<long>("ID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("ID"));
+
+                    b.Property<DateTime>("DateInsert")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Explain")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<long>("IDUserTBLToMeetingTBL")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.Property<long>("UserTBLToMeetingTBLID")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Value")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("ID");
+
+                    b.HasIndex("UserTBLToMeetingTBLID");
+
+                    b.ToTable("UserTBLToMeetingTBLLogs");
                 });
 
             modelBuilder.Entity("Domain.Entity.CertificateTBL", b =>
@@ -414,6 +472,17 @@ namespace Persistence.Migrations
                     b.Navigation("UserTBL");
                 });
 
+            modelBuilder.Entity("Domain.Entity.UserTBLToMeetingTBLLogs", b =>
+                {
+                    b.HasOne("Domain.Entity.UserTBLToMeetingTBL", "UserTBLToMeetingTBL")
+                        .WithMany("UserTBLToMeetingTBLLogs")
+                        .HasForeignKey("UserTBLToMeetingTBLID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("UserTBLToMeetingTBL");
+                });
+
             modelBuilder.Entity("Domain.Entity.MeetingTBL", b =>
                 {
                     b.Navigation("UserTBLToMeetingTBLs");
@@ -437,6 +506,8 @@ namespace Persistence.Migrations
                 {
                     b.Navigation("CertificateTBL")
                         .IsRequired();
+
+                    b.Navigation("UserTBLToMeetingTBLLogs");
                 });
 #pragma warning restore 612, 618
         }

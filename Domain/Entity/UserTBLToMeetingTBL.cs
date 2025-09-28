@@ -23,8 +23,9 @@ namespace Domain.Entity
         public long TimeSpendSeconds { get; set; } = 0; // update after meet closed!
         public string? CertificateFileURL { get; set; }
         public CertificateTBL CertificateTBL { get; set; }
+        public string UserNickName{ get; set; }
+        public string? Role{ get; set; }
         public List<string> IPList { get; set; } = new List<string>();
-        public ICollection<CertificateTBL> CertificateTBLs { get; set; }
-
+        public ICollection<UserTBLToMeetingTBLLogs> UserTBLToMeetingTBLLogs { get; set; }
     }
 }
