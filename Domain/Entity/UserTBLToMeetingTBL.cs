@@ -18,6 +18,7 @@ namespace Domain.Entity
         public string MeetID { get; set; }
         public MeetingTBL MeetingTBL { get; set; }
         public string UUID { get; set; }
+        public string TokenJWT { get; set; }
         public UserTBL UserTBL { get; set; }
         public bool IsCertificated { get; set; } = false;
         public long TimeSpendSeconds { get; set; } = 0; // update after meet closed!

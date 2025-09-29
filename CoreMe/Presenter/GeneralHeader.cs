@@ -17,17 +17,19 @@ namespace Presenter
             {
 
                 Guid guid = GetIdentificationCode(request);
-                Guid guidJWT = Guid.Parse(GetFromJWT(request.Headers["Authorization"].ToString(), "guid"));
-
+                var guidMeetString = GetFromJWT(GetFromHeader(request, "Meet-Secret"), "guid");
+                var roomid = GetFromJWT(GetFromHeader(request, "Meet-Secret"), "room");
                 return new GeneralHeaders
                 {
                     Agent = request.Headers["User-Agent"].ToString(),
-                    Token = request.Headers["Authorization"].ToString(),
+                    JWTUserToken = request.Headers["Authorization"].ToString(),
+                    JWTMeetingToken = GetFromHeader(request,"Meet-Secret"),
                     RequestedPage = request.Path.ToString(),
                     RequestedIP = request.HttpContext.Connection.RemoteIpAddress?.ToString(),
                     RequestedDevice = request.Headers["sec-ch-ua-platform"].ToString(), // Assuming User-Agent for device
                     IdentificationCode = guid,
-                    JWTIdentificationCode = guidJWT,
+                    MeetIdentificationCode = guidMeetString,
+                    RoomID=roomid,
                     Referer = request.Headers["Referer"].ToString(),
                     RefererGoogle = request.Headers["Referer"].ToString().Contains("google") ? request.Headers["Referer"].ToString() : null
                 };
@@ -51,9 +53,22 @@ namespace Presenter
             }
 
         }
+        public static string GetFromHeader(HttpRequest request, string key)
+        {
+            if (request.Headers.Any(e => e.Key == key))
+            {
+                return request.Headers[key];
+            }
+            return null;
+        }
+
         public static string GetFromJWT(string jwtToken, string claimType)
         {
             var handler = new JwtSecurityTokenHandler();
+            if (string.IsNullOrEmpty(jwtToken))
+            {
+                return null;
+            }
             if (jwtToken.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
             {
                 jwtToken = jwtToken.Substring("Bearer ".Length).Trim();

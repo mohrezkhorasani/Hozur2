@@ -21,6 +21,20 @@ namespace Domain.Entity
         public RoomTBL RoomTBL { get; set; }
         public UserTBL Teacher { get; set; }
         public long? IDTeacher { get; set; }
+        public UserTBL Creator { get; set; }
+        public long IDCreator { get; set; }
+        public string? JWT { get; set; }
         public ICollection<UserTBLToMeetingTBL> UserTBLToMeetingTBLs { get; set; }
+
+        public static string GetStatusString(MainEntity_Status status)
+        {
+            switch (status)
+            {
+                case MainEntity_Status.MEETING_END: return "خاتمه یافته";
+                case MainEntity_Status.MEETING_LIVE: return "زنده";
+                case MainEntity_Status.MEETING_STARTED_LATER: return "در حال شروع";
+                default: return "نامشخص";
+            }
+        }
     }
 }

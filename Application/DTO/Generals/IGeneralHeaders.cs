@@ -9,24 +9,28 @@ namespace Application.DTO.Generals
     public class GeneralHeaders : IGeneralHeaders
     {
         public string Agent { get; set; }
-        public string Token { get; set; }
+        public string? JWTMeetingToken { get; set; }
+        public string? JWTUserToken { get; set; }
         public string RequestedPage { get; set; }
         public string RequestedIP { get; set; }
         public string RequestedDevice { get; set; }
         public Guid IdentificationCode { get; set; }
         public string Referer { get; set; }
         public string RefererGoogle { get; set; }
-        public Guid JWTIdentificationCode { get; set; }
+        public string? MeetIdentificationCode { get; set; }
+        public string? RoomID { get; set; }
     }
     public interface IGeneralHeaders
     {
         public string Agent { get; set; }
-        public string Token { get; set; }//JWT
+        public string? JWTMeetingToken { get; set; }
+        public string? JWTUserToken { get; set; }
         public string RequestedPage { get; set; }
         public string RequestedIP { get; set; }
         public string RequestedDevice { get; set; }
         public Guid IdentificationCode { get; set; }
-        public Guid JWTIdentificationCode { get; set; }
+        public string? MeetIdentificationCode { get; set; }
+        public string? RoomID { get; set; }
         public string Referer { get; set; }
         public string RefererGoogle { get; set; }
     }

@@ -16,14 +16,18 @@
          , Canceled = -101
          , Delete = -400
          , Forbidden = -403
-         , Ban = -403
+         , Ban = -403 ,
 
+         //USERS
+        USER_ACTIVE = 500,
+        USER_DEACTIVE = -500
     }
     public enum MainEntity_Types
     {
         Normal = 1,
 
         // user from 500 
+        USER_UNKNOWN = 599,
         USER_GUEST = 501,
         USER_MODERATOR = 502,
         USER_ADMINSTRATOR = 503,
@@ -32,7 +36,6 @@
         USER_CREATOR = 506,
         USER_VIEWER = 507,
         USER_TEACHER = 508,
-
     }
     public interface MainEntity
     {

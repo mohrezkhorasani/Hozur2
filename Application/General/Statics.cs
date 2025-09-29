@@ -1,4 +1,5 @@
-﻿using Microsoft.IdentityModel.Tokens;
+﻿using Domain.Entity;
+using Microsoft.IdentityModel.Tokens;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -7,6 +8,7 @@ using System.Linq;
 using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
+using System.Security.Cryptography;
 
 namespace Application.General
 {
@@ -73,6 +75,17 @@ namespace Application.General
                 return dif.ToString("#.##") + " ثانیه.";
             }
 
+        }
+        public static string GenerateSecretKey(int size = 32) // default 32 bytes = 256-bit key
+        {
+            var randomBytes = new byte[size];
+            using (var rng = RandomNumberGenerator.Create())
+            {
+                rng.GetBytes(randomBytes);
+            }
+
+            // Return as Base64 string (safe to store in appsettings.json)
+            return Convert.ToBase64String(randomBytes);
         }
         public static double GetDifferentPrettyDateHour(DateTime date)
         {
@@ -184,8 +197,8 @@ namespace Application.General
         public static DateTime ConvertToDate(double v)
         {
             DateTime dateTime = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)
-    .AddMilliseconds(v)
-    .ToLocalTime();
+                .AddMilliseconds(v)
+                .ToLocalTime();
             return dateTime;
         }
 
@@ -193,6 +206,92 @@ namespace Application.General
         {
             return DateTime.Now.Year + "\\" + DateTime.Now.Month + "\\" + DateTime.Now.Day + "\\";
         }
+
+        public static string GenerateJWTUser(UserTBL user)
+        {
+            var key = new SymmetricSecurityKey(Encoding.UTF8
+                .GetBytes("34383f87-02fe-4484-9663-5f3975d9d0e9"));
+            string uuid = user.ID.ToString();
+            if (user.UUID != null)
+                uuid = user.UUID;
+            var cred = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            var token = new JwtSecurityToken(
+              //_configuration.GetSection("Appsettings:ValIssuerID").Value,
+              //_configuration.GetSection("Appsettings:ValIudienceID").Value,
+              issuer: "vc.hekmateislami.com",
+              audience: "vc.hekmateislami.com",
+              notBefore: DateTime.Now,
+                expires: DateTime.Now.AddHours(5),
+                claims: new List<Claim>
+                {
+                    new Claim("date",DateTime.Now.ToString()),
+                    new Claim("guid", user.AllowedGUID.Last().ToString()),
+                    new Claim("uuid", uuid),
+                    new Claim("secret", GenerateSecretKey(128)),
+                    new Claim("api-key", GenerateSecretKey(32)),
+                },
+                signingCredentials: cred);
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+
+        public static string GenerateJWTMeet(MeetingTBL tbl)
+        {
+            var key = new SymmetricSecurityKey(Encoding.UTF8
+                .GetBytes("9c2a7d64-47ac-4dd6-9af0-5d313faad181"));
+            var cred = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            var token = new JwtSecurityToken(
+              //_configuration.GetSection("Appsettings:ValIssuerID").Value,
+              //_configuration.GetSection("Appsettings:ValIudienceID").Value,
+              issuer: "vc.hekmateislami.com",
+              audience: "vc.hekmateislami.com",
+              notBefore: DateTime.Now,
+                expires: DateTime.Now.AddHours(5),
+                claims: new List<Claim>
+                {
+                    new Claim("date",DateTime.Now.ToString()),
+                    new Claim("guid", tbl.MeetID),
+                    new Claim("room", tbl.RoomFriendlyID),
+                    new Claim("secret", GenerateSecretKey(128)),
+                    new Claim("api-key", GenerateSecretKey(32)),
+                },
+                signingCredentials: cred);
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+            public static string ToJalaliDate(DateTime date)
+    {
+        var pc = new PersianCalendar();
+        
+        int year = pc.GetYear(date);
+        int month = pc.GetMonth(date);
+        int day = pc.GetDayOfMonth(date);
+
+        string monthName = GetPersianMonthName(month);
+
+        return $"{year}-{monthName}-{day:D2}";
+    }
+
+    private static string GetPersianMonthName(int month)
+    {
+        return month switch
+        {
+            1 => "فروردین",
+            2 => "اردیبهشت",
+            3 => "خرداد",
+            4 => "تیر",
+            5 => "مرداد",
+            6 => "شهریور",
+            7 => "مهر",
+            8 => "آبان",
+            9 => "آذر",
+            10 => "دی",
+            11 => "بهمن",
+            12 => "اسفند",
+            _ => ""
+        };
+    }
     }
 
 }

@@ -34,22 +34,109 @@ namespace Application.General
         }
 
 
-        public async Task NewUser(UserTBL user)
+        public async Task<UserTBL> NewUser(UserTBL user)
         {
-            if (user.ID != 0) return;
+            if (await CheckUserExist(user)) await GetUserWithoutID(user);
+            user.AllowedGUID.Add(Guid.NewGuid());
 
+            _db.UserTBLs.Add(user);
+            _db.SaveChanges();
+            return user;
         }
 
+        public async Task<MeetingTBL> NewMeeting(MeetingTBL tbl)
+        {
+            if (await CheckMeetingExist(tbl)) await GetUserWithoutID(tbl.MeetID);
+            tbl.JWT = Statics.GenerateJWTMeet(tbl);
+            _db.MeetingTBLs.Add(tbl);
+            _db.SaveChanges();
+            return tbl;
+        }
+
+        public async Task<UserTBL> GetUserWithoutID(UserTBL user)
+        {
+            if (user.UUID != null)
+            {
+                return _db.UserTBLs.Where(e => e.UUID == user.UUID).FirstOrDefault();
+            }
+            if (user.PhoneNumber != null)
+            {
+                return _db.UserTBLs.Where(e => e.PhoneNumber == user.PhoneNumber).FirstOrDefault();
+            }
+            if (user.Username != null)
+            {
+                return _db.UserTBLs.Where(e => e.Username == user.Username).FirstOrDefault();
+            }
+            if (user.Email != null)
+            {
+                return _db.UserTBLs.Where(e => e.Email == user.Email).FirstOrDefault();
+            }
+            if (user.NationalCode != null)
+            {
+                return _db.UserTBLs.Where(e => e.NationalCode == user.NationalCode).FirstOrDefault();
+            }
+            return null;
+        }
+        public async Task<MeetingTBL> GetUserWithoutID(string q)
+        {
+            return _db.MeetingTBLs.FirstOrDefault(e=>e.MeetID==q);
+        }
+
+        public async Task<bool> CheckUserGUID(UserTBL user, string q)
+        {
+            if (user.ID == null) return false;
+            if (user.AllowedGUID.Any(e => e.ToString() == q)) return true;
+            return false;
+        }
+        public async Task<bool> AddUserExtID(UserTBL user, string q)
+        {
+            if (user.ID == null) return false;
+            if (user.ExtId.Any(e => e == q)) return true;
+            user.ExtId.Add(q);
+            _db.Update(user);
+            _db.SaveChanges();
+            return true;
+        }
+        public async Task<bool> ValidateUserIds(UserTBL user)
+        {
+            if (user.UUID != null)
+            {
+                return true;
+            }
+            if (user.PhoneNumber != null)
+            {
+                return true;
+            }
+            if (user.Username != null)
+            {
+                return true;
+            }
+            if (user.Email != null)
+            {
+                return true;
+            }
+            if (user.NationalCode != null)
+            {
+                return true;
+            }
+            return false;
+        }
         public async Task<bool> CheckUserExist(UserTBL user)
         {
             return await _db.UserTBLs.AnyAsync(x =>
                 x.ID == user.ID ||
-                (x.UUID == user.UUID || (x.UUID == null && user.UUID == null)) ||
-                (x.Email == user.Email || (x.Email == null && user.Email == null)) ||
-                (x.PhoneNumber == user.PhoneNumber || (x.PhoneNumber == null && user.PhoneNumber == null)) ||
-                (x.NationalCode == user.NationalCode || (x.NationalCode == null && user.NationalCode == null))
-                );
-
+                (user.UUID != null && x.UUID == user.UUID) ||
+                (user.Email != null && x.Email == user.Email) ||
+                (user.PhoneNumber != null && x.PhoneNumber == user.PhoneNumber) ||
+                (user.NationalCode != null && x.NationalCode == user.NationalCode)
+            );
+        }
+        public async Task<bool> CheckMeetingExist(MeetingTBL user)
+        {
+            return await _db.MeetingTBLs.AnyAsync(x =>
+                x.ID == user.ID ||
+                (user.MeetID != null && x.MeetID == user.MeetID && user.RoomFriendlyID == x.RoomFriendlyID)
+            );
         }
 
     }

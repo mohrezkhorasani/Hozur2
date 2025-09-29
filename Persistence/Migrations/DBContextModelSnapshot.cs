@@ -133,8 +133,14 @@ namespace Persistence.Migrations
                         .HasMaxLength(3000)
                         .HasColumnType("nvarchar(3000)");
 
+                    b.Property<long>("IDCreator")
+                        .HasColumnType("bigint");
+
                     b.Property<long?>("IDTeacher")
                         .HasColumnType("bigint");
+
+                    b.Property<string>("JWT")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("JalaliDate")
                         .HasColumnType("nvarchar(max)");
@@ -161,6 +167,8 @@ namespace Persistence.Migrations
                         .HasDefaultValue(1);
 
                     b.HasKey("ID");
+
+                    b.HasIndex("IDCreator");
 
                     b.HasIndex("IDTeacher");
 
@@ -285,7 +293,7 @@ namespace Persistence.Migrations
                         .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("Username")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.HasKey("ID");
 
@@ -303,6 +311,10 @@ namespace Persistence.Migrations
 
                     b.HasIndex("UUID")
                         .IsUnique();
+
+                    b.HasIndex("Username")
+                        .IsUnique()
+                        .HasFilter("[Username] IS NOT NULL");
 
                     b.ToTable("UserTBL", "GeneralInfo");
                 });
@@ -351,6 +363,10 @@ namespace Persistence.Migrations
 
                     b.Property<long>("TimeSpendSeconds")
                         .HasColumnType("bigint");
+
+                    b.Property<string>("TokenJWT")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("Type")
                         .ValueGeneratedOnAdd()
@@ -430,6 +446,12 @@ namespace Persistence.Migrations
 
             modelBuilder.Entity("Domain.Entity.MeetingTBL", b =>
                 {
+                    b.HasOne("Domain.Entity.UserTBL", "Creator")
+                        .WithMany("CreatedMeetings")
+                        .HasForeignKey("IDCreator")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("Domain.Entity.UserTBL", "Teacher")
                         .WithMany("TeacherMeetings")
                         .HasForeignKey("IDTeacher")
@@ -441,6 +463,8 @@ namespace Persistence.Migrations
                         .HasPrincipalKey("FriendlyID")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("Creator");
 
                     b.Navigation("RoomTBL");
 
@@ -497,6 +521,8 @@ namespace Persistence.Migrations
 
             modelBuilder.Entity("Domain.Entity.UserTBL", b =>
                 {
+                    b.Navigation("CreatedMeetings");
+
                     b.Navigation("TeacherMeetings");
 
                     b.Navigation("UserTBLToMeetingTBLs");

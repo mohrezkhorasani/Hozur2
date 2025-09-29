@@ -19,12 +19,13 @@ namespace Application.DTO
         public string? IP { get; set; }
         public string? Email { get; set; }
         public string? AllowedGUID { get; set; }
+        public string? Role { get; set; }
 
     }
 
     public class NewUserResponse : BaseParentResponce
     {
-
+        public JWTTokenJSON Data { get; set; }
     }
     #endregion
     #region NewUserMeetingLog
@@ -47,12 +48,12 @@ namespace Application.DTO
     public class NewMeetingRequest : NewUserRequest, IUseCaseRequest<GenericResponse<NewMeetingResponse>>
     {
         public string MeetID { get; set; }
-        public string UUIDCreator { get; set; }
         public string RoomID { get; set; }
     }
 
     public class NewMeetingResponse : BaseParentResponce
     {
+        public MeetJSON Data { get; set; }
 
     }
     #endregion
@@ -62,7 +63,6 @@ namespace Application.DTO
     #region UpdateMeeting
     public class UpdateMeetingRequest : NewUserRequest, IUseCaseRequest<GenericResponse<UpdateMeetingResponse>>
     {
-        public string MeetID { get; set; }
         public string Teacher { get; set; }
         public string Title { get; set; }
         public string JalaliDate { get; set; }
@@ -70,6 +70,7 @@ namespace Application.DTO
     }
     public class UpdateMeetingResponse : BaseParentResponce
     {
+        public MeetJSON Data { get; set; }
 
     }
     #endregion
@@ -103,7 +104,7 @@ namespace Application.DTO
 
     }
     #endregion
-    
+
     //Add Teacher 
     #region NewTeacher
     public class NewTeacherRequest : NewUserRequest, IUseCaseRequest<GenericResponse<NewTeacherResponse>>
@@ -114,10 +115,10 @@ namespace Application.DTO
 
     public class NewTeacherResponse : BaseParentResponce
     {
-        
+
     }
     #endregion
-    
+
 
     //GuarantCertificate
 

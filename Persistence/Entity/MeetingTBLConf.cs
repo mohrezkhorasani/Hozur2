@@ -53,11 +53,14 @@ namespace Presistence.Entities
 
             builder.HasOne(e => e.RoomTBL).WithMany(c => c.MeetingTBLs)
             .HasForeignKey(x => x.RoomFriendlyID)
-            .HasPrincipalKey(x=>x.FriendlyID)
+            .HasPrincipalKey(x => x.FriendlyID)
             .OnDelete(DeleteBehavior.Restrict);
 
             builder.HasOne(e => e.Teacher).WithMany(c => c.TeacherMeetings)
             .HasForeignKey(x => x.IDTeacher).OnDelete(DeleteBehavior.Restrict);
+            
+               builder.HasOne(e => e.Creator).WithMany(c => c.CreatedMeetings)
+            .HasForeignKey(x => x.IDCreator).OnDelete(DeleteBehavior.Restrict);
             
         }
 
