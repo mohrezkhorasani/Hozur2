@@ -33,7 +33,8 @@ namespace Application.DTO
     {
         public string MeetID { get; set; }
         public string KeyLog { get; set; } //left,join, activity
-        public string ValueLog { get; set; } //raised hand, microphone opened, microphone closed,file share,screen share open,screen share close,file share close,
+        public string? ValueLog { get; set; } //raised hand, microphone opened, microphone closed,file share,screen share open,screen share close,file share close,
+        public string RoomID { get; set; }
         public string Role { get; set; }
     }
 
@@ -88,6 +89,7 @@ namespace Application.DTO
 
     public class NewUserMettingsResponse : BaseParentResponce
     {
+        public MeetJSON Data { get; set; }
 
     }
     #endregion

@@ -254,5 +254,182 @@ namespace Application.Usecase
     }
     #endregion
 
+    #region NewUserMettings
+    public class NewUserMettingsUseCase : INewUserMettingsUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IHostingEnvironment hosting;
+
+        public NewUserMettingsUseCase(IDBContext repository,
+            IConfiguration configuration)
+        {
+            _db = repository;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+        }
+
+        public async Task handleAsync(NewUserMettingsRequest message,
+            IOutPutPort<GenericResponse<NewUserMettingsResponse>> outputPort)
+        {
+            if (message.GeneralHeaders.JWTUserToken == null)
+                return;
+            UserTBL user = new UserTBL
+            {
+                UUID = message.UUID,
+                Email = message.Email,
+                Firstname = message.Firstname,
+                NationalCode = message.NationalCode,
+                PhoneNumber = message.PhoneNumber,
+            };
+            user = await _commonMethods.NewUser(user);
+            if (user.AddIP(message.IP))
+            {
+                _db.Update(user);
+                _db.SaveChanges();
+            }
+            if (!UserTBL.TYPE_ALLOWED_MEET_CREATE.Contains(user.Type))
+            {
+                outputPort.Handle(new GenericResponse<NewUserMettingsResponse>(new NewUserMettingsResponse
+                {
+                    Message = "ok",
+                    Status = 202,
+                }));
+                return;
+            }
+            var meet = await _commonMethods.GetMeetWithoutID(message.MeetID);
+
+            var userMeet = await _commonMethods.NewUserMeeting(new UserTBLToMeetingTBL
+            {
+                MeetID = meet.MeetID,
+                UUID = user.UUID,
+                TokenJWT = message.GeneralHeaders.JWTUserToken,
+                Explain = message.Role,
+                Type = UserTBL.MapRoleToType(message.Role),
+                Status = MainEntity_Status.MEETING_STARTED_LATER,
+                Role = message.Role,
+                IPList = new List<string>() { message.IP },
+                UserNickName = message.NickName,
+                TimeSpendSeconds = 0,
+                IsCertificated = false,
+                
+            });
+            if (!userMeet.IPList.Contains(message.IP))
+            {
+                userMeet.IPList.Add(message.IP);
+                _db.Update(userMeet);
+                _db.SaveChanges();
+            }
+
+            meet = await _db.MeetingTBLs.Include(e => e.Creator)
+                .Include(e => e.Teacher).Include(e => e.RoomTBL)
+                .FirstOrDefaultAsync(e => e.ID == meet.ID);
+            if (meet == null) return;
+            outputPort.Handle(new GenericResponse<NewUserMettingsResponse>(new NewUserMettingsResponse
+            {
+                Message = "ok",
+                Status = 200,
+                Data = new DTO.Models.MeetJSON
+                {
+                    JWT = new DTO.Models.JWTTokenJSON
+                    {
+                        Token = meet.JWT
+                    },
+                    Creator = new DTO.Models.MiniUserJSON
+                    {
+                        Fullname = $"{meet.Creator.Firstname} {meet.Creator.LastName}",
+                        ID = meet.Creator.ID,
+                    },
+                    Teacher = new DTO.Models.MiniUserJSON
+                    {
+                        Fullname = $"{meet.Teacher.Firstname} {meet.Teacher.LastName}",
+                        ID = meet.Teacher.ID,
+                    },
+                    Room = new DTO.Models.MiniRoomJSON
+                    {
+                        RoomID = meet.RoomFriendlyID,
+                        Title = meet.RoomTBL.Title
+                    },
+                    JalaliDate = meet.JalaliDate,
+                    MeetID = meet.MeetID,
+                    StartedTime = meet.DateInsert.TimeOfDay.ToString(),
+                    Status = MeetingTBL.GetStatusString(meet.Status),
+                    Title = meet.Title
+                }
+            }));
+
+        }
+    }
+    #endregion
+
+
+    #region NewUserMeetingLog
+    public class NewUserMeetingLogUseCase : INewUserMeetingLogUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IHostingEnvironment hosting;
+
+        public NewUserMeetingLogUseCase(IDBContext repository,
+            IConfiguration configuration)
+        {
+            _db = repository;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+        }
+
+        public async Task handleAsync(NewUserMeetingLogRequest message,
+            IOutPutPort<GenericResponse<NewUserMeetingLogResponse>> outputPort)
+        {
+            UserTBL user = new UserTBL
+            {
+                UUID = message.UUID,
+                Email = message.Email,
+                Firstname = message.Firstname,
+                NationalCode = message.NationalCode,
+                PhoneNumber = message.PhoneNumber,
+            };
+            user = await _commonMethods.NewUser(user);
+            if (user.AddIP(message.IP))
+            {
+                _db.Update(user);
+                _db.SaveChanges();
+            }
+            if (!UserTBL.TYPE_ALLOWED_MEET_CREATE.Contains(user.Type))
+            {
+                outputPort.Handle(new GenericResponse<NewUserMeetingLogResponse>(new NewUserMeetingLogResponse
+                {
+                    Message = "ok",
+                    Status = 202,
+                }));
+                return;
+            }
+            var meet = await _commonMethods.GetUserMeetWithoutID(new UserTBLToMeetingTBL
+            {
+                MeetID = message.MeetID,
+                UUID = message.UUID,
+            });
+
+            UserTBLToMeetingTBLLogs? log = new UserTBLToMeetingTBLLogs
+            {
+                Type = UserTBL.MapRoleToType(message.Role),
+                Status = MainEntity_Status.MEETING_STARTED_LATER,
+                Key = message.KeyLog,
+                Value = message.ValueLog,
+                Explain = message.Role,
+                IDUserTBLToMeetingTBL = meet.ID,
+            };
+            _db.UserTBLToMeetingTBLLogs.Add(log);
+            _db.SaveChanges();
+
+            outputPort.Handle(new GenericResponse<NewUserMeetingLogResponse>(new NewUserMeetingLogResponse
+            {
+                Message = "ok",
+                Status = 200,
+             
+            }));
+
+        }
+    }
+    #endregion
+
 
 }

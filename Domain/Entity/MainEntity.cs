@@ -21,7 +21,7 @@
          //USERS
         USER_ACTIVE = 500,
         USER_DEACTIVE = -500
-    }
+    }   
     public enum MainEntity_Types
     {
         Normal = 1,

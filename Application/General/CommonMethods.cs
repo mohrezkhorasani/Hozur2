@@ -36,7 +36,7 @@ namespace Application.General
 
         public async Task<UserTBL> NewUser(UserTBL user)
         {
-            if (await CheckUserExist(user)) await GetUserWithoutID(user);
+            if (await CheckUserExist(user))return await GetUserWithoutID(user);
             user.AllowedGUID.Add(Guid.NewGuid());
 
             _db.UserTBLs.Add(user);
@@ -46,13 +46,12 @@ namespace Application.General
 
         public async Task<MeetingTBL> NewMeeting(MeetingTBL tbl)
         {
-            if (await CheckMeetingExist(tbl)) await GetUserWithoutID(tbl.MeetID);
+            if (await CheckMeetingExist(tbl))return await GetMeetWithoutID(tbl.MeetID);
             tbl.JWT = Statics.GenerateJWTMeet(tbl);
             _db.MeetingTBLs.Add(tbl);
             _db.SaveChanges();
             return tbl;
         }
-
         public async Task<UserTBL> GetUserWithoutID(UserTBL user)
         {
             if (user.UUID != null)
@@ -77,9 +76,14 @@ namespace Application.General
             }
             return null;
         }
-        public async Task<MeetingTBL> GetUserWithoutID(string q)
+        public async Task<MeetingTBL> GetMeetWithoutID(string q)
         {
-            return _db.MeetingTBLs.FirstOrDefault(e=>e.MeetID==q);
+            return _db.MeetingTBLs.FirstOrDefault(e => e.MeetID == q);
+        }
+        public async Task<UserTBLToMeetingTBL> GetUserMeetWithoutID(UserTBLToMeetingTBL q)
+        {
+            return _db.UserTBLToMeetingTBLs
+            .FirstOrDefault(e => e.MeetID == q.MeetID && e.UUID==q.UUID);
         }
 
         public async Task<bool> CheckUserGUID(UserTBL user, string q)
@@ -121,6 +125,14 @@ namespace Application.General
             }
             return false;
         }
+
+        public async Task<UserTBLToMeetingTBL> NewUserMeeting(UserTBLToMeetingTBL tbl)
+        {
+            if (await CheckUserMeetingExist(tbl)) return await GetUserMeetWithoutID(tbl);
+            _db.UserTBLToMeetingTBLs.Add(tbl);
+            _db.SaveChanges();
+            return tbl;
+        }
         public async Task<bool> CheckUserExist(UserTBL user)
         {
             return await _db.UserTBLs.AnyAsync(x =>
@@ -136,6 +148,13 @@ namespace Application.General
             return await _db.MeetingTBLs.AnyAsync(x =>
                 x.ID == user.ID ||
                 (user.MeetID != null && x.MeetID == user.MeetID && user.RoomFriendlyID == x.RoomFriendlyID)
+            );
+        }
+        public async Task<bool> CheckUserMeetingExist(UserTBLToMeetingTBL user)
+        {
+            return await _db.UserTBLToMeetingTBLs.AnyAsync(x =>
+                x.ID == user.ID ||
+                (user.MeetID != null && x.MeetID == user.MeetID && user.UUID == x.UUID)
             );
         }
 

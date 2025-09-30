@@ -23,6 +23,7 @@ namespace Presistence.Entities
         public DbSet<RoomTBL> RoomTBLs { get; set; }
         public DbSet<UserTBL> UserTBLs { get; set; }
         public DbSet<UserTBLToMeetingTBL> UserTBLToMeetingTBLs { get; set; }
+        public DbSet<UserTBLToMeetingTBLLogs> UserTBLToMeetingTBLLogs { get; set; }
 
         public class BloggingContextfactory : IDesignTimeDbContextFactory<DBContext>
         {
@@ -58,6 +59,7 @@ namespace Presistence.Entities
             modelBuilder.ApplyConfiguration(new UserTBLConfiguration());
             modelBuilder.ApplyConfiguration(new UserTBLToMeetingTBLConfiguration());
             modelBuilder.ApplyConfiguration(new ConfigTBLConfiguration());
+            modelBuilder.ApplyConfiguration(new UserTBLToMeetingTBLLogsConfiguration());
             #endregion
         }
 
