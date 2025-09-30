@@ -311,7 +311,7 @@ namespace Application.Usecase
                 UserNickName = message.NickName,
                 TimeSpendSeconds = 0,
                 IsCertificated = false,
-                
+
             });
             if (!userMeet.IPList.Contains(message.IP))
             {
@@ -424,12 +424,58 @@ namespace Application.Usecase
             {
                 Message = "ok",
                 Status = 200,
-             
+
             }));
 
         }
     }
     #endregion
 
+    #region GetTeacherList
+    public class GetTeacherListUseCase : IGetTeacherListUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IHostingEnvironment hosting;
+
+        public GetTeacherListUseCase(IDBContext repository,
+            IConfiguration configuration)
+        {
+            _db = repository;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+        }
+
+        public async Task handleAsync(GetTeacherListRequest message,
+            IOutPutPort<GenericResponse<GetTeacherListResponse>> outputPort)
+        {
+            UserTBL user = new UserTBL
+            {
+                UUID = message.UUID,
+                Email = message.Email,
+                Firstname = message.Firstname,
+                NationalCode = message.NationalCode,
+                PhoneNumber = message.PhoneNumber,
+            };
+            user = await _commonMethods.GetUserWithoutID(user);
+            if (!UserTBL.TYPE_ALLOWED_MEET_CREATE.Contains(user.Type))
+            {
+                return;
+            }
+
+            outputPort.Handle(new GenericResponse<GetTeacherListResponse>(new GetTeacherListResponse
+            {
+                Message = "ok",
+                Status = 200,
+                Data = _db.UserTBLs.Where(e=>e.Type==MainEntity_Types.USER_TEACHER).Select(e=>new DTO.Models.MiniUserJSON
+                {
+                    Fullname = $"{e.Firstname} {e.LastName}",
+                    ID = e.ID,
+                    UID=""
+                }).ToList()
+            }));
+
+        }
+    }
+    #endregion
 
 }

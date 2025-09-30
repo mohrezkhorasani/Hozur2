@@ -103,7 +103,7 @@ namespace Application.DTO
 
     public class GetTeacherListResponse : BaseParentResponce
     {
-
+        public List<MiniUserJSON> Data = new List<MiniUserJSON>();
     }
     #endregion
 
@@ -117,7 +117,6 @@ namespace Application.DTO
 
     public class NewTeacherResponse : BaseParentResponce
     {
-
     }
     #endregion
 
