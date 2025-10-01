@@ -43,7 +43,7 @@ namespace CoreMe.Controllers
         /// <returns></returns>
         [HttpPost("/user/NewUser")]
         [EnableCors("AllowOnlyVC")]
-        public async Task<IActionResult> NewUser(UserViewModel vm)
+        public async Task<IActionResult> NewUser(NewUserViewModel vm)
         {
             await _INewUserUseCase.handleAsync(new NewUserRequest
             {
