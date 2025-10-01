@@ -45,7 +45,7 @@ namespace Application.Usecase
                 Status = MainEntity_Status.USER_ACTIVE
             };
             user = await _commonMethods.NewUser(user);
-            if (user.AddIP(message.IP))
+            if (user.AddIP(message.GeneralHeaders.RequestedIP))
             {
                 _db.Update(user);
                 _db.SaveChanges();
@@ -91,7 +91,7 @@ namespace Application.Usecase
                 PhoneNumber = message.PhoneNumber,
             };
             user = await _commonMethods.NewUser(user);
-            if (user.AddIP(message.IP))
+            if (user.AddIP(message.GeneralHeaders.RequestedIP))
             {
                 _db.Update(user);
                 _db.SaveChanges();
@@ -174,20 +174,10 @@ namespace Application.Usecase
         public async Task handleAsync(UpdateMeetingRequest message,
             IOutPutPort<GenericResponse<UpdateMeetingResponse>> outputPort)
         {
-            UserTBL user = new UserTBL
-            {
-                UUID = message.UUID,
-                Email = message.Email,
-                Firstname = message.Firstname,
-                NationalCode = message.NationalCode,
-                PhoneNumber = message.PhoneNumber,
-            };
-            user = await _commonMethods.NewUser(user);
-            if (user.AddIP(message.IP))
-            {
-                _db.Update(user);
-                _db.SaveChanges();
-            }
+            var init = await _commonMethods.Initialize(message);
+            var user = init.Item1;
+            var meet = init.Item2;
+
             if (!UserTBL.TYPE_ALLOWED_MEET_CREATE.Contains(user.Type))
             {
                 outputPort.Handle(new GenericResponse<UpdateMeetingResponse>(new UpdateMeetingResponse
@@ -197,13 +187,6 @@ namespace Application.Usecase
                 }));
                 return;
             }
-            MeetingTBL meet = new MeetingTBL
-            {
-                RoomFriendlyID = message.GeneralHeaders.RoomID,
-                MeetID = message.GeneralHeaders.MeetIdentificationCode.ToString(),
-            };
-
-            meet = await _commonMethods.NewMeeting(meet);
             meet.Title = message.Title;
             meet.JalaliDate = message.JalaliDate;
             UserTBL teacher = await _commonMethods.NewUser(new UserTBL
@@ -281,41 +264,34 @@ namespace Application.Usecase
                 NationalCode = message.NationalCode,
                 PhoneNumber = message.PhoneNumber,
             };
+
             user = await _commonMethods.NewUser(user);
-            if (user.AddIP(message.IP))
+            if (user.AddIP(message.GeneralHeaders.RequestedIP))
             {
                 _db.Update(user);
                 _db.SaveChanges();
             }
-            if (!UserTBL.TYPE_ALLOWED_MEET_CREATE.Contains(user.Type))
-            {
-                outputPort.Handle(new GenericResponse<NewUserMettingsResponse>(new NewUserMettingsResponse
-                {
-                    Message = "ok",
-                    Status = 202,
-                }));
-                return;
-            }
+            string jwtUser = Statics.GenerateJWTUser(user);
             var meet = await _commonMethods.GetMeetWithoutID(message.MeetID);
 
             var userMeet = await _commonMethods.NewUserMeeting(new UserTBLToMeetingTBL
             {
                 MeetID = meet.MeetID,
                 UUID = user.UUID,
-                TokenJWT = message.GeneralHeaders.JWTUserToken,
+                TokenJWT = jwtUser,
                 Explain = message.Role,
                 Type = UserTBL.MapRoleToType(message.Role),
                 Status = MainEntity_Status.MEETING_STARTED_LATER,
                 Role = message.Role,
-                IPList = new List<string>() { message.IP },
+                IPList = new List<string>() { message.GeneralHeaders.RequestedIP },
                 UserNickName = message.NickName,
                 TimeSpendSeconds = 0,
                 IsCertificated = false,
 
             });
-            if (!userMeet.IPList.Contains(message.IP))
+            if (!userMeet.IPList.Contains(message.GeneralHeaders.RequestedIP))
             {
-                userMeet.IPList.Add(message.IP);
+                userMeet.IPList.Add(message.GeneralHeaders.RequestedIP);
                 _db.Update(userMeet);
                 _db.SaveChanges();
             }
@@ -328,6 +304,7 @@ namespace Application.Usecase
             {
                 Message = "ok",
                 Status = 200,
+                User = jwtUser,
                 Data = new DTO.Models.MeetJSON
                 {
                     JWT = new DTO.Models.JWTTokenJSON
@@ -361,7 +338,6 @@ namespace Application.Usecase
     }
     #endregion
 
-
     #region NewUserMeetingLog
     public class NewUserMeetingLogUseCase : INewUserMeetingLogUseCase
     {
@@ -379,34 +355,9 @@ namespace Application.Usecase
         public async Task handleAsync(NewUserMeetingLogRequest message,
             IOutPutPort<GenericResponse<NewUserMeetingLogResponse>> outputPort)
         {
-            UserTBL user = new UserTBL
-            {
-                UUID = message.UUID,
-                Email = message.Email,
-                Firstname = message.Firstname,
-                NationalCode = message.NationalCode,
-                PhoneNumber = message.PhoneNumber,
-            };
-            user = await _commonMethods.NewUser(user);
-            if (user.AddIP(message.IP))
-            {
-                _db.Update(user);
-                _db.SaveChanges();
-            }
-            if (!UserTBL.TYPE_ALLOWED_MEET_CREATE.Contains(user.Type))
-            {
-                outputPort.Handle(new GenericResponse<NewUserMeetingLogResponse>(new NewUserMeetingLogResponse
-                {
-                    Message = "ok",
-                    Status = 202,
-                }));
-                return;
-            }
-            var meet = await _commonMethods.GetUserMeetWithoutID(new UserTBLToMeetingTBL
-            {
-                MeetID = message.MeetID,
-                UUID = message.UUID,
-            });
+            var init = await _commonMethods.Initialize(message);
+            var user = init.Item1;
+            var meet = init.Item2;
 
             UserTBLToMeetingTBLLogs? log = new UserTBLToMeetingTBLLogs
             {
@@ -466,16 +417,17 @@ namespace Application.Usecase
             {
                 Message = "ok",
                 Status = 200,
-                Data = _db.UserTBLs.Where(e=>e.Type==MainEntity_Types.USER_TEACHER).Select(e=>new DTO.Models.MiniUserJSON
+                Data = _db.UserTBLs.Where(e => e.Type == MainEntity_Types.USER_TEACHER).Select(e => new DTO.Models.MiniUserJSON
                 {
                     Fullname = $"{e.Firstname} {e.LastName}",
                     ID = e.ID,
-                    UID=""
+                    UID = ""
                 }).ToList()
             }));
 
         }
     }
     #endregion
+
 
 }

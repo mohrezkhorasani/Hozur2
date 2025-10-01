@@ -1,4 +1,6 @@
-﻿using Application.Interfaces;
+﻿using Application.DTO;
+using Application.DTO.Generals;
+using Application.Interfaces;
 using Domain.Entity;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
@@ -33,10 +35,39 @@ namespace Application.General
             _hosting = hosting;
         }
 
+        public async Task<(UserTBL,MeetingTBL)> Initialize<T>(T message)
+        where T:NewUserRequest
+        {
+            UserTBL user = null;
+            if (string.IsNullOrEmpty(message.GeneralHeaders.JWTUserToken))
+            {
+                user = new UserTBL
+                {
+                    UUID = message.UUID,
+                    Email = message.Email,
+                    Firstname = message.Firstname,
+                    NationalCode = message.NationalCode,
+                    PhoneNumber = message.PhoneNumber,
+                };
+                user = await NewUser(user);
+
+            }
+            else
+            {
+                user = await GetUser(message.GeneralHeaders.JWTUserToken);
+            }
+            if (user.AddIP(message.GeneralHeaders.RequestedIP))
+            {
+                _db.Update(user);
+                _db.SaveChanges();
+            }
+            var meet = await GetMeeting(message.GeneralHeaders.JWTMeetingToken);
+            return (user, meet);
+        }
 
         public async Task<UserTBL> NewUser(UserTBL user)
         {
-            if (await CheckUserExist(user))return await GetUserWithoutID(user);
+            if (await CheckUserExist(user)) return await GetUserWithoutID(user);
             user.AllowedGUID.Add(Guid.NewGuid());
 
             _db.UserTBLs.Add(user);
@@ -46,7 +77,7 @@ namespace Application.General
 
         public async Task<MeetingTBL> NewMeeting(MeetingTBL tbl)
         {
-            if (await CheckMeetingExist(tbl))return await GetMeetWithoutID(tbl.MeetID);
+            if (await CheckMeetingExist(tbl)) return await GetMeetWithoutID(tbl.MeetID);
             tbl.JWT = Statics.GenerateJWTMeet(tbl);
             _db.MeetingTBLs.Add(tbl);
             _db.SaveChanges();
@@ -83,7 +114,7 @@ namespace Application.General
         public async Task<UserTBLToMeetingTBL> GetUserMeetWithoutID(UserTBLToMeetingTBL q)
         {
             return _db.UserTBLToMeetingTBLs
-            .FirstOrDefault(e => e.MeetID == q.MeetID && e.UUID==q.UUID);
+            .FirstOrDefault(e => e.MeetID == q.MeetID && e.UUID == q.UUID);
         }
 
         public async Task<bool> CheckUserGUID(UserTBL user, string q)
@@ -100,6 +131,41 @@ namespace Application.General
             _db.Update(user);
             _db.SaveChanges();
             return true;
+        }
+
+        public async Task<MeetingTBL> GetMeeting(string jwt)
+        {
+            var claims = JwtHelper.GetAllClaims(jwt);
+            var meetID = claims["guid"];
+            var roomID = claims["room"];
+            var meet = new MeetingTBL
+            {
+                MeetID = meetID,
+                RoomFriendlyID = roomID
+            };
+            if (await CheckMeetingExist(meet))
+            {
+                meet = await GetMeetWithoutID(meet.MeetID);
+                return meet;
+            }
+            return null;
+        }
+        public async Task<UserTBL> GetUser(string jwt)
+        {
+            var claims = JwtHelper.GetAllClaims(jwt);
+            string guid = null;
+            if (claims.TryGetValue("guid", out var guidValue) && !string.IsNullOrWhiteSpace(guidValue))
+            {
+                guid = guidValue;
+            }
+            else
+                guid = "";
+            var uuid = claims["uuid"];
+            if (_db.UserTBLs.Any(e => e.UUID == uuid))
+            {
+                return await _db.UserTBLs.FirstOrDefaultAsync(e => e.UUID == uuid);
+            }
+            return await _db.UserTBLs.FirstOrDefaultAsync(e => e.AllowedGUID.Contains(Guid.Parse(guid)));
         }
         public async Task<bool> ValidateUserIds(UserTBL user)
         {

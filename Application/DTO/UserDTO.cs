@@ -16,7 +16,6 @@ namespace Application.DTO
         public string? NationalCode { get; set; }
         public string? PhoneNumber { get; set; }
         public string? ExtId { get; set; }
-        public string? IP { get; set; }
         public string? Email { get; set; }
         public string? AllowedGUID { get; set; }
         public string? Role { get; set; }
@@ -28,13 +27,12 @@ namespace Application.DTO
         public JWTTokenJSON Data { get; set; }
     }
     #endregion
+
     #region NewUserMeetingLog
     public class NewUserMeetingLogRequest : NewUserRequest, IUseCaseRequest<GenericResponse<NewUserMeetingLogResponse>>
     {
-        public string MeetID { get; set; }
         public string KeyLog { get; set; } //left,join, activity
         public string? ValueLog { get; set; } //raised hand, microphone opened, microphone closed,file share,screen share open,screen share close,file share close,
-        public string RoomID { get; set; }
         public string Role { get; set; }
     }
 
@@ -90,6 +88,7 @@ namespace Application.DTO
     public class NewUserMettingsResponse : BaseParentResponce
     {
         public MeetJSON Data { get; set; }
+        public string User { get; set; }
 
     }
     #endregion
@@ -119,6 +118,18 @@ namespace Application.DTO
     {
     }
     #endregion
+
+    //Add Teacher 
+    #region GuarantCertificate
+    public class GuarantCertificateRequest : NewUserRequest, IUseCaseRequest<GenericResponse<GuarantCertificateResponse>>
+    {
+    }
+
+    public class GuarantCertificateResponse : BaseParentResponce
+    {
+    }
+    #endregion
+
 
 
     //GuarantCertificate
