@@ -17,13 +17,13 @@ namespace Presenter
             {
 
                 Guid guid = GetIdentificationCode(request);
-                var guidMeetString = GetFromJWT(GetFromHeader(request, "Meet-Secret"), "guid");
-                var roomid = GetFromJWT(GetFromHeader(request, "Meet-Secret"), "room");
+                var guidMeetString = GetFromJWT(GetFromHeader(request, "meet-secret"), "guid");
+                var roomid = GetFromJWT(GetFromHeader(request, "meet-secret"), "room");
                 return new GeneralHeaders
                 {
                     Agent = request.Headers["User-Agent"].ToString(),
                     JWTUserToken = request.Headers["Authorization"].ToString(),
-                    JWTMeetingToken = GetFromHeader(request,"Meet-Secret"),
+                    JWTMeetingToken = GetFromHeader(request,"meet-secret"),
                     RequestedPage = request.Path.ToString(),
                     RequestedIP = request.HttpContext.Connection.RemoteIpAddress?.ToString(),
                     RequestedDevice = request.Headers["sec-ch-ua-platform"].ToString(), // Assuming User-Agent for device

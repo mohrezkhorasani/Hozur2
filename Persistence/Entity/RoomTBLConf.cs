@@ -43,6 +43,7 @@ namespace Presistence.Entities
             builder.ToTable("RoomTBL", "GeneralInfo");
 
             builder.HasKey(x => x.ID);
+            builder.Property(x => x.ID).UseIdentityColumn(seed: 25555, increment: 57);
 
             builder.Property(e => e.Explain).IsRequired(false).HasMaxLength(3000);
             builder.Property(e => e.DateInsert).HasDefaultValueSql("SYSDATETIME()");
@@ -53,8 +54,8 @@ namespace Presistence.Entities
 
 
 
-            //builder.HasOne(e => e.StateTBL).WithMany(c => c.RoomTBLs)
-            //.HasForeignKey(x=>x.StateTBLID).OnDelete(DeleteBehavior.Restrict);
+            builder.HasOne(e => e.OwnerTBL).WithMany(c => c.RoomTBLs)
+            .HasForeignKey(x=>x.IDOwnerTBL).OnDelete(DeleteBehavior.Restrict);
         }
 
     }

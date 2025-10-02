@@ -22,6 +22,7 @@ namespace Presistence.Entities
         public DbSet<MeetingTBL> MeetingTBLs { get; set; }
         public DbSet<RoomTBL> RoomTBLs { get; set; }
         public DbSet<UserTBL> UserTBLs { get; set; }
+        public DbSet<RoomTBLToUserTBL> RoomTBLToUserTBLs { get; set; }
         public DbSet<UserTBLToMeetingTBL> UserTBLToMeetingTBLs { get; set; }
         public DbSet<UserTBLToMeetingTBLLogs> UserTBLToMeetingTBLLogs { get; set; }
 
@@ -60,6 +61,7 @@ namespace Presistence.Entities
             modelBuilder.ApplyConfiguration(new UserTBLToMeetingTBLConfiguration());
             modelBuilder.ApplyConfiguration(new ConfigTBLConfiguration());
             modelBuilder.ApplyConfiguration(new UserTBLToMeetingTBLLogsConfiguration());
+            modelBuilder.ApplyConfiguration(new RoomTBLToUserTBLConfiguration());
             #endregion
         }
 

@@ -1,5 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using AutoMapper;
+using Presistence.Entities;
+using Application.Interfaces;
+using Presenter;
+using Application.Interface.IUsecase;
+using Application.Usecase;
 
 
 
@@ -32,8 +37,20 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddControllers();
-builder.Services.AddDbContext<DbContext>(option =>
+builder.Services.AddDbContext<DBContext>(option =>
 option.UseSqlServer(builder.Configuration.GetConnectionString("DBConnecDBConnectiontionMohrez")));
+
+builder.Services.AddScoped(typeof(ApiPresenter<>));
+builder.Services.AddScoped(typeof(JsonContentResult));
+builder.Services.AddScoped<IDBContext, DBContext>();
+builder.Services.AddScoped<INewUserUseCase, NewUserUseCase>();
+builder.Services.AddScoped<INewMeetingUseCase, NewMeetingUseCase>();
+builder.Services.AddScoped<IUpdateMeetingUseCase, UpdateMeetingUseCase>();
+builder.Services.AddScoped<INewUserMettingsUseCase, NewUserMettingsUseCase>();
+builder.Services.AddScoped<INewUserMeetingLogUseCase, NewUserMeetingLogUseCase>();
+builder.Services.AddScoped<IGetTeacherListUseCase, GetTeacherListUseCase>();
+builder.Services.AddScoped<INewRoomUseCase, NewRoomUseCase>();
+
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();

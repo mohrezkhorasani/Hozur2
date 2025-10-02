@@ -130,7 +130,18 @@ namespace Application.DTO
     }
     #endregion
 
+ //Add Teacher 
+    #region NewRoom
+    public class NewRoomRequest : NewUserRequest, IUseCaseRequest<GenericResponse<NewRoomResponse>>
+    {
+        public string FriendlyID { get; set; }
+        public string? Room { get; set; }
+    }
 
+    public class NewRoomResponse : BaseParentResponce
+    {
+    }
+    #endregion
 
     //GuarantCertificate
 

@@ -14,6 +14,7 @@ namespace CoreMe.Controllers
     {
         private readonly ILogger<BBBController> _logger;
         private readonly IMapper _mapper;
+
         public INewUserUseCase _INewUserUseCase { get; }
         public ApiPresenter<NewUserResponse> _NewUserResponse { get; }
         public INewMeetingUseCase _INewMeetingUseCase { get; }
@@ -27,6 +28,48 @@ namespace CoreMe.Controllers
         public ApiPresenter<NewUserMeetingLogResponse> _NewUserMeetingLogResponse { get; }
         public IGetTeacherListUseCase _IGetTeacherListUseCase { get; }
         public ApiPresenter<GetTeacherListResponse> _GetTeacherListResponse { get; }
+
+        public INewRoomUseCase _INewRoomUseCase { get; }
+        public ApiPresenter<NewRoomResponse> _NewRoomResponse { get; }
+
+
+        public BBBController(
+            ILogger<BBBController> logger,
+            IMapper mapper,
+            INewUserUseCase newUserUseCase,
+            ApiPresenter<NewUserResponse> newUserResponse,
+            INewMeetingUseCase newMeetingUseCase,
+            ApiPresenter<NewMeetingResponse> newMeetingResponse,
+            IUpdateMeetingUseCase updateMeetingUseCase,
+            ApiPresenter<UpdateMeetingResponse> updateMeetingResponse,
+            INewUserMettingsUseCase newUserMettingsUseCase,
+            ApiPresenter<NewUserMettingsResponse> newUserMettingsResponse,
+            INewUserMeetingLogUseCase newUserMeetingLogUseCase,
+            ApiPresenter<NewUserMeetingLogResponse> newUserMeetingLogResponse,
+            IGetTeacherListUseCase getTeacherListUseCase,
+            ApiPresenter<GetTeacherListResponse> getTeacherListResponse,
+             INewRoomUseCase NewRoomUseCase,
+            ApiPresenter<NewRoomResponse> NewRoomResponse
+         )
+        {
+            _logger = logger;
+            _mapper = mapper;
+            _INewUserUseCase = newUserUseCase;
+            _NewUserResponse = newUserResponse;
+            _INewMeetingUseCase = newMeetingUseCase;
+            _NewMeetingResponse = newMeetingResponse;
+            _IUpdateMeetingUseCase = updateMeetingUseCase;
+            _UpdateMeetingResponse = updateMeetingResponse;
+            _INewUserMettingsUseCase = newUserMettingsUseCase;
+            _NewUserMettingsResponse = newUserMettingsResponse;
+            _INewUserMeetingLogUseCase = newUserMeetingLogUseCase;
+            _NewUserMeetingLogResponse = newUserMeetingLogResponse;
+            _IGetTeacherListUseCase = getTeacherListUseCase;
+            _NewRoomResponse = NewRoomResponse;
+            _INewRoomUseCase = NewRoomUseCase;
+            _NewRoomResponse = NewRoomResponse;
+        }
+
 
         // public IGetLanguageTestUseCase _IGetLanguageTestUseCase { get; }
         // public ApiPresenter<GetLanguageTestResponse> _GetLanguageTestResponse { get; }
@@ -60,15 +103,94 @@ namespace CoreMe.Controllers
             }, _NewUserResponse);
             return _NewUserResponse.jsonContentResult;
         }
+        [HttpPost("/user/UpdateMeeting")]
+        [EnableCors("AllowOnlyVC")]
+        public async Task<IActionResult> UpdateMeeting(UpdateMeetingViewModel vm)
+        {
+            UpdateMeetingRequest req = _mapper.Map<UpdateMeetingRequest>(vm);
+            req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
+            await _IUpdateMeetingUseCase.handleAsync(req, _UpdateMeetingResponse);
+            return _UpdateMeetingResponse.jsonContentResult;
+        }
+
         [HttpPost("/user/NewMeeting")]
         [EnableCors("AllowOnlyVC")]
-        public async Task<IActionResult> NewMeeting(NewUserViewModel vm)
+        public async Task<IActionResult> NewMeeting(NewMeetingViewModel vm)
         {
             NewMeetingRequest req = _mapper.Map<NewMeetingRequest>(vm);
             req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
             await _INewMeetingUseCase.handleAsync(req, _NewMeetingResponse);
             return _NewMeetingResponse.jsonContentResult;
         }
+
+
+        [HttpPost("/user/NewUserMettings")]
+        [EnableCors("AllowOnlyVC")]
+        public async Task<IActionResult> NewUserMettings(NewUserMettingsViewModel vm)
+        {
+            NewUserMettingsRequest req = _mapper.Map<NewUserMettingsRequest>(vm);
+            req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
+            await _INewUserMettingsUseCase.handleAsync(req, _NewUserMettingsResponse);
+            return _NewUserMettingsResponse.jsonContentResult;
+        }
+
+        // [HttpPost("/user/NewTeacher")]
+        // [EnableCors("AllowOnlyVC")]
+        // public async Task<IActionResult> NewTeacher(NewTeacherViewModel vm)
+        // {
+        //     NewTeacherRequest req = _mapper.Map<NewTeacherRequest>(vm);
+        //     req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
+        //     await _INewTeacherUseCase.handleAsync(req, _NewTeacherResponse);
+        //     return _NewTeacherResponse.jsonContentResult;
+        // }
+
+
+        [HttpGet("/user/GetTeacherList")]
+        [EnableCors("AllowOnlyVC")]
+        public async Task<IActionResult> GetTeacherList([FromQuery] string q)
+        {
+            GetTeacherListRequest req = new GetTeacherListRequest
+            {
+                Query = q
+            };
+            req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
+            await _IGetTeacherListUseCase.handleAsync(req, _GetTeacherListResponse);
+            return _GetTeacherListResponse.jsonContentResult;
+        }
+
+
+        [HttpPost("/user/NewRoom")]
+        [EnableCors("AllowOnlyVC")]
+        public async Task<IActionResult> NewRoom(NewRoomViewModel vm)
+        {
+            NewRoomRequest req = _mapper.Map<NewRoomRequest>(vm);
+            req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
+            await _INewRoomUseCase.handleAsync(req, _NewRoomResponse);
+            return _NewRoomResponse.jsonContentResult;
+        }
+
+        [HttpPost("/user/NewUserMeetingLog")]
+        [EnableCors("AllowOnlyVC")]
+        public async Task<IActionResult> NewUserMeetingLog(NewUserMeetingLogViewModel vm)
+        {
+            NewUserMeetingLogRequest req = _mapper.Map<NewUserMeetingLogRequest>(vm);
+            req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
+            await _INewUserMeetingLogUseCase.handleAsync(req, _NewUserMeetingLogResponse);
+            return _NewUserMeetingLogResponse.jsonContentResult;
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     }
 }

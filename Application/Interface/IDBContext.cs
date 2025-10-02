@@ -18,6 +18,7 @@ namespace Application.Interfaces
         public DbSet<UserTBL> UserTBLs { get; set; }
         public DbSet<UserTBLToMeetingTBL> UserTBLToMeetingTBLs { get; set; }
         public DbSet<UserTBLToMeetingTBLLogs> UserTBLToMeetingTBLLogs { get; set; }
+        public DbSet<RoomTBLToUserTBL> RoomTBLToUserTBLs { get; set; }
         public int SaveChanges();
         public Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default);
         public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);

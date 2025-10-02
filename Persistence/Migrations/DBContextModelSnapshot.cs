@@ -28,7 +28,7 @@ namespace Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bigint");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("ID"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("ID"), 111111111111L, 777);
 
                     b.Property<DateTime>("DateInsert")
                         .ValueGeneratedOnAdd()
@@ -119,7 +119,7 @@ namespace Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bigint");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("ID"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("ID"), 598569L);
 
                     b.Property<DateTime>("DateInsert")
                         .ValueGeneratedOnAdd()
@@ -186,7 +186,7 @@ namespace Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bigint");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("ID"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("ID"), 25555L, 57);
 
                     b.Property<DateTime>("DateInsert")
                         .ValueGeneratedOnAdd()
@@ -200,6 +200,9 @@ namespace Persistence.Migrations
                     b.Property<string>("FriendlyID")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
+
+                    b.Property<long>("IDOwnerTBL")
+                        .HasColumnType("bigint");
 
                     b.Property<int>("Status")
                         .ValueGeneratedOnAdd()
@@ -220,10 +223,60 @@ namespace Persistence.Migrations
                     b.HasIndex("FriendlyID")
                         .IsUnique();
 
+                    b.HasIndex("IDOwnerTBL");
+
                     b.HasIndex("Title")
                         .IsUnique();
 
                     b.ToTable("RoomTBL", "GeneralInfo");
+                });
+
+            modelBuilder.Entity("Domain.Entity.RoomTBLToUserTBL", b =>
+                {
+                    b.Property<long>("ID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("ID"), 1L, 3);
+
+                    b.Property<DateTime>("DateInsert")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSDATETIME()");
+
+                    b.Property<string>("Explain")
+                        .HasMaxLength(3000)
+                        .HasColumnType("nvarchar(3000)");
+
+                    b.Property<string>("FriendlyID")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("FriendlyIDRoomTBL")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Status")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("Type")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
+
+                    b.Property<string>("UUIDParticipatorTBL")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("ID");
+
+                    b.HasIndex("FriendlyID");
+
+                    b.HasIndex("UUIDParticipatorTBL");
+
+                    b.ToTable("RoomTBLToUserTBL", "GeneralInfo");
                 });
 
             modelBuilder.Entity("Domain.Entity.UserTBL", b =>
@@ -232,7 +285,7 @@ namespace Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bigint");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("ID"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("ID"), 1111111L, 7);
 
                     b.Property<string>("AllowedGUID")
                         .IsRequired()
@@ -325,7 +378,7 @@ namespace Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bigint");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("ID"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("ID"), 1111111L, 2);
 
                     b.Property<string>("CertificateFileURL")
                         .HasColumnType("nvarchar(max)");
@@ -399,13 +452,16 @@ namespace Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bigint");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("ID"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("ID"), 1111112L, 2);
 
                     b.Property<DateTime>("DateInsert")
-                        .HasColumnType("datetime2");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSDATETIME()");
 
                     b.Property<string>("Explain")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(3000)
+                        .HasColumnType("nvarchar(3000)");
 
                     b.Property<long>("IDUserTBLToMeetingTBL")
                         .HasColumnType("bigint");
@@ -415,22 +471,23 @@ namespace Persistence.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("Status")
-                        .HasColumnType("int");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
 
                     b.Property<int>("Type")
-                        .HasColumnType("int");
-
-                    b.Property<long>("UserTBLToMeetingTBLID")
-                        .HasColumnType("bigint");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
 
                     b.Property<string>("Value")
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("ID");
 
-                    b.HasIndex("UserTBLToMeetingTBLID");
+                    b.HasIndex("IDUserTBLToMeetingTBL");
 
-                    b.ToTable("UserTBLToMeetingTBLLogs");
+                    b.ToTable("UserTBLToMeetingTBLLogs", "GeneralInfo");
                 });
 
             modelBuilder.Entity("Domain.Entity.CertificateTBL", b =>
@@ -471,6 +528,38 @@ namespace Persistence.Migrations
                     b.Navigation("Teacher");
                 });
 
+            modelBuilder.Entity("Domain.Entity.RoomTBL", b =>
+                {
+                    b.HasOne("Domain.Entity.UserTBL", "OwnerTBL")
+                        .WithMany("RoomTBLs")
+                        .HasForeignKey("IDOwnerTBL")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("OwnerTBL");
+                });
+
+            modelBuilder.Entity("Domain.Entity.RoomTBLToUserTBL", b =>
+                {
+                    b.HasOne("Domain.Entity.RoomTBL", "RoomTBL")
+                        .WithMany("RoomTBLToUserTBLs")
+                        .HasForeignKey("FriendlyID")
+                        .HasPrincipalKey("FriendlyID")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entity.UserTBL", "ParticipatorTBL")
+                        .WithMany("RoomTBLToUserTBLs")
+                        .HasForeignKey("UUIDParticipatorTBL")
+                        .HasPrincipalKey("UUID")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ParticipatorTBL");
+
+                    b.Navigation("RoomTBL");
+                });
+
             modelBuilder.Entity("Domain.Entity.UserTBLToMeetingTBL", b =>
                 {
                     b.HasOne("Domain.Entity.MeetingTBL", "MeetingTBL")
@@ -500,7 +589,7 @@ namespace Persistence.Migrations
                 {
                     b.HasOne("Domain.Entity.UserTBLToMeetingTBL", "UserTBLToMeetingTBL")
                         .WithMany("UserTBLToMeetingTBLLogs")
-                        .HasForeignKey("UserTBLToMeetingTBLID")
+                        .HasForeignKey("IDUserTBLToMeetingTBL")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -516,12 +605,18 @@ namespace Persistence.Migrations
                 {
                     b.Navigation("MeetingTBLs");
 
+                    b.Navigation("RoomTBLToUserTBLs");
+
                     b.Navigation("UserTBLToMeetingTBLs");
                 });
 
             modelBuilder.Entity("Domain.Entity.UserTBL", b =>
                 {
                     b.Navigation("CreatedMeetings");
+
+                    b.Navigation("RoomTBLToUserTBLs");
+
+                    b.Navigation("RoomTBLs");
 
                     b.Navigation("TeacherMeetings");
 

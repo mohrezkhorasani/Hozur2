@@ -27,6 +27,12 @@ namespace Domain.Entity
             MainEntity_Types.USER_CREATOR,
             MainEntity_Types.USER_MODERATOR,
         };
+        [NotMapped]
+        public static List<MainEntity_Types> TYPE_ALLOWED_ROOM_CREATE = new List<MainEntity_Types>
+        {
+            MainEntity_Types.USER_ADMINSTRATOR, 
+            MainEntity_Types.USER_ADMIN,
+        };
         public MainEntity_Status Status { get; set; }
         public MainEntity_Types Type { get; set; }
         public string? Explain { get; set; }
@@ -44,7 +50,9 @@ namespace Domain.Entity
         public string? Email { get; set; }
         public ICollection<MeetingTBL> TeacherMeetings { get; set; }
         public ICollection<MeetingTBL> CreatedMeetings { get; set; }
+        public ICollection<RoomTBL> RoomTBLs { get; set; }
         public ICollection<UserTBLToMeetingTBL> UserTBLToMeetingTBLs { get; set; }
+        public ICollection<RoomTBLToUserTBL> RoomTBLToUserTBLs { get; set; }
 
 
 
@@ -53,7 +61,7 @@ namespace Domain.Entity
             if (string.IsNullOrWhiteSpace(role))
                 return MainEntity_Types.Normal;
 
-            switch (role.Trim().ToLower())
+            switch (role.Trim().ToUpper())
             {
                 case "GUEST":
                     return MainEntity_Types.USER_GUEST;

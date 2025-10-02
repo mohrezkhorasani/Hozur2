@@ -44,6 +44,9 @@ namespace Presistence.Entities
 
             builder.HasKey(x => x.ID);
 
+            builder.Property(x => x.ID).UseIdentityColumn(seed: 598569, increment: 1);
+
+
             builder.Property(e => e.Explain).IsRequired(false).HasMaxLength(3000);
             builder.Property(e => e.DateInsert).HasDefaultValueSql("SYSDATETIME()");
             builder.Property(e => e.Status).HasDefaultValue(MainEntity_Status.Deactive);

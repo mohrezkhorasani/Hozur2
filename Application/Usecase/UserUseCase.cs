@@ -89,6 +89,7 @@ namespace Application.Usecase
                 Firstname = message.Firstname,
                 NationalCode = message.NationalCode,
                 PhoneNumber = message.PhoneNumber,
+                Type = UserTBL.MapRoleToType(message.Role)
             };
             user = await _commonMethods.NewUser(user);
             if (user.AddIP(message.GeneralHeaders.RequestedIP))
@@ -135,7 +136,7 @@ namespace Application.Usecase
                         Fullname = $"{meet.Creator.Firstname} {meet.Creator.LastName}",
                         ID = meet.Creator.ID,
                     },
-                    Teacher = new DTO.Models.MiniUserJSON
+                    Teacher = meet.Teacher == null ? null : new DTO.Models.MiniUserJSON
                     {
                         Fullname = $"{meet.Teacher.Firstname} {meet.Teacher.LastName}",
                         ID = meet.Teacher.ID,
@@ -174,29 +175,52 @@ namespace Application.Usecase
         public async Task handleAsync(UpdateMeetingRequest message,
             IOutPutPort<GenericResponse<UpdateMeetingResponse>> outputPort)
         {
-            var init = await _commonMethods.Initialize(message);
+            var init = await _commonMethods.Initialize<UpdateMeetingRequest>(message);
             var user = init.Item1;
             var meet = init.Item2;
 
-            if (!UserTBL.TYPE_ALLOWED_MEET_CREATE.Contains(user.Type))
+            if (!await _commonMethods.CheckUserAccessibilityToMeet(user, meet, "UpdateMeeting"))
             {
                 outputPort.Handle(new GenericResponse<UpdateMeetingResponse>(new UpdateMeetingResponse
                 {
-                    Message = "ok",
-                    Status = 202,
+                    Message = "forbidden",
+                    Status = 403,
                 }));
                 return;
             }
             meet.Title = message.Title;
             meet.JalaliDate = message.JalaliDate;
-            UserTBL teacher = await _commonMethods.NewUser(new UserTBL
+            meet.Status = MainEntity_Status.MEETING_LIVE;
+            UserTBL teacher = null;
+            if (_db.UserTBLs.Any(
+                e => (e.Firstname + " " + e.LastName).Trim() == message.Teacher
+                    && e.Status == MainEntity_Status.USER_ACTIVE
+                    && e.Type == MainEntity_Types.USER_TEACHER
+            ))
             {
-                Firstname = message.Teacher,
-                Type = MainEntity_Types.USER_TEACHER,
-                Status = MainEntity_Status.USER_ACTIVE,
-                Username = message.Teacher,
-            });
+                teacher = _db.UserTBLs.FirstOrDefault(
+                    e => (e.Firstname + " " + e.LastName).Trim() == message.Teacher
+                    && e.Status == MainEntity_Status.USER_ACTIVE
+                    && e.Type == MainEntity_Types.USER_TEACHER
+                );
+            }
+            else
+            {
+                teacher = new UserTBL
+                {
+                    Firstname = message.Teacher,
+                    Type = MainEntity_Types.USER_TEACHER,
+                    Status = MainEntity_Status.USER_ACTIVE,
+                    Username = message.Teacher,
+                    UUID = new Random().NextInt64(-999999999999999999, -99999999999999999).ToString()
+                };
+                _db.UserTBLs.Add(teacher);
+                _db.SaveChanges();
+
+            }
+
             meet.IDTeacher = teacher.ID;
+            meet.Teacher = teacher;
             _db.Update(meet);
             _db.SaveChanges();
 
@@ -316,7 +340,7 @@ namespace Application.Usecase
                         Fullname = $"{meet.Creator.Firstname} {meet.Creator.LastName}",
                         ID = meet.Creator.ID,
                     },
-                    Teacher = new DTO.Models.MiniUserJSON
+                    Teacher = meet.Teacher == null ? null : new DTO.Models.MiniUserJSON
                     {
                         Fullname = $"{meet.Teacher.Firstname} {meet.Teacher.LastName}",
                         ID = meet.Teacher.ID,
@@ -355,10 +379,11 @@ namespace Application.Usecase
         public async Task handleAsync(NewUserMeetingLogRequest message,
             IOutPutPort<GenericResponse<NewUserMeetingLogResponse>> outputPort)
         {
-            var init = await _commonMethods.Initialize(message);
+            var init = await _commonMethods.Initialize<NewUserMeetingLogRequest>(message);
             var user = init.Item1;
             var meet = init.Item2;
-
+            var userMeet = _db.UserTBLToMeetingTBLs
+                .FirstOrDefault(e => e.MeetID == meet.MeetID && e.UUID == user.UUID);
             UserTBLToMeetingTBLLogs? log = new UserTBLToMeetingTBLLogs
             {
                 Type = UserTBL.MapRoleToType(message.Role),
@@ -366,7 +391,7 @@ namespace Application.Usecase
                 Key = message.KeyLog,
                 Value = message.ValueLog,
                 Explain = message.Role,
-                IDUserTBLToMeetingTBL = meet.ID,
+                IDUserTBLToMeetingTBL = userMeet.ID,
             };
             _db.UserTBLToMeetingTBLLogs.Add(log);
             _db.SaveChanges();
@@ -423,6 +448,58 @@ namespace Application.Usecase
                     ID = e.ID,
                     UID = ""
                 }).ToList()
+            }));
+
+        }
+    }
+    #endregion
+
+    #region NewRoom
+    public class NewRoomUseCase : INewRoomUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IHostingEnvironment hosting;
+
+        public NewRoomUseCase(IDBContext repository,
+            IConfiguration configuration)
+        {
+            _db = repository;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+        }
+
+        public async Task handleAsync(NewRoomRequest message,
+            IOutPutPort<GenericResponse<NewRoomResponse>> outputPort)
+        {
+            UserTBL user = new UserTBL
+            {
+                UUID = message.UUID,
+                Email = message.Email,
+                Firstname = message.Firstname,
+                NationalCode = message.NationalCode,
+                PhoneNumber = message.PhoneNumber,
+            };
+            user = await _commonMethods.GetUserWithoutID(user);
+            if (!UserTBL.TYPE_ALLOWED_ROOM_CREATE.Contains(user.Type))
+            {
+                return;
+            }
+            if (_db.RoomTBLs.Any(e => e.FriendlyID == message.FriendlyID))
+            {
+                return;
+            }
+            _db.RoomTBLs.Add(new RoomTBL
+            {
+                FriendlyID = message.FriendlyID,
+
+                Title = message.Room,
+                IDOwnerTBL = user.ID
+            });
+            _db.SaveChanges();
+            outputPort.Handle(new GenericResponse<NewRoomResponse>(new NewRoomResponse
+            {
+                Message = "ok",
+                Status = 200,
             }));
 
         }

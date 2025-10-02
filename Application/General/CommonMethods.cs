@@ -35,8 +35,8 @@ namespace Application.General
             _hosting = hosting;
         }
 
-        public async Task<(UserTBL,MeetingTBL)> Initialize<T>(T message)
-        where T:NewUserRequest
+        public async Task<(UserTBL, MeetingTBL)> Initialize<T>(T message)
+        where T : NewUserRequest
         {
             UserTBL user = null;
             if (string.IsNullOrEmpty(message.GeneralHeaders.JWTUserToken))
@@ -109,7 +109,9 @@ namespace Application.General
         }
         public async Task<MeetingTBL> GetMeetWithoutID(string q)
         {
-            return _db.MeetingTBLs.FirstOrDefault(e => e.MeetID == q);
+            return _db.MeetingTBLs
+            .Where(e => e.MeetID == q).Include(e=>e.Creator).Include(e=>e.Teacher).Include(e=>e.RoomTBL)
+            .FirstOrDefault();
         }
         public async Task<UserTBLToMeetingTBL> GetUserMeetWithoutID(UserTBLToMeetingTBL q)
         {
@@ -123,6 +125,27 @@ namespace Application.General
             if (user.AllowedGUID.Any(e => e.ToString() == q)) return true;
             return false;
         }
+
+        public async Task<bool> CheckUserAccessibilityToMeet(UserTBL user, MeetingTBL meet, string action = "")
+        {
+            if (UserTBL.TYPE_ALLOWED_MEET_CREATE.Contains(user.Type))
+            {
+
+                return true;
+            }
+            if (_db.RoomTBLToUserTBLs.Any(e => e.Status == MainEntity_Status.USER_ACTIVE && e.UUIDParticipatorTBL == user.UUID))
+            {
+                return true;
+            }
+            if (_db.RoomTBLs.Any(e => e.IDOwnerTBL == user.ID && e.FriendlyID == meet.RoomFriendlyID))
+            {
+                return true;
+            }
+            return false;
+
+        }
+
+
         public async Task<bool> AddUserExtID(UserTBL user, string q)
         {
             if (user.ID == null) return false;
