@@ -20,6 +20,8 @@
 
          //USERS
         USER_ACTIVE = 500,
+        USER_ACTIVATED_BY_JOINING_MEETING = 501,
+        USER_ACTIVATED_BY_CREATING_MEETING = 502,
         USER_DEACTIVE = -500
     }   
     public enum MainEntity_Types

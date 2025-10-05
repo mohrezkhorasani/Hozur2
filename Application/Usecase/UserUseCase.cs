@@ -82,77 +82,92 @@ namespace Application.Usecase
         public async Task handleAsync(NewMeetingRequest message,
             IOutPutPort<GenericResponse<NewMeetingResponse>> outputPort)
         {
-            UserTBL user = new UserTBL
+            try
             {
-                UUID = message.UUID,
-                Email = message.Email,
-                Firstname = message.Firstname,
-                NationalCode = message.NationalCode,
-                PhoneNumber = message.PhoneNumber,
-                Type = UserTBL.MapRoleToType(message.Role)
-            };
-            user = await _commonMethods.NewUser(user);
-            if (user.AddIP(message.GeneralHeaders.RequestedIP))
-            {
-                _db.Update(user);
-                _db.SaveChanges();
-            }
-            if (!UserTBL.TYPE_ALLOWED_MEET_CREATE.Contains(user.Type))
-            {
+                UserTBL user = new UserTBL
+                {
+                    UUID = message.UUID,
+                    Email = message.Email,
+                    Firstname = message.Firstname,
+                    NationalCode = message.NationalCode,
+                    PhoneNumber = message.PhoneNumber,
+                    Type = UserTBL.MapRoleToType(message.Role),
+                    Status = MainEntity_Status.USER_ACTIVATED_BY_CREATING_MEETING
+
+                };
+                user = await _commonMethods.NewUser(user);
+                if (user.AddIP(message.GeneralHeaders.RequestedIP))
+                {
+                    _db.Update(user);
+                    _db.SaveChanges();
+                }
+                if (!UserTBL.TYPE_ALLOWED_MEET_CREATE.Contains(user.Type))
+                {
+                    outputPort.Handle(new GenericResponse<NewMeetingResponse>(new NewMeetingResponse
+                    {
+                        Message = "ok",
+                        Status = 202,
+                    }));
+                    return;
+                }
+                MeetingTBL? meet = new MeetingTBL
+                {
+                    RoomFriendlyID = message.RoomID,
+                    MeetID = message.MeetID,
+                    Type = MainEntity_Types.Normal,
+                    Status = MainEntity_Status.MEETING_STARTED_LATER,
+                    JalaliDate = Statics.ToJalaliDate(DateTime.Now),
+                    IDCreator = user.ID
+                };
+
+                meet = await _commonMethods.NewMeeting(meet);
+                meet = await _db.MeetingTBLs.Include(e => e.Creator)
+                    .Include(e => e.Teacher).Include(e => e.RoomTBL)
+                    .FirstOrDefaultAsync(e => e.ID == meet.ID);
+                if (meet == null) return;
                 outputPort.Handle(new GenericResponse<NewMeetingResponse>(new NewMeetingResponse
                 {
                     Message = "ok",
-                    Status = 202,
+                    Status = 200,
+                    Data = new DTO.Models.MeetJSON
+                    {
+                        JWT = new DTO.Models.JWTTokenJSON
+                        {
+                            Token = meet.JWT
+                        },
+                        Creator = new DTO.Models.MiniUserJSON
+                        {
+                            Fullname = $"{meet.Creator.Firstname} {meet.Creator.LastName}",
+                            ID = meet.Creator.ID,
+                        },
+                        Teacher = meet.Teacher == null ? null : new DTO.Models.MiniUserJSON
+                        {
+                            Fullname = $"{meet.Teacher.Firstname} {meet.Teacher.LastName}",
+                            ID = meet.Teacher.ID,
+                        },
+                        Room = new DTO.Models.MiniRoomJSON
+                        {
+                            RoomID = meet.RoomFriendlyID,
+                            Title = meet.RoomTBL.Title
+                        },
+                        JalaliDate = meet.JalaliDate,
+                        MeetID = meet.MeetID,
+                        StartedTime = meet.DateInsert.TimeOfDay.ToString(),
+                        Status = MeetingTBL.GetStatusString(meet.Status),
+                        Title = meet.Title
+                    }
+                }));
+            }
+            catch (Exception e)
+            {
+                outputPort.Handle(new GenericResponse<NewMeetingResponse>(new NewMeetingResponse
+                {
+                    Message = e.Message,
+                    Status = 400,
                 }));
                 return;
             }
-            MeetingTBL? meet = new MeetingTBL
-            {
-                RoomFriendlyID = message.RoomID,
-                MeetID = message.MeetID,
-                Type = MainEntity_Types.Normal,
-                Status = MainEntity_Status.MEETING_STARTED_LATER,
-                JalaliDate = Statics.ToJalaliDate(DateTime.Now),
-                IDCreator = user.ID
-            };
 
-            meet = await _commonMethods.NewMeeting(meet);
-            meet = await _db.MeetingTBLs.Include(e => e.Creator)
-                .Include(e => e.Teacher).Include(e => e.RoomTBL)
-                .FirstOrDefaultAsync(e => e.ID == meet.ID);
-            if (meet == null) return;
-            outputPort.Handle(new GenericResponse<NewMeetingResponse>(new NewMeetingResponse
-            {
-                Message = "ok",
-                Status = 200,
-                Data = new DTO.Models.MeetJSON
-                {
-                    JWT = new DTO.Models.JWTTokenJSON
-                    {
-                        Token = meet.JWT
-                    },
-                    Creator = new DTO.Models.MiniUserJSON
-                    {
-                        Fullname = $"{meet.Creator.Firstname} {meet.Creator.LastName}",
-                        ID = meet.Creator.ID,
-                    },
-                    Teacher = meet.Teacher == null ? null : new DTO.Models.MiniUserJSON
-                    {
-                        Fullname = $"{meet.Teacher.Firstname} {meet.Teacher.LastName}",
-                        ID = meet.Teacher.ID,
-                    },
-                    Room = new DTO.Models.MiniRoomJSON
-                    {
-                        RoomID = meet.RoomFriendlyID,
-                        Title = meet.RoomTBL.Title
-                    },
-                    JalaliDate = meet.JalaliDate,
-                    MeetID = meet.MeetID,
-                    StartedTime = meet.DateInsert.TimeOfDay.ToString(),
-                    Status = MeetingTBL.GetStatusString(meet.Status),
-                    Title = meet.Title
-                }
-            }));
 
         }
     }
@@ -287,6 +302,8 @@ namespace Application.Usecase
                 Firstname = message.Firstname,
                 NationalCode = message.NationalCode,
                 PhoneNumber = message.PhoneNumber,
+                Status = MainEntity_Status.USER_ACTIVATED_BY_JOINING_MEETING,
+                Type = UserTBL.MapRoleToType(message.Role),
             };
 
             user = await _commonMethods.NewUser(user);
@@ -392,6 +409,7 @@ namespace Application.Usecase
                 Value = message.ValueLog,
                 Explain = message.Role,
                 IDUserTBLToMeetingTBL = userMeet.ID,
+                OS = message.OS + "/$$" + message.GeneralHeaders.Agent + "/$$" + message.GeneralHeaders.RequestedDevice + "/$$" + message.GeneralHeaders.RefererGoogle
             };
             _db.UserTBLToMeetingTBLLogs.Add(log);
             _db.SaveChanges();
@@ -506,5 +524,70 @@ namespace Application.Usecase
     }
     #endregion
 
+    #region GetRooms
+    public class GetRoomsUseCase : IGetRoomsUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IHostingEnvironment hosting;
+
+        public GetRoomsUseCase(IDBContext repository,
+            IConfiguration configuration)
+        {
+            _db = repository;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+        }
+
+        public async Task handleAsync(GetRoomsRequest message,
+            IOutPutPort<GenericResponse<GetRoomsResponse>> outputPort)
+        {
+
+            outputPort.Handle(new GenericResponse<GetRoomsResponse>(new GetRoomsResponse
+            {
+                Message = "ok",
+                Status = 200,
+                Data = _db.RoomTBLs
+                .Select(e => new DTO.Models.MiniRoomJSON
+                {
+                    RoomID = e.FriendlyID,
+                    Title = e.Title
+                }).ToList()
+            }));
+
+        }
+    }
+    #endregion
+    #region GetRoomByFriendlyID
+    public class GetRoomByFriendlyIDUseCase : IGetRoomByFriendlyIDUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IHostingEnvironment hosting;
+
+        public GetRoomByFriendlyIDUseCase(IDBContext repository,
+            IConfiguration configuration)
+        {
+            _db = repository;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+        }
+
+        public async Task handleAsync(GetRoomByFriendlyIDRequest message,
+            IOutPutPort<GenericResponse<GetRoomByFriendlyIDResponse>> outputPort)
+        {
+            outputPort.Handle(new GenericResponse<GetRoomByFriendlyIDResponse>(new GetRoomByFriendlyIDResponse
+            {
+                Message = "ok",
+                Status = 200,
+                Data = _db.RoomTBLs.Where(e=>e.FriendlyID == message.Query)
+                .Select(e => new DTO.Models.MiniRoomJSON
+                {
+                    RoomID = e.FriendlyID,
+                    Title = e.Title
+                }).First()
+            }));
+
+        }
+    }
+    #endregion
 
 }

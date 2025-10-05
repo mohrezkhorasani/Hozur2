@@ -48,7 +48,7 @@ namespace CoreMe.VM
         public string Teacher { get; set; }
         [DefaultValue("علوم فلسفی")]
         public string Title { get; set; }
-        [DefaultValue("1403/2/2")]
+        [DefaultValue("1404-مهر-12")]
         public string JalaliDate { get; set; }
         public string? Explain { get; set; }
 
@@ -146,7 +146,8 @@ namespace CoreMe.VM
     {
         public string KeyLog { get; set; } //left,join, activity
         public string? ValueLog { get; set; } //raised hand, microphone opened, microphone closed,file share,screen share open,screen share close,file share close,
-        public string Role { get; set; }
+        public string? OS { get; set; } 
+        public string Role { get; set; }    
     }
 
 }

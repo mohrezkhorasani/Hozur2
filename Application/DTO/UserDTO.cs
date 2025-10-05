@@ -33,6 +33,7 @@ namespace Application.DTO
     {
         public string KeyLog { get; set; } //left,join, activity
         public string? ValueLog { get; set; } //raised hand, microphone opened, microphone closed,file share,screen share open,screen share close,file share close,
+        public string? OS { get; set; }
         public string Role { get; set; }
     }
 
@@ -130,7 +131,7 @@ namespace Application.DTO
     }
     #endregion
 
- //Add Teacher 
+    //Add Teacher 
     #region NewRoom
     public class NewRoomRequest : NewUserRequest, IUseCaseRequest<GenericResponse<NewRoomResponse>>
     {
@@ -142,6 +143,35 @@ namespace Application.DTO
     {
     }
     #endregion
+
+    //Get Rooms
+    #region GetRooms
+    public class GetRoomsRequest : NewUserRequest, IUseCaseRequest<GenericResponse<GetRoomsResponse>>
+    {
+        public string Query { get; set; }
+    }
+
+    public class GetRoomsResponse : BaseParentResponce
+    {
+        public List<MiniRoomJSON> Data = new List<MiniRoomJSON>();
+    }
+    #endregion
+
+    //Get Room with friendlyID
+    #region GetRoomByFriendlyID
+    public class GetRoomByFriendlyIDRequest : NewUserRequest, IUseCaseRequest<GenericResponse<GetRoomByFriendlyIDResponse>>
+    {
+        public string Query { get; set; }
+    }
+
+    public class GetRoomByFriendlyIDResponse : BaseParentResponce
+    {
+        public MiniRoomJSON Data = new MiniRoomJSON();
+    }
+    #endregion
+
+
+
 
     //GuarantCertificate
 

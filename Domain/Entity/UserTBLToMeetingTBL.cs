@@ -8,6 +8,8 @@ using Microsoft.EntityFrameworkCore;
 namespace Domain.Entity
 {
     [Index(nameof(UUID), nameof(MeetID), IsUnique = true)]
+    [Index(nameof(CodeUnique), IsUnique = true)]
+    
     public class UserTBLToMeetingTBL : MainEntity
     {
         public long ID { get; set; }
@@ -23,6 +25,7 @@ namespace Domain.Entity
         public bool IsCertificated { get; set; } = false;
         public long TimeSpendSeconds { get; set; } = 0; // update after meet closed!
         public string? CertificateFileURL { get; set; }
+        public string? CodeUnique { get; set; }
         public CertificateTBL CertificateTBL { get; set; }
         public string UserNickName{ get; set; }
         public string? Role{ get; set; }

@@ -383,6 +383,9 @@ namespace Persistence.Migrations
                     b.Property<string>("CertificateFileURL")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("CodeUnique")
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<DateTime>("DateInsert")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
@@ -435,6 +438,10 @@ namespace Persistence.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("ID");
+
+                    b.HasIndex("CodeUnique")
+                        .IsUnique()
+                        .HasFilter("[CodeUnique] IS NOT NULL");
 
                     b.HasIndex("MeetID");
 

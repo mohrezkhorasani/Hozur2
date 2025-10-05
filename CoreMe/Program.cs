@@ -19,9 +19,10 @@ builder.Services.AddCors(options =>
     policy
         .SetIsOriginAllowed(origin =>
         {
-            return new Uri(origin).Host.EndsWith(".hekmateislami.com")
-                   || new Uri(origin).Host == "hekmateislami.com";
+            return new Uri(origin).Host.ToLower().Split("/")[0].EndsWith(".hekmateislami.com")
+                   || new Uri(origin).Host.ToLower() == "hekmateislami.com";
         })
+        .AllowCredentials()
         .AllowAnyHeader()
         .AllowAnyMethod();
 });
@@ -50,6 +51,8 @@ builder.Services.AddScoped<INewUserMettingsUseCase, NewUserMettingsUseCase>();
 builder.Services.AddScoped<INewUserMeetingLogUseCase, NewUserMeetingLogUseCase>();
 builder.Services.AddScoped<IGetTeacherListUseCase, GetTeacherListUseCase>();
 builder.Services.AddScoped<INewRoomUseCase, NewRoomUseCase>();
+builder.Services.AddScoped<IGetRoomByFriendlyIDUseCase, GetRoomByFriendlyIDUseCase>();
+builder.Services.AddScoped<IGetRoomsUseCase, GetRoomsUseCase>();
 
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -62,7 +65,7 @@ var app = builder.Build();
 app.UseSwagger();
 app.UseSwaggerUI();
 // }
-app.UseCors();  
+app.UseCors("AllowHekmateSubdomains");  
 app.UseHttpsRedirection();
 
 app.UseAuthorization();

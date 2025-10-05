@@ -28,29 +28,37 @@ namespace CoreMe.Controllers
         public ApiPresenter<NewUserMeetingLogResponse> _NewUserMeetingLogResponse { get; }
         public IGetTeacherListUseCase _IGetTeacherListUseCase { get; }
         public ApiPresenter<GetTeacherListResponse> _GetTeacherListResponse { get; }
+        public IGetRoomsUseCase _IGetRoomsUseCase { get; }
+        public ApiPresenter<GetRoomsResponse> _GetRoomsResponse { get; }
+        public IGetRoomByFriendlyIDUseCase _IGetRoomByFriendlyIDUseCase { get; }
+        public ApiPresenter<GetRoomByFriendlyIDResponse> _GetRoomByFriendlyIDResponse { get; }
 
         public INewRoomUseCase _INewRoomUseCase { get; }
         public ApiPresenter<NewRoomResponse> _NewRoomResponse { get; }
 
 
         public BBBController(
-            ILogger<BBBController> logger,
-            IMapper mapper,
-            INewUserUseCase newUserUseCase,
-            ApiPresenter<NewUserResponse> newUserResponse,
-            INewMeetingUseCase newMeetingUseCase,
-            ApiPresenter<NewMeetingResponse> newMeetingResponse,
-            IUpdateMeetingUseCase updateMeetingUseCase,
-            ApiPresenter<UpdateMeetingResponse> updateMeetingResponse,
-            INewUserMettingsUseCase newUserMettingsUseCase,
-            ApiPresenter<NewUserMettingsResponse> newUserMettingsResponse,
-            INewUserMeetingLogUseCase newUserMeetingLogUseCase,
-            ApiPresenter<NewUserMeetingLogResponse> newUserMeetingLogResponse,
-            IGetTeacherListUseCase getTeacherListUseCase,
-            ApiPresenter<GetTeacherListResponse> getTeacherListResponse,
-             INewRoomUseCase NewRoomUseCase,
-            ApiPresenter<NewRoomResponse> NewRoomResponse
-         )
+      ILogger<BBBController> logger,
+      IMapper mapper,
+      INewUserUseCase newUserUseCase,
+      ApiPresenter<NewUserResponse> newUserResponse,
+      INewMeetingUseCase newMeetingUseCase,
+      ApiPresenter<NewMeetingResponse> newMeetingResponse,
+      IUpdateMeetingUseCase updateMeetingUseCase,
+      ApiPresenter<UpdateMeetingResponse> updateMeetingResponse,
+      INewUserMettingsUseCase newUserMettingsUseCase,
+      ApiPresenter<NewUserMettingsResponse> newUserMettingsResponse,
+      INewUserMeetingLogUseCase newUserMeetingLogUseCase,
+      ApiPresenter<NewUserMeetingLogResponse> newUserMeetingLogResponse,
+      IGetTeacherListUseCase getTeacherListUseCase,
+      ApiPresenter<GetTeacherListResponse> getTeacherListResponse,
+      IGetRoomsUseCase getRoomsUseCase,
+      ApiPresenter<GetRoomsResponse> getRoomsResponse,
+      IGetRoomByFriendlyIDUseCase getRoomByFriendlyIDUseCase,
+      ApiPresenter<GetRoomByFriendlyIDResponse> getRoomByFriendlyIDResponse,
+      INewRoomUseCase newRoomUseCase,
+      ApiPresenter<NewRoomResponse> newRoomResponse
+  )
         {
             _logger = logger;
             _mapper = mapper;
@@ -65,9 +73,13 @@ namespace CoreMe.Controllers
             _INewUserMeetingLogUseCase = newUserMeetingLogUseCase;
             _NewUserMeetingLogResponse = newUserMeetingLogResponse;
             _IGetTeacherListUseCase = getTeacherListUseCase;
-            _NewRoomResponse = NewRoomResponse;
-            _INewRoomUseCase = NewRoomUseCase;
-            _NewRoomResponse = NewRoomResponse;
+            _GetTeacherListResponse = getTeacherListResponse;
+            _IGetRoomsUseCase = getRoomsUseCase;
+            _GetRoomsResponse = getRoomsResponse;
+            _IGetRoomByFriendlyIDUseCase = getRoomByFriendlyIDUseCase;
+            _GetRoomByFriendlyIDResponse = getRoomByFriendlyIDResponse;
+            _INewRoomUseCase = newRoomUseCase;
+            _NewRoomResponse = newRoomResponse;
         }
 
 
@@ -85,7 +97,7 @@ namespace CoreMe.Controllers
         /// </summary>
         /// <returns></returns>
         [HttpPost("/user/NewUser")]
-        [EnableCors("AllowOnlyVC")]
+        [EnableCors("AllowHekmateSubdomains")]
         public async Task<IActionResult> NewUser(NewUserViewModel vm)
         {
             await _INewUserUseCase.handleAsync(new NewUserRequest
@@ -104,7 +116,7 @@ namespace CoreMe.Controllers
             return _NewUserResponse.jsonContentResult;
         }
         [HttpPost("/user/UpdateMeeting")]
-        [EnableCors("AllowOnlyVC")]
+        // [EnableCors("AllowHekmateSubdomains")]
         public async Task<IActionResult> UpdateMeeting(UpdateMeetingViewModel vm)
         {
             UpdateMeetingRequest req = _mapper.Map<UpdateMeetingRequest>(vm);
@@ -114,7 +126,7 @@ namespace CoreMe.Controllers
         }
 
         [HttpPost("/user/NewMeeting")]
-        [EnableCors("AllowOnlyVC")]
+        // [EnableCors("AllowHekmateSubdomains")]
         public async Task<IActionResult> NewMeeting(NewMeetingViewModel vm)
         {
             NewMeetingRequest req = _mapper.Map<NewMeetingRequest>(vm);
@@ -125,7 +137,7 @@ namespace CoreMe.Controllers
 
 
         [HttpPost("/user/NewUserMettings")]
-        [EnableCors("AllowOnlyVC")]
+        // [EnableCors("AllowHekmateSubdomains")]
         public async Task<IActionResult> NewUserMettings(NewUserMettingsViewModel vm)
         {
             NewUserMettingsRequest req = _mapper.Map<NewUserMettingsRequest>(vm);
@@ -135,7 +147,7 @@ namespace CoreMe.Controllers
         }
 
         // [HttpPost("/user/NewTeacher")]
-        // [EnableCors("AllowOnlyVC")]
+        // [EnableCors("AllowHekmateSubdomains")]
         // public async Task<IActionResult> NewTeacher(NewTeacherViewModel vm)
         // {
         //     NewTeacherRequest req = _mapper.Map<NewTeacherRequest>(vm);
@@ -146,8 +158,7 @@ namespace CoreMe.Controllers
 
 
         [HttpGet("/user/GetTeacherList")]
-        [EnableCors("AllowOnlyVC")]
-        public async Task<IActionResult> GetTeacherList([FromQuery] string q)
+        public async Task<IActionResult> GetTeacherList([FromQuery] string q = "")
         {
             GetTeacherListRequest req = new GetTeacherListRequest
             {
@@ -157,10 +168,32 @@ namespace CoreMe.Controllers
             await _IGetTeacherListUseCase.handleAsync(req, _GetTeacherListResponse);
             return _GetTeacherListResponse.jsonContentResult;
         }
+        [HttpGet("/user/GetRoomByFriendlyID")]
+        public async Task<IActionResult> GetRoomByFriendlyID([FromQuery] string q = "")
+        {
+            GetRoomByFriendlyIDRequest req = new GetRoomByFriendlyIDRequest
+            {
+                Query = q
+            };
+            req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
+            await _IGetRoomByFriendlyIDUseCase.handleAsync(req, _GetRoomByFriendlyIDResponse);
+            return _GetRoomByFriendlyIDResponse.jsonContentResult;
+        }
+        [HttpGet("/user/GetRooms")]
+        public async Task<IActionResult> GetRooms([FromQuery] string q = "")
+        {
+            GetRoomsRequest req = new GetRoomsRequest
+            {
+                Query = q
+            };
+            req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
+            await _IGetRoomsUseCase.handleAsync(req, _GetRoomsResponse);
+            return _GetRoomsResponse.jsonContentResult;
+        }
 
 
         [HttpPost("/user/NewRoom")]
-        [EnableCors("AllowOnlyVC")]
+        [EnableCors("AllowHekmateSubdomains")]
         public async Task<IActionResult> NewRoom(NewRoomViewModel vm)
         {
             NewRoomRequest req = _mapper.Map<NewRoomRequest>(vm);
@@ -170,7 +203,7 @@ namespace CoreMe.Controllers
         }
 
         [HttpPost("/user/NewUserMeetingLog")]
-        [EnableCors("AllowOnlyVC")]
+        [EnableCors("AllowHekmateSubdomains")]
         public async Task<IActionResult> NewUserMeetingLog(NewUserMeetingLogViewModel vm)
         {
             NewUserMeetingLogRequest req = _mapper.Map<NewUserMeetingLogRequest>(vm);

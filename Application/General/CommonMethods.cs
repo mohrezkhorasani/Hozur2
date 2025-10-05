@@ -78,9 +78,15 @@ namespace Application.General
         public async Task<MeetingTBL> NewMeeting(MeetingTBL tbl)
         {
             if (await CheckMeetingExist(tbl)) return await GetMeetWithoutID(tbl.MeetID);
+            Console.WriteLine("inja");
             tbl.JWT = Statics.GenerateJWTMeet(tbl);
+            Console.WriteLine("inj2");
             _db.MeetingTBLs.Add(tbl);
+            Console.WriteLine("inj3");
+
             _db.SaveChanges();
+            Console.WriteLine("inj4");
+
             return tbl;
         }
         public async Task<UserTBL> GetUserWithoutID(UserTBL user)
