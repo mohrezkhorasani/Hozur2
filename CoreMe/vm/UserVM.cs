@@ -57,10 +57,10 @@ namespace CoreMe.VM
             // بررسی تاریخ جلالی معتبر
             if (!string.IsNullOrWhiteSpace(JalaliDate))
             {
-                if (!IsValidJalaliDate(JalaliDate))
+                if (!IsValidPersianDate(JalaliDate))
                 {
                     yield return new ValidationResult(
-                        "تاریخ وارد شده معتبر نیست. فرمت صحیح مثلاً 1403/07/11",
+                        "تاریخ وارد شده معتبر نیست. فرمت صحیح مثلاً 1404-مهر-12",
                         new[] { nameof(JalaliDate) }
                     );
                 }
@@ -107,6 +107,41 @@ namespace CoreMe.VM
             }
         }
 
+    public static bool IsValidPersianDate(string input)
+    {
+        try
+        {
+            // جدا کردن بخش‌ها
+            var parts = input.Split('-');
+            if (parts.Length != 3) return false;
+
+            int year = int.Parse(parts[0]);
+            string monthName = parts[1];
+            int day = int.Parse(parts[2]);
+
+            // لیست ماه‌های فارسی
+            string[] months = {
+                "فروردین","اردیبهشت","خرداد",
+                "تیر","مرداد","شهریور",
+                "مهر","آبان","آذر",
+                "دی","بهمن","اسفند"
+            };
+
+            int month = Array.IndexOf(months, monthName) + 1;
+            if (month == 0) return false; // ماه نامعتبر
+
+            // استفاده از PersianCalendar برای اعتبارسنجی
+            PersianCalendar pc = new PersianCalendar();
+            DateTime dt = pc.ToDateTime(year, month, day, 0, 0, 0, 0);
+
+            // اگه به خطا نخورد یعنی تاریخ معتبره
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
         private bool IsPersianText(string input)
         {
             // محدوده یونیکد حروف فارسی \u0600 تا \u06FF

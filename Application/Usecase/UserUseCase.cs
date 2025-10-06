@@ -442,15 +442,9 @@ namespace Application.Usecase
         public async Task handleAsync(GetTeacherListRequest message,
             IOutPutPort<GenericResponse<GetTeacherListResponse>> outputPort)
         {
-            UserTBL user = new UserTBL
-            {
-                UUID = message.UUID,
-                Email = message.Email,
-                Firstname = message.Firstname,
-                NationalCode = message.NationalCode,
-                PhoneNumber = message.PhoneNumber,
-            };
-            user = await _commonMethods.GetUserWithoutID(user);
+            var init = await _commonMethods.Initialize<GetTeacherListRequest>(message);
+            var user = init.Item1;
+            var meet = init.Item2;
             if (!UserTBL.TYPE_ALLOWED_MEET_CREATE.Contains(user.Type))
             {
                 return;
@@ -578,7 +572,7 @@ namespace Application.Usecase
             {
                 Message = "ok",
                 Status = 200,
-                Data = _db.RoomTBLs.Where(e=>e.FriendlyID == message.Query)
+                Data = _db.RoomTBLs.Where(e => e.FriendlyID == message.Query)
                 .Select(e => new DTO.Models.MiniRoomJSON
                 {
                     RoomID = e.FriendlyID,
