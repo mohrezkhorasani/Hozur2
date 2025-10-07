@@ -1,5 +1,6 @@
 ﻿using Application.DTO;
 using Application.DTO.Generals;
+using Application.DTO.Models;
 using Application.General;
 using Application.Interface.IInfrastructure;
 using Application.Interface.IUsecase;
@@ -314,11 +315,21 @@ namespace Application.Usecase
             }
             string jwtUser = Statics.GenerateJWTUser(user);
             var meet = await _commonMethods.GetMeetWithoutID(message.MeetID);
+            if (meet == null)
+            {
+                outputPort.Handle(new GenericResponse<NewUserMettingsResponse>(new NewUserMettingsResponse
+                {
+                    Message = "no meet yet",
+                    Status = 404
+                }));
+                return;
+            }
+
 
             var userMeet = await _commonMethods.NewUserMeeting(new UserTBLToMeetingTBL
             {
                 MeetID = meet.MeetID,
-                UUID = user.UUID,
+                UUID = message.UUID,
                 TokenJWT = jwtUser,
                 Explain = message.Role,
                 Type = UserTBL.MapRoleToType(message.Role),
@@ -447,14 +458,23 @@ namespace Application.Usecase
             var meet = init.Item2;
             if (!UserTBL.TYPE_ALLOWED_MEET_CREATE.Contains(user.Type))
             {
+                outputPort.Handle(new GenericResponse<GetTeacherListResponse>(new GetTeacherListResponse
+                {
+                    Message = "You can't access it",
+                    Status = 200,
+                    Data = meet.Teacher==null?[]: [new MiniUserJSON{
+                        Fullname=meet.Teacher.Firstname + " " + meet.Teacher.LastName,
+                    }]
+                }));
                 return;
             }
-
+            
             outputPort.Handle(new GenericResponse<GetTeacherListResponse>(new GetTeacherListResponse
             {
                 Message = "ok",
                 Status = 200,
-                Data = _db.UserTBLs.Where(e => e.Type == MainEntity_Types.USER_TEACHER).Select(e => new DTO.Models.MiniUserJSON
+                Data = _db.UserTBLs.Where(e => e.Type == MainEntity_Types.USER_TEACHER)
+                .Select(e => new DTO.Models.MiniUserJSON
                 {
                     Fullname = $"{e.Firstname} {e.LastName}",
                     ID = e.ID,

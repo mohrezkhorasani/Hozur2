@@ -115,8 +115,10 @@ namespace Application.General
         }
         public async Task<MeetingTBL> GetMeetWithoutID(string q)
         {
+            if (!await _db.MeetingTBLs.AnyAsync(e => e.MeetID == q)) return null ;
             return _db.MeetingTBLs
-            .Where(e => e.MeetID == q).Include(e=>e.Creator).Include(e=>e.Teacher).Include(e=>e.RoomTBL)
+            .Where(e => e.MeetID == q).Include(e => e.Creator)
+            .Include(e => e.Teacher).Include(e => e.RoomTBL)
             .FirstOrDefault();
         }
         public async Task<UserTBLToMeetingTBL> GetUserMeetWithoutID(UserTBLToMeetingTBL q)
