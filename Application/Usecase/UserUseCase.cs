@@ -6,6 +6,7 @@ using Application.Interface.IInfrastructure;
 using Application.Interface.IUsecase;
 using Application.Interfaces;
 using Domain.Entity;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -604,4 +605,72 @@ namespace Application.Usecase
     }
     #endregion
 
+
+    #region GetLives
+    public class GetLivesUseCase : IGetLivesUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IHostingEnvironment hosting;
+        private IBBBGetMeetings IBBBGetMeetings { get; }
+        public GetLivesUseCase(IDBContext repository,
+            IConfiguration configuration,
+            IBBBGetMeetings bBBGetMeetings
+            )
+        {
+            _db = repository;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+            IBBBGetMeetings = bBBGetMeetings;
+        }
+
+        public async Task handleAsync(GetLivesRequest message,
+            IOutPutPort<GenericResponse<GetLivesResponse>> outputPort)
+        {
+            var meets = await IBBBGetMeetings.Request(message);
+            
+            outputPort.Handle(new GenericResponse<GetLivesResponse>(new GetLivesResponse
+            {
+                Message = "ok",
+                Status = 200,
+                Data = meets.Select(e=>new MiniRoomJSON
+                {
+                    RoomID=_db.MeetingTBLs.FirstOrDefault(r => r.MeetID.EndsWith(e.RoomID)).RoomFriendlyID,
+                    Title=e.Title
+                }).ToList() 
+            }));
+
+        }
+    }
+    #endregion
+    #region StartMeeting
+    public class StartMeetingUseCase : IStartMeetingUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IHostingEnvironment hosting;
+        private IBBBGetMeetings IBBBGetMeetings { get; }
+        public StartMeetingUseCase(IDBContext repository,
+            IConfiguration configuration,
+            IBBBGetMeetings bBBGetMeetings
+            )
+        {
+            _db = repository;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+            IBBBGetMeetings = bBBGetMeetings;
+        }
+
+        public async Task handleAsync(StartMeetingRequest message,
+            IOutPutPort<GenericResponse<StartMeetingResponse>> outputPort)
+        {
+            var meets = await IBBBGetMeetings.CreateMeetingAsync(message.MeetiID,message.MeetName);
+
+            outputPort.Handle(new GenericResponse<StartMeetingResponse>(new StartMeetingResponse
+            {
+                Message = "ok",
+                Status = 200,
+            }));
+
+        }
+    }
+    #endregion
 }

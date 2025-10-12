@@ -1,10 +1,12 @@
-using Microsoft.EntityFrameworkCore;
-using AutoMapper;
-using Presistence.Entities;
-using Application.Interfaces;
-using Presenter;
+using Application.Interface.IInfrastructure;
 using Application.Interface.IUsecase;
+using Application.Interfaces;
 using Application.Usecase;
+using AutoMapper;
+using Infrastructure.API;
+using Microsoft.EntityFrameworkCore;
+using Presenter;
+using Presistence.Entities;
 
 
 
@@ -52,8 +54,15 @@ builder.Services.AddScoped<INewUserMeetingLogUseCase, NewUserMeetingLogUseCase>(
 builder.Services.AddScoped<IGetTeacherListUseCase, GetTeacherListUseCase>();
 builder.Services.AddScoped<INewRoomUseCase, NewRoomUseCase>();
 builder.Services.AddScoped<IGetRoomByFriendlyIDUseCase, GetRoomByFriendlyIDUseCase>();
+builder.Services.AddScoped<IGetLivesUseCase, GetLivesUseCase>();
+builder.Services.AddScoped<IStartMeetingUseCase, StartMeetingUseCase>();
 builder.Services.AddScoped<IGetRoomsUseCase, GetRoomsUseCase>();
 
+
+
+#region Infrustructure
+builder.Services.AddScoped<IBBBGetMeetings, BBBGetMeeting>();
+#endregion
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();

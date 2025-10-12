@@ -171,6 +171,32 @@ namespace Application.DTO
     #endregion
 
 
+    //Get Lives
+    #region GetLives
+    public class GetLivesRequest : NewUserRequest, IUseCaseRequest<GenericResponse<GetLivesResponse>>
+    {
+        public string Query { get; set; }
+    }
+
+    public class GetLivesResponse : BaseParentResponce
+    {
+        public List<MiniRoomJSON> Data = new List<MiniRoomJSON>();
+    }
+    #endregion
+
+    //StartMeeting
+    #region StartMeeting
+    public class StartMeetingRequest : NewUserRequest, IUseCaseRequest<GenericResponse<StartMeetingResponse>>
+    {
+        public string MeetiID { get; set; }
+        public string MeetName { get; set; }
+    }
+
+    public class StartMeetingResponse : BaseParentResponce
+    {
+        public List<MiniRoomJSON> Data = new List<MiniRoomJSON>();
+    }
+    #endregion
 
 
     //GuarantCertificate

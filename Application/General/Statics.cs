@@ -15,6 +15,8 @@ namespace Application.General
     public static class Statics
     {
         public static string URL = "https://domain.com"; //
+        public static string BBB_BASE_URL = "https://vc.hekmateislami.com/bigbluebutton/api/";
+        public static string BBB_SECRET = "h9P7pqVucziDq2ulofof0q4E2UiubquthWPYedBTXA";
 
         #region Accounting
         public static int TYPE_BILL_OF_INCREASE = 1;
@@ -49,6 +51,15 @@ namespace Application.General
             {
                 return url;
             }
+        }
+        public static string ComputeSha1(string input)
+        {
+            using SHA1 sha1 = SHA1.Create();
+            byte[] hashBytes = sha1.ComputeHash(Encoding.UTF8.GetBytes(input));
+            StringBuilder sb = new StringBuilder();
+            foreach (byte b in hashBytes)
+                sb.Append(b.ToString("x2"));
+            return sb.ToString();
         }
         public static string GetDifferentPrettyDate(DateTime date)
         {

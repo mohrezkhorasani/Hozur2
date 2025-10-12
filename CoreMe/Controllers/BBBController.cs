@@ -30,57 +30,46 @@ namespace CoreMe.Controllers
         public ApiPresenter<GetTeacherListResponse> _GetTeacherListResponse { get; }
         public IGetRoomsUseCase _IGetRoomsUseCase { get; }
         public ApiPresenter<GetRoomsResponse> _GetRoomsResponse { get; }
+       public IGetLivesUseCase _IGetLivesUseCase { get; }
+        public ApiPresenter<GetLivesResponse> _GetLivesResponse { get; }
+     public IStartMeetingUseCase _IStartMeetingUseCase { get; }
+        public ApiPresenter<StartMeetingResponse> _StartMeetingResponse { get; }
         public IGetRoomByFriendlyIDUseCase _IGetRoomByFriendlyIDUseCase { get; }
         public ApiPresenter<GetRoomByFriendlyIDResponse> _GetRoomByFriendlyIDResponse { get; }
 
         public INewRoomUseCase _INewRoomUseCase { get; }
         public ApiPresenter<NewRoomResponse> _NewRoomResponse { get; }
 
-
-        public BBBController(
-      ILogger<BBBController> logger,
-      IMapper mapper,
-      INewUserUseCase newUserUseCase,
-      ApiPresenter<NewUserResponse> newUserResponse,
-      INewMeetingUseCase newMeetingUseCase,
-      ApiPresenter<NewMeetingResponse> newMeetingResponse,
-      IUpdateMeetingUseCase updateMeetingUseCase,
-      ApiPresenter<UpdateMeetingResponse> updateMeetingResponse,
-      INewUserMettingsUseCase newUserMettingsUseCase,
-      ApiPresenter<NewUserMettingsResponse> newUserMettingsResponse,
-      INewUserMeetingLogUseCase newUserMeetingLogUseCase,
-      ApiPresenter<NewUserMeetingLogResponse> newUserMeetingLogResponse,
-      IGetTeacherListUseCase getTeacherListUseCase,
-      ApiPresenter<GetTeacherListResponse> getTeacherListResponse,
-      IGetRoomsUseCase getRoomsUseCase,
-      ApiPresenter<GetRoomsResponse> getRoomsResponse,
-      IGetRoomByFriendlyIDUseCase getRoomByFriendlyIDUseCase,
-      ApiPresenter<GetRoomByFriendlyIDResponse> getRoomByFriendlyIDResponse,
-      INewRoomUseCase newRoomUseCase,
-      ApiPresenter<NewRoomResponse> newRoomResponse
-  )
+        public BBBController(ILogger<BBBController> logger, IMapper mapper, INewUserUseCase iNewUserUseCase, ApiPresenter<NewUserResponse> newUserResponse, INewMeetingUseCase iNewMeetingUseCase, ApiPresenter<NewMeetingResponse> newMeetingResponse, IUpdateMeetingUseCase iUpdateMeetingUseCase, ApiPresenter<UpdateMeetingResponse> updateMeetingResponse, INewUserMettingsUseCase iNewUserMettingsUseCase, ApiPresenter<NewUserMettingsResponse> newUserMettingsResponse, INewUserMeetingLogUseCase iNewUserMeetingLogUseCase, ApiPresenter<NewUserMeetingLogResponse> newUserMeetingLogResponse, IGetTeacherListUseCase iGetTeacherListUseCase, ApiPresenter<GetTeacherListResponse> getTeacherListResponse, IGetRoomsUseCase iGetRoomsUseCase, ApiPresenter<GetRoomsResponse> getRoomsResponse, IGetLivesUseCase iGetLivesUseCase, ApiPresenter<GetLivesResponse> getLivesResponse, IStartMeetingUseCase iStartMeetingUseCase, ApiPresenter<StartMeetingResponse> startMeetingResponse, IGetRoomByFriendlyIDUseCase iGetRoomByFriendlyIDUseCase, ApiPresenter<GetRoomByFriendlyIDResponse> getRoomByFriendlyIDResponse, INewRoomUseCase iNewRoomUseCase, ApiPresenter<NewRoomResponse> newRoomResponse)
         {
             _logger = logger;
             _mapper = mapper;
-            _INewUserUseCase = newUserUseCase;
+            _INewUserUseCase = iNewUserUseCase;
             _NewUserResponse = newUserResponse;
-            _INewMeetingUseCase = newMeetingUseCase;
+            _INewMeetingUseCase = iNewMeetingUseCase;
             _NewMeetingResponse = newMeetingResponse;
-            _IUpdateMeetingUseCase = updateMeetingUseCase;
+            _IUpdateMeetingUseCase = iUpdateMeetingUseCase;
             _UpdateMeetingResponse = updateMeetingResponse;
-            _INewUserMettingsUseCase = newUserMettingsUseCase;
+            _INewUserMettingsUseCase = iNewUserMettingsUseCase;
             _NewUserMettingsResponse = newUserMettingsResponse;
-            _INewUserMeetingLogUseCase = newUserMeetingLogUseCase;
+            _INewUserMeetingLogUseCase = iNewUserMeetingLogUseCase;
             _NewUserMeetingLogResponse = newUserMeetingLogResponse;
-            _IGetTeacherListUseCase = getTeacherListUseCase;
+            _IGetTeacherListUseCase = iGetTeacherListUseCase;
             _GetTeacherListResponse = getTeacherListResponse;
-            _IGetRoomsUseCase = getRoomsUseCase;
+            _IGetRoomsUseCase = iGetRoomsUseCase;
             _GetRoomsResponse = getRoomsResponse;
-            _IGetRoomByFriendlyIDUseCase = getRoomByFriendlyIDUseCase;
+            _IGetLivesUseCase = iGetLivesUseCase;
+            _GetLivesResponse = getLivesResponse;
+            _IStartMeetingUseCase = iStartMeetingUseCase;
+            _StartMeetingResponse = startMeetingResponse;
+            _IGetRoomByFriendlyIDUseCase = iGetRoomByFriendlyIDUseCase;
             _GetRoomByFriendlyIDResponse = getRoomByFriendlyIDResponse;
-            _INewRoomUseCase = newRoomUseCase;
+            _INewRoomUseCase = iNewRoomUseCase;
             _NewRoomResponse = newRoomResponse;
         }
+
+
+
 
 
         // public IGetLanguageTestUseCase _IGetLanguageTestUseCase { get; }
@@ -189,6 +178,31 @@ namespace CoreMe.Controllers
             req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
             await _IGetRoomsUseCase.handleAsync(req, _GetRoomsResponse);
             return _GetRoomsResponse.jsonContentResult;
+        }
+
+        [HttpGet("/user/GetLives")]
+        public async Task<IActionResult> GetLives([FromQuery] string q = "")
+        {
+            GetLivesRequest req = new GetLivesRequest
+            {
+                Query = q
+            };
+            req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
+            await _IGetLivesUseCase.handleAsync(req, _GetLivesResponse);
+            return _GetLivesResponse.jsonContentResult;
+        }
+
+        [HttpGet("/user/StartMeeting")]
+        public async Task<IActionResult> StartMeeting([FromQuery] string ID = "", [FromQuery] string Name = "")
+        {
+            StartMeetingRequest req = new StartMeetingRequest
+            {
+                MeetName = Name,
+                MeetiID = ID
+            };
+            req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
+            await _IStartMeetingUseCase.handleAsync(req, _StartMeetingResponse);
+            return _StartMeetingResponse.jsonContentResult;
         }
 
 
