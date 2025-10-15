@@ -70,5 +70,13 @@ namespace Infrastructure.DTO
         [XmlElement("message")]
         public string Message { get; set; }
     }
+    [XmlRoot("response")]
+    public class BBBRunningResponse
+    {
+        [XmlElement("returncode")]
+        public string ReturnCode { get; set; }
 
+        [XmlElement("running")]
+        public string Running { get; set; }
+    }
 }

@@ -70,7 +70,7 @@ namespace Persistence.Migrations
                     b.HasIndex("IDUserTBLToMeetingTBL")
                         .IsUnique();
 
-                    b.ToTable("CertificateTBL", "GeneralInfo");
+                    b.ToTable("CertificateTBL", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entity.ConfigTBL", b =>
@@ -110,7 +110,7 @@ namespace Persistence.Migrations
 
                     b.HasKey("ID");
 
-                    b.ToTable("ConfigTBL", "GeneralInfo");
+                    b.ToTable("ConfigTBL", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entity.MeetingTBL", b =>
@@ -177,7 +177,7 @@ namespace Persistence.Migrations
 
                     b.HasIndex("RoomFriendlyID");
 
-                    b.ToTable("MeetingTBL", "GeneralInfo");
+                    b.ToTable("MeetingTBL", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entity.RoomTBL", b =>
@@ -228,7 +228,7 @@ namespace Persistence.Migrations
                     b.HasIndex("Title")
                         .IsUnique();
 
-                    b.ToTable("RoomTBL", "GeneralInfo");
+                    b.ToTable("RoomTBL", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entity.RoomTBLToUserTBL", b =>
@@ -276,7 +276,7 @@ namespace Persistence.Migrations
 
                     b.HasIndex("UUIDParticipatorTBL");
 
-                    b.ToTable("RoomTBLToUserTBL", "GeneralInfo");
+                    b.ToTable("RoomTBLToUserTBL", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entity.UserTBL", b =>
@@ -369,7 +369,7 @@ namespace Persistence.Migrations
                         .IsUnique()
                         .HasFilter("[Username] IS NOT NULL");
 
-                    b.ToTable("UserTBL", "GeneralInfo");
+                    b.ToTable("UserTBL", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entity.UserTBLToMeetingTBL", b =>
@@ -433,6 +433,10 @@ namespace Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
+                    b.Property<string>("UserMeetID")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("UserNickName")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -450,7 +454,7 @@ namespace Persistence.Migrations
                     b.HasIndex("UUID", "MeetID")
                         .IsUnique();
 
-                    b.ToTable("UserTBLToMeetingTBL", "GeneralInfo");
+                    b.ToTable("UserTBLToMeetingTBL", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entity.UserTBLToMeetingTBLLogs", b =>
@@ -490,6 +494,10 @@ namespace Persistence.Migrations
                         .HasColumnType("int")
                         .HasDefaultValue(1);
 
+                    b.Property<string>("UserMeetID")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Value")
                         .HasColumnType("nvarchar(max)");
 
@@ -497,7 +505,7 @@ namespace Persistence.Migrations
 
                     b.HasIndex("IDUserTBLToMeetingTBL");
 
-                    b.ToTable("UserTBLToMeetingTBLLogs", "GeneralInfo");
+                    b.ToTable("UserTBLToMeetingTBLLogs", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entity.CertificateTBL", b =>

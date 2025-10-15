@@ -17,6 +17,9 @@ namespace Application.General
         public static string URL = "https://domain.com"; //
         public static string BBB_BASE_URL = "https://vc.hekmateislami.com/bigbluebutton/api/";
         public static string BBB_SECRET = "h9P7pqVucziDq2ulofof0q4E2UiubquthWPYedBTXA";
+        public static string BBB_MODERATOR_PW = "YRhv1515$j21w";
+        public static string BBB_ATTEND_PW = "HGf@tat;ae15190";
+
 
         #region Accounting
         public static int TYPE_BILL_OF_INCREASE = 1;

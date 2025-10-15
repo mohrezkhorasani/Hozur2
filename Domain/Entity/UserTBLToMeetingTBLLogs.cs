@@ -39,5 +39,6 @@ namespace Domain.Entity
         public string Key{ get; set; }
         public string? Value{ get; set; }
         public string? OS{ get; set; }
+        public string UserMeetID{ get; set; }
     }
 }

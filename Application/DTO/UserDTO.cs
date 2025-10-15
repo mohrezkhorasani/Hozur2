@@ -35,9 +35,25 @@ namespace Application.DTO
         public string? ValueLog { get; set; } //raised hand, microphone opened, microphone closed,file share,screen share open,screen share close,file share close,
         public string? OS { get; set; }
         public string Role { get; set; }
+        public string MeetUserID { get; set; }
     }
 
     public class NewUserMeetingLogResponse : BaseParentResponce
+    {
+
+    }
+    #endregion
+
+    #region NewUserMeetingLogFromModerator
+    public class NewUserMeetingLogFromModeratorRequest : NewUserRequest, IUseCaseRequest<GenericResponse<NewUserMeetingLogFromModeratorResponse>>
+    {
+        public string KeyLog { get; set; } //left,join, activity
+        public string? ValueLog { get; set; } //raised hand, microphone opened, microphone closed,file share,screen share open,screen share close,file share close,
+        public string MeetUserID { get; set; }
+        public string UserExtID { get; set; }
+    }
+
+    public class NewUserMeetingLogFromModeratorResponse : BaseParentResponce
     {
 
     }
@@ -83,6 +99,7 @@ namespace Application.DTO
         public string MeetID { get; set; }
         public string Role { get; set; }
         public string NickName { get; set; }
+        public string MeetUserID { get; set; }
 
     }
 
@@ -195,6 +212,22 @@ namespace Application.DTO
     public class StartMeetingResponse : BaseParentResponce
     {
         public List<MiniRoomJSON> Data = new List<MiniRoomJSON>();
+    }
+    #endregion
+
+    //GetMeetingURL
+    #region GetMeetingURL
+    public class GetMeetingURLRequest : NewUserRequest, IUseCaseRequest<GenericResponse<GetMeetingURLResponse>>
+    {
+        public string MeetiID { get; set; }
+        public string FullName { get; set; }
+        public bool AsModerator { get; set; } = false;
+        public string Password{ get; set; } = "";
+    }
+
+    public class GetMeetingURLResponse : BaseParentResponce
+    {
+        public string Link { get; set; }
     }
     #endregion
 

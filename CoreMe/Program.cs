@@ -51,11 +51,13 @@ builder.Services.AddScoped<INewMeetingUseCase, NewMeetingUseCase>();
 builder.Services.AddScoped<IUpdateMeetingUseCase, UpdateMeetingUseCase>();
 builder.Services.AddScoped<INewUserMettingsUseCase, NewUserMettingsUseCase>();
 builder.Services.AddScoped<INewUserMeetingLogUseCase, NewUserMeetingLogUseCase>();
+builder.Services.AddScoped<INewUserMeetingLogFromModeratorUseCase, NewUserMeetingLogFromModeratorUseCase>();
 builder.Services.AddScoped<IGetTeacherListUseCase, GetTeacherListUseCase>();
 builder.Services.AddScoped<INewRoomUseCase, NewRoomUseCase>();
 builder.Services.AddScoped<IGetRoomByFriendlyIDUseCase, GetRoomByFriendlyIDUseCase>();
 builder.Services.AddScoped<IGetLivesUseCase, GetLivesUseCase>();
 builder.Services.AddScoped<IStartMeetingUseCase, StartMeetingUseCase>();
+builder.Services.AddScoped<IGetMeetingURLUseCase, GetMeetingURLUseCase>();
 builder.Services.AddScoped<IGetRoomsUseCase, GetRoomsUseCase>();
 
 

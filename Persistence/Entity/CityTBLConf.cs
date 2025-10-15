@@ -40,7 +40,7 @@ namespace Presistence.Entities
 
         {
 
-            builder.ToTable("ConfigTBL", "GeneralInfo");
+            builder.ToTable("ConfigTBL");
 
             builder.HasKey(x => x.ID);
 

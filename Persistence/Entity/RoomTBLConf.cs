@@ -40,7 +40,7 @@ namespace Presistence.Entities
 
         {
 
-            builder.ToTable("RoomTBL", "GeneralInfo");
+            builder.ToTable("RoomTBL");
 
             builder.HasKey(x => x.ID);
             builder.Property(x => x.ID).UseIdentityColumn(seed: 25555, increment: 57);

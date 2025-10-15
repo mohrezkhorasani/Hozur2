@@ -26,21 +26,25 @@ namespace CoreMe.Controllers
 
         public INewUserMeetingLogUseCase _INewUserMeetingLogUseCase { get; }
         public ApiPresenter<NewUserMeetingLogResponse> _NewUserMeetingLogResponse { get; }
+      public INewUserMeetingLogFromModeratorUseCase _INewUserMeetingLogFromModeratorUseCase { get; }
+        public ApiPresenter<NewUserMeetingLogFromModeratorResponse> _NewUserMeetingLogFromModeratorResponse { get; }
         public IGetTeacherListUseCase _IGetTeacherListUseCase { get; }
         public ApiPresenter<GetTeacherListResponse> _GetTeacherListResponse { get; }
         public IGetRoomsUseCase _IGetRoomsUseCase { get; }
         public ApiPresenter<GetRoomsResponse> _GetRoomsResponse { get; }
-       public IGetLivesUseCase _IGetLivesUseCase { get; }
+        public IGetLivesUseCase _IGetLivesUseCase { get; }
         public ApiPresenter<GetLivesResponse> _GetLivesResponse { get; }
-     public IStartMeetingUseCase _IStartMeetingUseCase { get; }
+        public IStartMeetingUseCase _IStartMeetingUseCase { get; }
         public ApiPresenter<StartMeetingResponse> _StartMeetingResponse { get; }
+        public IGetMeetingURLUseCase _IGetMeetingURLUseCase { get; }
+        public ApiPresenter<GetMeetingURLResponse> _GetMeetingURLResponse { get; }
         public IGetRoomByFriendlyIDUseCase _IGetRoomByFriendlyIDUseCase { get; }
         public ApiPresenter<GetRoomByFriendlyIDResponse> _GetRoomByFriendlyIDResponse { get; }
 
         public INewRoomUseCase _INewRoomUseCase { get; }
         public ApiPresenter<NewRoomResponse> _NewRoomResponse { get; }
 
-        public BBBController(ILogger<BBBController> logger, IMapper mapper, INewUserUseCase iNewUserUseCase, ApiPresenter<NewUserResponse> newUserResponse, INewMeetingUseCase iNewMeetingUseCase, ApiPresenter<NewMeetingResponse> newMeetingResponse, IUpdateMeetingUseCase iUpdateMeetingUseCase, ApiPresenter<UpdateMeetingResponse> updateMeetingResponse, INewUserMettingsUseCase iNewUserMettingsUseCase, ApiPresenter<NewUserMettingsResponse> newUserMettingsResponse, INewUserMeetingLogUseCase iNewUserMeetingLogUseCase, ApiPresenter<NewUserMeetingLogResponse> newUserMeetingLogResponse, IGetTeacherListUseCase iGetTeacherListUseCase, ApiPresenter<GetTeacherListResponse> getTeacherListResponse, IGetRoomsUseCase iGetRoomsUseCase, ApiPresenter<GetRoomsResponse> getRoomsResponse, IGetLivesUseCase iGetLivesUseCase, ApiPresenter<GetLivesResponse> getLivesResponse, IStartMeetingUseCase iStartMeetingUseCase, ApiPresenter<StartMeetingResponse> startMeetingResponse, IGetRoomByFriendlyIDUseCase iGetRoomByFriendlyIDUseCase, ApiPresenter<GetRoomByFriendlyIDResponse> getRoomByFriendlyIDResponse, INewRoomUseCase iNewRoomUseCase, ApiPresenter<NewRoomResponse> newRoomResponse)
+        public BBBController(ILogger<BBBController> logger, IMapper mapper, INewUserUseCase iNewUserUseCase, ApiPresenter<NewUserResponse> newUserResponse, INewMeetingUseCase iNewMeetingUseCase, ApiPresenter<NewMeetingResponse> newMeetingResponse, IUpdateMeetingUseCase iUpdateMeetingUseCase, ApiPresenter<UpdateMeetingResponse> updateMeetingResponse, INewUserMettingsUseCase iNewUserMettingsUseCase, ApiPresenter<NewUserMettingsResponse> newUserMettingsResponse, INewUserMeetingLogUseCase iNewUserMeetingLogUseCase, ApiPresenter<NewUserMeetingLogResponse> newUserMeetingLogResponse, INewUserMeetingLogFromModeratorUseCase iNewUserMeetingLogFromModeratorUseCase, ApiPresenter<NewUserMeetingLogFromModeratorResponse> newUserMeetingLogFromModeratorResponse, IGetTeacherListUseCase iGetTeacherListUseCase, ApiPresenter<GetTeacherListResponse> getTeacherListResponse, IGetRoomsUseCase iGetRoomsUseCase, ApiPresenter<GetRoomsResponse> getRoomsResponse, IGetLivesUseCase iGetLivesUseCase, ApiPresenter<GetLivesResponse> getLivesResponse, IStartMeetingUseCase iStartMeetingUseCase, ApiPresenter<StartMeetingResponse> startMeetingResponse, IGetMeetingURLUseCase iGetMeetingURLUseCase, ApiPresenter<GetMeetingURLResponse> getMeetingURLResponse, IGetRoomByFriendlyIDUseCase iGetRoomByFriendlyIDUseCase, ApiPresenter<GetRoomByFriendlyIDResponse> getRoomByFriendlyIDResponse, INewRoomUseCase iNewRoomUseCase, ApiPresenter<NewRoomResponse> newRoomResponse)
         {
             _logger = logger;
             _mapper = mapper;
@@ -54,6 +58,8 @@ namespace CoreMe.Controllers
             _NewUserMettingsResponse = newUserMettingsResponse;
             _INewUserMeetingLogUseCase = iNewUserMeetingLogUseCase;
             _NewUserMeetingLogResponse = newUserMeetingLogResponse;
+            _INewUserMeetingLogFromModeratorUseCase = iNewUserMeetingLogFromModeratorUseCase;
+            _NewUserMeetingLogFromModeratorResponse = newUserMeetingLogFromModeratorResponse;
             _IGetTeacherListUseCase = iGetTeacherListUseCase;
             _GetTeacherListResponse = getTeacherListResponse;
             _IGetRoomsUseCase = iGetRoomsUseCase;
@@ -62,6 +68,8 @@ namespace CoreMe.Controllers
             _GetLivesResponse = getLivesResponse;
             _IStartMeetingUseCase = iStartMeetingUseCase;
             _StartMeetingResponse = startMeetingResponse;
+            _IGetMeetingURLUseCase = iGetMeetingURLUseCase;
+            _GetMeetingURLResponse = getMeetingURLResponse;
             _IGetRoomByFriendlyIDUseCase = iGetRoomByFriendlyIDUseCase;
             _GetRoomByFriendlyIDResponse = getRoomByFriendlyIDResponse;
             _INewRoomUseCase = iNewRoomUseCase;
@@ -205,6 +213,21 @@ namespace CoreMe.Controllers
             return _StartMeetingResponse.jsonContentResult;
         }
 
+        [HttpPost("/user/GetMeetingURL")]
+        public async Task<IActionResult> GetMeetingURL(GetMeetingURLViewModel vm)
+        {
+            GetMeetingURLRequest req = new GetMeetingURLRequest
+            {
+                FullName = vm.NickName,
+                MeetiID = vm.MeetID,
+                AsModerator = vm.IsModerator,
+                Password = vm.Password
+            };
+            req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
+            await _IGetMeetingURLUseCase.handleAsync(req, _GetMeetingURLResponse);
+            return _GetMeetingURLResponse.jsonContentResult;
+        }
+
 
         [HttpPost("/user/NewRoom")]
         [EnableCors("AllowHekmateSubdomains")]
@@ -224,6 +247,17 @@ namespace CoreMe.Controllers
             req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
             await _INewUserMeetingLogUseCase.handleAsync(req, _NewUserMeetingLogResponse);
             return _NewUserMeetingLogResponse.jsonContentResult;
+        }
+
+
+        [HttpPost("/user/NewUserMeetingLogFromModerator")]
+        [EnableCors("AllowHekmateSubdomains")]
+        public async Task<IActionResult> NewUserMeetingLogFromModerator(NewUserMeetingLogFromModeratorViewModel vm)
+        {
+            NewUserMeetingLogFromModeratorRequest req = _mapper.Map<NewUserMeetingLogFromModeratorRequest>(vm);
+            req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
+            await _INewUserMeetingLogFromModeratorUseCase.handleAsync(req, _NewUserMeetingLogFromModeratorResponse);
+            return _NewUserMeetingLogFromModeratorResponse.jsonContentResult;
         }
 
 

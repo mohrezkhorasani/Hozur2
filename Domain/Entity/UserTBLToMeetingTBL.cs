@@ -28,6 +28,7 @@ namespace Domain.Entity
         public string? CodeUnique { get; set; }
         public CertificateTBL CertificateTBL { get; set; }
         public string UserNickName{ get; set; }
+        public string UserMeetID{ get; set; }
         public string? Role{ get; set; }
         public List<string> IPList { get; set; } = new List<string>();
         public ICollection<UserTBLToMeetingTBLLogs> UserTBLToMeetingTBLLogs { get; set; }

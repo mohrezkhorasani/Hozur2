@@ -12,6 +12,7 @@ namespace Application.Interface.IInfrastructure
     public interface IBBBGetMeetings
     {
         public Task<List<MiniRoomJSON>> Request(GetLivesRequest req);
-        public Task<bool> CreateMeetingAsync(string meetingID, string meetingName);
+        public Task<MeetJSON> CreateMeetingAsync(string meetingID, string meetingName);
+        public Task<string> GetJoinUrlAsync(string meetingID, string fullName,bool asmoderator, string moderatorPassowrd);
     }
 }

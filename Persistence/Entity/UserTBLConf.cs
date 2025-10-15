@@ -35,7 +35,7 @@ namespace Presistence.Entities
 
         {
 
-            builder.ToTable("UserTBL", "GeneralInfo");
+            builder.ToTable("UserTBL");
 
             builder.HasKey(x => x.ID);
             builder.Property(x => x.ID).UseIdentityColumn(seed: 1111111, increment: 7);

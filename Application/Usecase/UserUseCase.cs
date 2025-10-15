@@ -336,6 +336,7 @@ namespace Application.Usecase
                 Type = UserTBL.MapRoleToType(message.Role),
                 Status = MainEntity_Status.MEETING_STARTED_LATER,
                 Role = message.Role,
+                UserMeetID=message.MeetUserID,
                 IPList = new List<string>() { message.GeneralHeaders.RequestedIP },
                 UserNickName = message.NickName,
                 TimeSpendSeconds = 0,
@@ -420,13 +421,75 @@ namespace Application.Usecase
                 Key = message.KeyLog,
                 Value = message.ValueLog,
                 Explain = message.Role,
+                UserMeetID= message.MeetUserID,
                 IDUserTBLToMeetingTBL = userMeet.ID,
-                OS = message.OS + "/$$" + message.GeneralHeaders.Agent + "/$$" + message.GeneralHeaders.RequestedDevice + "/$$" + message.GeneralHeaders.RefererGoogle
+                OS = message.OS + "/$$" + message.GeneralHeaders.Agent + "/$$" + message.GeneralHeaders.RequestedDevice + "/$$" + message.GeneralHeaders.Referer
             };
             _db.UserTBLToMeetingTBLLogs.Add(log);
             _db.SaveChanges();
 
             outputPort.Handle(new GenericResponse<NewUserMeetingLogResponse>(new NewUserMeetingLogResponse
+            {
+                Message = "ok",
+                Status = 200,
+
+            }));
+
+        }
+    }
+    #endregion
+
+    #region NewUserMeetingLogFromModerator
+    public class NewUserMeetingLogFromModeratorUseCase : INewUserMeetingLogFromModeratorUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IHostingEnvironment hosting;
+
+        public NewUserMeetingLogFromModeratorUseCase(IDBContext repository,
+            IConfiguration configuration)
+        {
+            _db = repository;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+        }
+
+        public async Task handleAsync(NewUserMeetingLogFromModeratorRequest message,
+            IOutPutPort<GenericResponse<NewUserMeetingLogFromModeratorResponse>> outputPort)
+        {
+            var init = await _commonMethods.Initialize<NewUserMeetingLogFromModeratorRequest>(message);
+            var user = init.Item1;
+            var meet = init.Item2;
+
+            if (!UserTBL.TYPE_ALLOWED_LOG_FOR_OTHERS.Contains(user.Type))
+            {
+                outputPort.Handle(new GenericResponse<NewUserMeetingLogFromModeratorResponse>(new NewUserMeetingLogFromModeratorResponse
+                {
+                    Message = "ok",
+                    Status = 403,
+                }));
+                return;
+            }
+            if (_db.UserTBLToMeetingTBLs.Any(e => e.UserMeetID == message.MeetUserID && e.MeetID == meet.MeetID))
+            {
+
+
+                var userMeet = _db.UserTBLToMeetingTBLs
+                    .FirstOrDefault(e => e.MeetID == meet.MeetID && e.UserMeetID == message.MeetUserID);
+                UserTBLToMeetingTBLLogs? log = new UserTBLToMeetingTBLLogs
+                {
+                    Type = UserTBL.MapRoleToType(message.Role),
+                    Status = MainEntity_Status.MEETING_STARTED_LATER,
+                    Key = message.KeyLog,
+                    Value = message.ValueLog,
+                    Explain = message.Role,
+                    UserMeetID=message.MeetUserID,
+                    IDUserTBLToMeetingTBL = userMeet.ID,
+                    OS = message.ExtId + "/$$" + message.GeneralHeaders.Agent + "/$$" + message.GeneralHeaders.RequestedDevice + "/$$" + message.GeneralHeaders.Referer
+                };
+                _db.UserTBLToMeetingTBLLogs.Add(log);
+                _db.SaveChanges();
+            }
+            outputPort.Handle(new GenericResponse<NewUserMeetingLogFromModeratorResponse>(new NewUserMeetingLogFromModeratorResponse
             {
                 Message = "ok",
                 Status = 200,
@@ -463,13 +526,13 @@ namespace Application.Usecase
                 {
                     Message = "You can't access it",
                     Status = 200,
-                    Data = meet.Teacher==null?[]: [new MiniUserJSON{
+                    Data = meet.Teacher == null ? [] : [new MiniUserJSON{
                         Fullname=meet.Teacher.Firstname + " " + meet.Teacher.LastName,
                     }]
                 }));
                 return;
             }
-            
+
             outputPort.Handle(new GenericResponse<GetTeacherListResponse>(new GetTeacherListResponse
             {
                 Message = "ok",
@@ -627,16 +690,16 @@ namespace Application.Usecase
             IOutPutPort<GenericResponse<GetLivesResponse>> outputPort)
         {
             var meets = await IBBBGetMeetings.Request(message);
-            
+
             outputPort.Handle(new GenericResponse<GetLivesResponse>(new GetLivesResponse
             {
                 Message = "ok",
                 Status = 200,
-                Data = meets.Select(e=>new MiniRoomJSON
+                Data = meets.Select(e => new MiniRoomJSON
                 {
-                    RoomID=_db.MeetingTBLs.FirstOrDefault(r => r.MeetID.EndsWith(e.RoomID)).RoomFriendlyID,
-                    Title=e.Title
-                }).ToList() 
+                    RoomID = _db.MeetingTBLs.FirstOrDefault(r => r.MeetID.EndsWith(e.RoomID)).RoomFriendlyID,
+                    Title = e.Title
+                }).ToList()
             }));
 
         }
@@ -662,7 +725,17 @@ namespace Application.Usecase
         public async Task handleAsync(StartMeetingRequest message,
             IOutPutPort<GenericResponse<StartMeetingResponse>> outputPort)
         {
-            var meets = await IBBBGetMeetings.CreateMeetingAsync(message.MeetiID,message.MeetName);
+            var meet = await IBBBGetMeetings.CreateMeetingAsync(message.MeetiID, message.MeetName);
+
+            var meetTBL = _commonMethods.NewMeeting(new MeetingTBL
+            {
+                RoomFriendlyID = message.MeetiID,
+                MeetID = meet.MeetID,
+                Type = MainEntity_Types.Normal,
+                Status = MainEntity_Status.MEETING_STARTED_LATER,
+                JalaliDate = Statics.ToJalaliDate(DateTime.Now),
+                IDCreator = -6000
+            });
 
             outputPort.Handle(new GenericResponse<StartMeetingResponse>(new StartMeetingResponse
             {
@@ -673,4 +746,51 @@ namespace Application.Usecase
         }
     }
     #endregion
+
+    #region GetMeetingURL
+    public class GetMeetingURLUseCase : IGetMeetingURLUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IHostingEnvironment hosting;
+        private IBBBGetMeetings IBBBGetMeetings { get; }
+        public GetMeetingURLUseCase(IDBContext repository,
+            IConfiguration configuration,
+            IBBBGetMeetings bBBGetMeetings
+            )
+        {
+            _db = repository;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+            IBBBGetMeetings = bBBGetMeetings;
+        }
+
+        public async Task handleAsync(GetMeetingURLRequest message,
+            IOutPutPort<GenericResponse<GetMeetingURLResponse>> outputPort)
+        {
+            var listmeet = await IBBBGetMeetings.Request(new GetLivesRequest
+            {
+                GeneralHeaders = message.GeneralHeaders,
+                AllowedGUID = message.AllowedGUID,
+                Email = message.Email,
+                ExtId = message.ExtId,
+                UUID = message.UUID
+            });
+            listmeet.ForEach(e => e.RoomID = _db.MeetingTBLs.Any(r => r.MeetID.EndsWith(e.RoomID)) ? _db.MeetingTBLs.FirstOrDefault(r => r.MeetID.EndsWith(e.RoomID)).RoomFriendlyID : e.RoomID);
+
+
+            var meets = await IBBBGetMeetings.GetJoinUrlAsync(message.MeetiID, message.FullName, message.AsModerator, message.Password);
+
+            outputPort.Handle(new GenericResponse<GetMeetingURLResponse>(new GetMeetingURLResponse
+            {
+                Message = "ok",
+                Status = 200,
+                Link = meets
+            }));
+
+        }
+    }
+    #endregion
+
+
+
 }

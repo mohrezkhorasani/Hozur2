@@ -40,7 +40,7 @@ namespace Presistence.Entities
 
         {
 
-            builder.ToTable("CertificateTBL", "GeneralInfo");
+            builder.ToTable("CertificateTBL");
 
             builder.HasKey(x => x.ID);
             builder.Property(x => x.ID).UseIdentityColumn(seed: 111111111111, increment: 777);

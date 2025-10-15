@@ -40,7 +40,7 @@ namespace Presistence.Entities
 
         {
 
-            builder.ToTable("UserTBLToMeetingTBLLogs", "GeneralInfo");
+            builder.ToTable("UserTBLToMeetingTBLLogs");
 
             builder.HasKey(x => x.ID);
             builder.Property(x => x.ID).UseIdentityColumn(seed: 1111112, increment: 2);

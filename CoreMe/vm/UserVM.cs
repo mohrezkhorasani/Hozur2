@@ -107,54 +107,64 @@ namespace CoreMe.VM
             }
         }
 
-    public static bool IsValidPersianDate(string input)
-    {
-        try
+        public static bool IsValidPersianDate(string input)
         {
-            // جدا کردن بخش‌ها
-            var parts = input.Split('-');
-            if (parts.Length != 3) return false;
+            try
+            {
+                // جدا کردن بخش‌ها
+                var parts = input.Split('-');
+                if (parts.Length != 3) return false;
 
-            int year = int.Parse(parts[0]);
-            string monthName = parts[1];
-            int day = int.Parse(parts[2]);
+                int year = int.Parse(parts[0]);
+                string monthName = parts[1];
+                int day = int.Parse(parts[2]);
 
-            // لیست ماه‌های فارسی
-            string[] months = {
+                // لیست ماه‌های فارسی
+                string[] months = {
                 "فروردین","اردیبهشت","خرداد",
                 "تیر","مرداد","شهریور",
                 "مهر","آبان","آذر",
                 "دی","بهمن","اسفند"
             };
 
-            int month = Array.IndexOf(months, monthName) + 1;
-            if (month == 0) return false; // ماه نامعتبر
+                int month = Array.IndexOf(months, monthName) + 1;
+                if (month == 0) return false; // ماه نامعتبر
 
-            // استفاده از PersianCalendar برای اعتبارسنجی
-            PersianCalendar pc = new PersianCalendar();
-            DateTime dt = pc.ToDateTime(year, month, day, 0, 0, 0, 0);
+                // استفاده از PersianCalendar برای اعتبارسنجی
+                PersianCalendar pc = new PersianCalendar();
+                DateTime dt = pc.ToDateTime(year, month, day, 0, 0, 0, 0);
 
-            // اگه به خطا نخورد یعنی تاریخ معتبره
-            return true;
+                // اگه به خطا نخورد یعنی تاریخ معتبره
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
         }
-        catch
-        {
-            return false;
-        }
-    }
         private bool IsPersianText(string input)
         {
             // محدوده یونیکد حروف فارسی \u0600 تا \u06FF
             return Regex.IsMatch(input, @"^[\u0600-\u06FF\s]+$");
         }
     }
-
+    public class GetMeetingURLViewModel : UserMainVM
+    {
+        [DefaultValue("u65-al5-bnp-tgm")]
+        public string MeetID { get; set; }
+        [DefaultValue(false)]
+        public bool IsModerator{ get; set; }
+        public string Password { get; set; }
+        [DefaultValue("مجمع عالی حکمت اسلامی")]
+        public string NickName { get; set; }
+    }
 
     public class NewUserMettingsViewModel : UserMainVM
     {
         public string MeetID { get; set; }
         public string Role { get; set; }
         public string NickName { get; set; }
+        public string MeetUserID { get; set; }
     }
 
 
@@ -183,6 +193,15 @@ namespace CoreMe.VM
         public string? ValueLog { get; set; } //raised hand, microphone opened, microphone closed,file share,screen share open,screen share close,file share close,
         public string? OS { get; set; } 
         public string Role { get; set; }    
+        public string MeetUserID { get; set; }    
+    }
+    public class NewUserMeetingLogFromModeratorViewModel : UserMainVM
+    {
+        public string KeyLog { get; set; } //left,join, activity
+        public string? ValueLog { get; set; } //raised hand, microphone opened, microphone closed,file share,screen share open,screen share close,file share close,
+        public string MeetUserID { get; set; }   
+        public string UserExtID { get; set; }
+
     }
 
 }

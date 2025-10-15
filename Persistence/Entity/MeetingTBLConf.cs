@@ -37,10 +37,9 @@ namespace Presistence.Entities
     {
 
         public void Configure(EntityTypeBuilder<MeetingTBL> builder)
-
         {
 
-            builder.ToTable("MeetingTBL", "GeneralInfo");
+            builder.ToTable("MeetingTBL");
 
             builder.HasKey(x => x.ID);
 
