@@ -40,6 +40,25 @@ namespace Application.General
         {
             return ((price * decentPercent) / 100);
         }
+        public static string ToPersianNumbers(string input)
+        {
+            if (string.IsNullOrEmpty(input))
+                return input;
+
+            char[] persianDigits = { '۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹' };
+            char[] result = input.ToCharArray();
+
+            for (int i = 0; i < result.Length; i++)
+            {
+                if (char.IsDigit(result[i]))
+                {
+                    // '0' در یونیکد 48 است
+                    result[i] = persianDigits[result[i] - '0'];
+                }
+            }
+
+            return new string(result);
+        }
         public static string DecodeUrlString(string url)
         {
             try

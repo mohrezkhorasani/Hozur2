@@ -141,10 +141,12 @@ namespace Application.DTO
     #region GuarantCertificate
     public class GuarantCertificateRequest : NewUserRequest, IUseCaseRequest<GenericResponse<GuarantCertificateResponse>>
     {
+
     }
 
     public class GuarantCertificateResponse : BaseParentResponce
     {
+        public long Number{ get; set; }
     }
     #endregion
 
@@ -231,8 +233,21 @@ namespace Application.DTO
     }
     #endregion
 
+    //Add Teacher 
+    #region GenerateCertificate
+    public class GenerateCertificateRequest : NewUserRequest, IUseCaseRequest<GenericResponse<GenerateCertificateResponse>>
+    {
+        public string? Date { get; set; }
+        public string? MeetID { get; set; }
+        public string? Teacher{ get; set; }
+    }
 
-    //GuarantCertificate
+    public class GenerateCertificateResponse : BaseParentResponce
+    {
+    }
+    #endregion
+
+
 
     //GetCertificateFile
 

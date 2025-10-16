@@ -4,6 +4,7 @@ using Application.Interfaces;
 using Application.Usecase;
 using AutoMapper;
 using Infrastructure.API;
+using Infrastructure.Word;
 using Microsoft.EntityFrameworkCore;
 using Presenter;
 using Presistence.Entities;
@@ -54,6 +55,7 @@ builder.Services.AddScoped<INewUserMeetingLogUseCase, NewUserMeetingLogUseCase>(
 builder.Services.AddScoped<INewUserMeetingLogFromModeratorUseCase, NewUserMeetingLogFromModeratorUseCase>();
 builder.Services.AddScoped<IGetTeacherListUseCase, GetTeacherListUseCase>();
 builder.Services.AddScoped<INewRoomUseCase, NewRoomUseCase>();
+builder.Services.AddScoped<IGenerateCertificateUseCase, GenerateCertificateUseCase>();
 builder.Services.AddScoped<IGetRoomByFriendlyIDUseCase, GetRoomByFriendlyIDUseCase>();
 builder.Services.AddScoped<IGetLivesUseCase, GetLivesUseCase>();
 builder.Services.AddScoped<IStartMeetingUseCase, StartMeetingUseCase>();
@@ -64,6 +66,12 @@ builder.Services.AddScoped<IGetRoomsUseCase, GetRoomsUseCase>();
 
 #region Infrustructure
 builder.Services.AddScoped<IBBBGetMeetings, BBBGetMeeting>();
+builder.Services.AddScoped<IWordService>(sp =>
+{
+    var env = sp.GetRequiredService<IWebHostEnvironment>();
+    var wwwroot = env.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+    return new WordService(wwwroot);
+});
 #endregion
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle

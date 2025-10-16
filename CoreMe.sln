@@ -19,6 +19,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Infrastructure", "Infrastru
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Core", "Core", "{2C2F35D6-C1F2-4996-8184-22A978F207AE}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OfficeHelpper", "OfficeHelpper\OfficeHelpper.csproj", "{3322A30B-D190-4683-AB62-5826EBBDB9FA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -45,6 +47,10 @@ Global
 		{14D40B50-8C22-4B3F-B215-1DFF8EBDE3E4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{14D40B50-8C22-4B3F-B215-1DFF8EBDE3E4}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{14D40B50-8C22-4B3F-B215-1DFF8EBDE3E4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3322A30B-D190-4683-AB62-5826EBBDB9FA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3322A30B-D190-4683-AB62-5826EBBDB9FA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3322A30B-D190-4683-AB62-5826EBBDB9FA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3322A30B-D190-4683-AB62-5826EBBDB9FA}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -55,6 +61,7 @@ Global
 		{16AF928F-EA0B-4AFB-B0EA-B5D116B7F2C3} = {2C2F35D6-C1F2-4996-8184-22A978F207AE}
 		{DBC8002C-711C-4EB8-B9C4-61127C23556D} = {967506B0-51A9-4A59-9664-C3AEF0800419}
 		{14D40B50-8C22-4B3F-B215-1DFF8EBDE3E4} = {967506B0-51A9-4A59-9664-C3AEF0800419}
+		{3322A30B-D190-4683-AB62-5826EBBDB9FA} = {2C2F35D6-C1F2-4996-8184-22A978F207AE}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {A53ABC9D-DAF8-4B86-B792-07B2A7EC4399}

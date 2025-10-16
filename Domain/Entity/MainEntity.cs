@@ -22,7 +22,10 @@
         USER_ACTIVE = 500,
         USER_ACTIVATED_BY_JOINING_MEETING = 501,
         USER_ACTIVATED_BY_CREATING_MEETING = 502,
-        USER_DEACTIVE = -500
+        USER_DEACTIVE = -500,
+        //Certificates
+        CERT_FULL = 600,
+        CERT_MEDIUM = 601
     }   
     public enum MainEntity_Types
     {
@@ -38,6 +41,9 @@
         USER_CREATOR = 506,
         USER_VIEWER = 507,
         USER_TEACHER = 508,
+
+        //cert
+        CERT_NORMAL = 600
     }
     public interface MainEntity
     {

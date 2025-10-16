@@ -19,7 +19,7 @@ namespace Application.Usecase
     {
         public IDBContext _repository { get; }
         public CommonMethods _commonMethods { get; }
-        private IHostingEnvironment hosting;
+        private IWebHostEnvironment hosting;
 
         public ApplicationVersionUseCase(IDBContext repository,
             IConfiguration configuration)

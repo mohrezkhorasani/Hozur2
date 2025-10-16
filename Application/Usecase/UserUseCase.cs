@@ -10,9 +10,15 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using QuestPDF.Fluent;
+using QuestPDF.Infrastructure;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.Metrics;
+using System.Drawing;
+using System.IO;
 using System.Linq;
+using System.Reflection.Metadata;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -23,7 +29,7 @@ namespace Application.Usecase
     {
         public IDBContext _db { get; }
         public CommonMethods _commonMethods { get; }
-        private IHostingEnvironment hosting;
+        private IWebHostEnvironment hosting;
 
         public NewUserUseCase(IDBContext repository,
             IConfiguration configuration)
@@ -72,7 +78,7 @@ namespace Application.Usecase
     {
         public IDBContext _db { get; }
         public CommonMethods _commonMethods { get; }
-        private IHostingEnvironment hosting;
+        private IWebHostEnvironment hosting;
 
         public NewMeetingUseCase(IDBContext repository,
             IConfiguration configuration)
@@ -180,7 +186,7 @@ namespace Application.Usecase
     {
         public IDBContext _db { get; }
         public CommonMethods _commonMethods { get; }
-        private IHostingEnvironment hosting;
+        private IWebHostEnvironment hosting;
 
         public UpdateMeetingUseCase(IDBContext repository,
             IConfiguration configuration)
@@ -283,7 +289,7 @@ namespace Application.Usecase
     {
         public IDBContext _db { get; }
         public CommonMethods _commonMethods { get; }
-        private IHostingEnvironment hosting;
+        private IWebHostEnvironment hosting;
 
         public NewUserMettingsUseCase(IDBContext repository,
             IConfiguration configuration)
@@ -336,7 +342,7 @@ namespace Application.Usecase
                 Type = UserTBL.MapRoleToType(message.Role),
                 Status = MainEntity_Status.MEETING_STARTED_LATER,
                 Role = message.Role,
-                UserMeetID=message.MeetUserID,
+                UserMeetID = message.MeetUserID,
                 IPList = new List<string>() { message.GeneralHeaders.RequestedIP },
                 UserNickName = message.NickName,
                 TimeSpendSeconds = 0,
@@ -397,7 +403,7 @@ namespace Application.Usecase
     {
         public IDBContext _db { get; }
         public CommonMethods _commonMethods { get; }
-        private IHostingEnvironment hosting;
+        private IWebHostEnvironment hosting;
 
         public NewUserMeetingLogUseCase(IDBContext repository,
             IConfiguration configuration)
@@ -421,7 +427,7 @@ namespace Application.Usecase
                 Key = message.KeyLog,
                 Value = message.ValueLog,
                 Explain = message.Role,
-                UserMeetID= message.MeetUserID,
+                UserMeetID = message.MeetUserID,
                 IDUserTBLToMeetingTBL = userMeet.ID,
                 OS = message.OS + "/$$" + message.GeneralHeaders.Agent + "/$$" + message.GeneralHeaders.RequestedDevice + "/$$" + message.GeneralHeaders.Referer
             };
@@ -444,7 +450,7 @@ namespace Application.Usecase
     {
         public IDBContext _db { get; }
         public CommonMethods _commonMethods { get; }
-        private IHostingEnvironment hosting;
+        private IWebHostEnvironment hosting;
 
         public NewUserMeetingLogFromModeratorUseCase(IDBContext repository,
             IConfiguration configuration)
@@ -482,7 +488,7 @@ namespace Application.Usecase
                     Key = message.KeyLog,
                     Value = message.ValueLog,
                     Explain = message.Role,
-                    UserMeetID=message.MeetUserID,
+                    UserMeetID = message.MeetUserID,
                     IDUserTBLToMeetingTBL = userMeet.ID,
                     OS = message.ExtId + "/$$" + message.GeneralHeaders.Agent + "/$$" + message.GeneralHeaders.RequestedDevice + "/$$" + message.GeneralHeaders.Referer
                 };
@@ -505,7 +511,7 @@ namespace Application.Usecase
     {
         public IDBContext _db { get; }
         public CommonMethods _commonMethods { get; }
-        private IHostingEnvironment hosting;
+        private IWebHostEnvironment hosting;
 
         public GetTeacherListUseCase(IDBContext repository,
             IConfiguration configuration)
@@ -555,7 +561,7 @@ namespace Application.Usecase
     {
         public IDBContext _db { get; }
         public CommonMethods _commonMethods { get; }
-        private IHostingEnvironment hosting;
+        private IWebHostEnvironment hosting;
 
         public NewRoomUseCase(IDBContext repository,
             IConfiguration configuration)
@@ -607,7 +613,7 @@ namespace Application.Usecase
     {
         public IDBContext _db { get; }
         public CommonMethods _commonMethods { get; }
-        private IHostingEnvironment hosting;
+        private IWebHostEnvironment hosting;
 
         public GetRoomsUseCase(IDBContext repository,
             IConfiguration configuration)
@@ -640,7 +646,7 @@ namespace Application.Usecase
     {
         public IDBContext _db { get; }
         public CommonMethods _commonMethods { get; }
-        private IHostingEnvironment hosting;
+        private IWebHostEnvironment hosting;
 
         public GetRoomByFriendlyIDUseCase(IDBContext repository,
             IConfiguration configuration)
@@ -674,7 +680,7 @@ namespace Application.Usecase
     {
         public IDBContext _db { get; }
         public CommonMethods _commonMethods { get; }
-        private IHostingEnvironment hosting;
+        private IWebHostEnvironment hosting;
         private IBBBGetMeetings IBBBGetMeetings { get; }
         public GetLivesUseCase(IDBContext repository,
             IConfiguration configuration,
@@ -710,7 +716,7 @@ namespace Application.Usecase
     {
         public IDBContext _db { get; }
         public CommonMethods _commonMethods { get; }
-        private IHostingEnvironment hosting;
+        private IWebHostEnvironment hosting;
         private IBBBGetMeetings IBBBGetMeetings { get; }
         public StartMeetingUseCase(IDBContext repository,
             IConfiguration configuration,
@@ -752,7 +758,7 @@ namespace Application.Usecase
     {
         public IDBContext _db { get; }
         public CommonMethods _commonMethods { get; }
-        private IHostingEnvironment hosting;
+        private IWebHostEnvironment hosting;
         private IBBBGetMeetings IBBBGetMeetings { get; }
         public GetMeetingURLUseCase(IDBContext repository,
             IConfiguration configuration,
@@ -791,6 +797,159 @@ namespace Application.Usecase
     }
     #endregion
 
+    #region GuarantCertificate
+    public class GuarantCertificateUseCase : IGuarantCertificateUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        public IWordService WordService { get; }
+        private IBBBGetMeetings IBBBGetMeetings { get; }
+        public GuarantCertificateUseCase(IDBContext repository,
+            IConfiguration configuration,
+            IBBBGetMeetings bBBGetMeetings,
+            IWordService WordService
+            )
+        {
+            _db = repository;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+            IBBBGetMeetings = bBBGetMeetings;
+            this.WordService = WordService;
+        }
 
+        public async Task handleAsync(GuarantCertificateRequest message,
+            IOutPutPort<GenericResponse<GuarantCertificateResponse>> outputPort)
+        {
+            var init = await _commonMethods.Initialize<GuarantCertificateRequest>(message);
+            var user = init.Item1;
+            var meet = init.Item2;
+
+
+            var check = await _commonMethods.CheckGuaranteedUser(user, meet);
+            if (!check.Item1)
+            {
+
+                outputPort.Handle(new GenericResponse<GuarantCertificateResponse>(new GuarantCertificateResponse
+                {
+                    Message = check.Item2,
+                    Status = 403,
+                }));
+                return;
+            }
+            var um = _db.UserTBLToMeetingTBLs.FirstOrDefault(e => e.MeetID == meet.MeetID && e.UUID == user.UUID);
+
+            CertificateTBL cert = null;
+            if (_db.CertificateTBLs.Any(e => e.IDUserTBLToMeetingTBL == um.ID))
+            {
+                cert = await _db.CertificateTBLs.FirstOrDefaultAsync(e => e.IDUserTBLToMeetingTBL == um.ID);
+            }
+            else
+            {
+                cert = new CertificateTBL
+                {
+                    Status = MainEntity_Status.CERT_FULL,
+                    Type = MainEntity_Types.CERT_NORMAL,
+                    Title = "گواهینامه حضور در جلسه",
+                    IDUserTBLToMeetingTBL = um.ID,
+                    Validation= check.Item1
+                };
+                _db.CertificateTBLs.Add(cert);
+                _db.SaveChanges();
+            }
+
+            string role = "شرکت‌کننده";
+            if (um.Role == "MODERATOR")
+            {
+                role = "مدرس";
+            }
+
+
+
+
+            var wwwroot = hosting.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+            var fontPath = "IranNastaliq";
+            var inputFile = Path.Combine(wwwroot, "pdf", "sample.docx");
+            var bgpath = Path.Combine(wwwroot, "bg.png");
+            var outputPath = Path.Combine(wwwroot, "pdf", $"{meet.ID}-{user.ID}.pdf");
+
+            var esultPath= WordService.CreateCertificatePdf(outputPath, fontPath, bgpath, um.UserNickName, meet.Title, meet.JalaliDate, role, um.ID.ToString());
+            cert.FileURL = "https://hek-either.ir/";
+            cert.FilePath = Path.Combine("pdf", $"{meet.ID}-{user.ID}.pdf");
+
+            outputPort.Handle(new GenericResponse<GuarantCertificateResponse>(new GuarantCertificateResponse
+            {
+                Message = "ok",
+                Status = 200,
+                Number=um.ID
+            }));
+
+        }
+    }
+    #endregion
+
+
+    #region GenerateCertificate
+    public class GenerateCertificateUseCase : IGenerateCertificateUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        public IWordService WordService { get; }
+        private IWebHostEnvironment _env;
+
+        public GenerateCertificateUseCase(IDBContext repository,
+            IConfiguration configuration, IWordService wordService,
+            IWebHostEnvironment hosting
+            )
+        {
+            _db = repository;
+            _env = hosting;
+            _commonMethods = new CommonMethods(configuration, repository, _env);
+            WordService = wordService;
+        }
+
+        public async Task handleAsync(GenerateCertificateRequest message,
+            IOutPutPort<GenericResponse<GenerateCertificateResponse>> outputPort)
+        {
+            var init = await _commonMethods.Initialize<GenerateCertificateRequest>(message);
+            var user = init.Item1;
+            var meet = init.Item2;
+            var checkCert = await _commonMethods.CheckGuaranteedUser(user, meet);
+            if (!checkCert.Item1)
+            {
+                outputPort.Handle(new GenericResponse<GenerateCertificateResponse>(new GenerateCertificateResponse
+                {
+                    Message = checkCert.Item2,
+                    Status = 200,
+                }));
+                return;
+            }
+            var um = _db.UserTBLToMeetingTBLs.FirstOrDefault(e => e.MeetID == meet.MeetID && e.UUID == user.UUID);
+            string role = "شرکت‌کننده";
+            if (um.Role == "MODERATOR")
+            {
+                role = "مدرس";
+            }
+            var wwwroot = _env.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+            var fontPath = "IranNastaliq";
+            var inputFile = Path.Combine(wwwroot, "pdf", "sample.docx");
+            var bgpath = Path.Combine(wwwroot, "bg.png");
+            var outputPath = Path.Combine(wwwroot, "pdf", "output2.pdf");
+
+
+
+            WordService.CreateCertificatePdf(outputPath, fontPath, bgpath, um.UserNickName, meet.Title, meet.JalaliDate,);
+
+            outputPort.Handle(new GenericResponse<GenerateCertificateResponse>(new GenerateCertificateResponse
+            {
+                Message = "ok",
+                Status = 200,
+            }));
+
+        }
+
+      
+
+    }
+    #endregion
 
 }

@@ -43,8 +43,10 @@ namespace CoreMe.Controllers
 
         public INewRoomUseCase _INewRoomUseCase { get; }
         public ApiPresenter<NewRoomResponse> _NewRoomResponse { get; }
+        public IGenerateCertificateUseCase _IGenerateCertificateUseCase { get; }
+        public ApiPresenter<GenerateCertificateResponse> _GenerateCertificateResponse { get; }
 
-        public BBBController(ILogger<BBBController> logger, IMapper mapper, INewUserUseCase iNewUserUseCase, ApiPresenter<NewUserResponse> newUserResponse, INewMeetingUseCase iNewMeetingUseCase, ApiPresenter<NewMeetingResponse> newMeetingResponse, IUpdateMeetingUseCase iUpdateMeetingUseCase, ApiPresenter<UpdateMeetingResponse> updateMeetingResponse, INewUserMettingsUseCase iNewUserMettingsUseCase, ApiPresenter<NewUserMettingsResponse> newUserMettingsResponse, INewUserMeetingLogUseCase iNewUserMeetingLogUseCase, ApiPresenter<NewUserMeetingLogResponse> newUserMeetingLogResponse, INewUserMeetingLogFromModeratorUseCase iNewUserMeetingLogFromModeratorUseCase, ApiPresenter<NewUserMeetingLogFromModeratorResponse> newUserMeetingLogFromModeratorResponse, IGetTeacherListUseCase iGetTeacherListUseCase, ApiPresenter<GetTeacherListResponse> getTeacherListResponse, IGetRoomsUseCase iGetRoomsUseCase, ApiPresenter<GetRoomsResponse> getRoomsResponse, IGetLivesUseCase iGetLivesUseCase, ApiPresenter<GetLivesResponse> getLivesResponse, IStartMeetingUseCase iStartMeetingUseCase, ApiPresenter<StartMeetingResponse> startMeetingResponse, IGetMeetingURLUseCase iGetMeetingURLUseCase, ApiPresenter<GetMeetingURLResponse> getMeetingURLResponse, IGetRoomByFriendlyIDUseCase iGetRoomByFriendlyIDUseCase, ApiPresenter<GetRoomByFriendlyIDResponse> getRoomByFriendlyIDResponse, INewRoomUseCase iNewRoomUseCase, ApiPresenter<NewRoomResponse> newRoomResponse)
+        public BBBController(ILogger<BBBController> logger, IMapper mapper, INewUserUseCase iNewUserUseCase, ApiPresenter<NewUserResponse> newUserResponse, INewMeetingUseCase iNewMeetingUseCase, ApiPresenter<NewMeetingResponse> newMeetingResponse, IUpdateMeetingUseCase iUpdateMeetingUseCase, ApiPresenter<UpdateMeetingResponse> updateMeetingResponse, INewUserMettingsUseCase iNewUserMettingsUseCase, ApiPresenter<NewUserMettingsResponse> newUserMettingsResponse, INewUserMeetingLogUseCase iNewUserMeetingLogUseCase, ApiPresenter<NewUserMeetingLogResponse> newUserMeetingLogResponse, INewUserMeetingLogFromModeratorUseCase iNewUserMeetingLogFromModeratorUseCase, ApiPresenter<NewUserMeetingLogFromModeratorResponse> newUserMeetingLogFromModeratorResponse, IGetTeacherListUseCase iGetTeacherListUseCase, ApiPresenter<GetTeacherListResponse> getTeacherListResponse, IGetRoomsUseCase iGetRoomsUseCase, ApiPresenter<GetRoomsResponse> getRoomsResponse, IGetLivesUseCase iGetLivesUseCase, ApiPresenter<GetLivesResponse> getLivesResponse, IStartMeetingUseCase iStartMeetingUseCase, ApiPresenter<StartMeetingResponse> startMeetingResponse, IGetMeetingURLUseCase iGetMeetingURLUseCase, ApiPresenter<GetMeetingURLResponse> getMeetingURLResponse, IGetRoomByFriendlyIDUseCase iGetRoomByFriendlyIDUseCase, ApiPresenter<GetRoomByFriendlyIDResponse> getRoomByFriendlyIDResponse, INewRoomUseCase iNewRoomUseCase, ApiPresenter<NewRoomResponse> newRoomResponse, IGenerateCertificateUseCase iGenerateCertificateUseCase, ApiPresenter<GenerateCertificateResponse> generateCertificateResponse)
         {
             _logger = logger;
             _mapper = mapper;
@@ -74,7 +76,10 @@ namespace CoreMe.Controllers
             _GetRoomByFriendlyIDResponse = getRoomByFriendlyIDResponse;
             _INewRoomUseCase = iNewRoomUseCase;
             _NewRoomResponse = newRoomResponse;
+            _IGenerateCertificateUseCase = iGenerateCertificateUseCase;
+            _GenerateCertificateResponse = generateCertificateResponse;
         }
+
 
 
 
@@ -237,6 +242,17 @@ namespace CoreMe.Controllers
             req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
             await _INewRoomUseCase.handleAsync(req, _NewRoomResponse);
             return _NewRoomResponse.jsonContentResult;
+        }
+
+
+        [HttpPost("/user/GenerateCertificate")]
+        [EnableCors("AllowHekmateSubdomains")]
+        public async Task<IActionResult> GenerateCertificate(GenerateCertificateViewModel vm)
+        {
+            GenerateCertificateRequest req = _mapper.Map<GenerateCertificateRequest>(vm);
+            req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
+            await _IGenerateCertificateUseCase.handleAsync(req, _GenerateCertificateResponse);
+            return _GenerateCertificateResponse.jsonContentResult;
         }
 
         [HttpPost("/user/NewUserMeetingLog")]

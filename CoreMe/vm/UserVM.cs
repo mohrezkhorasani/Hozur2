@@ -187,6 +187,12 @@ namespace CoreMe.VM
         public string FriendlyID { get; set; }
         public string? Room { get; set; }
     }
+    public class GenerateCertificateViewModel : UserMainVM
+    {
+        public string? Date { get; set; }
+        public string? MeetID { get; set; }
+        public string? Teacher { get; set; }
+    }
     public class NewUserMeetingLogViewModel : UserMainVM
     {
         public string KeyLog { get; set; } //left,join, activity

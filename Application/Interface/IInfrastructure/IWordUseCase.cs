@@ -1,0 +1,13 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Application.Interface.IInfrastructure
+{
+    public interface IWordService
+    {
+        string CreateCertificatePdf(string pdfPath, string fontPath, string bgImagePath, string Name, string title, string date, string role, string number);
+    }
+}

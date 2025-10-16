@@ -31,7 +31,9 @@ public class MappingProfile : Profile
         
         CreateMap<NewUserMeetingLogFromModeratorViewModel, NewUserMeetingLogFromModeratorRequest>()
                  .ForMember(dest => dest.GeneralHeaders, opt => opt.Ignore());
-        
+
+        CreateMap<GenerateCertificateViewModel, GenerateCertificateRequest>()
+          .ForMember(dest => dest.GeneralHeaders, opt => opt.Ignore());
 
     }
 }

@@ -16,6 +16,8 @@ namespace Application.Interface.IUsecase
     public interface IGetLivesUseCase : IUseCaseRequestHandler<GetLivesRequest, GenericResponse<GetLivesResponse>> { }
     public interface IStartMeetingUseCase : IUseCaseRequestHandler<StartMeetingRequest, GenericResponse<StartMeetingResponse>> { }
     public interface IGetMeetingURLUseCase : IUseCaseRequestHandler<GetMeetingURLRequest, GenericResponse<GetMeetingURLResponse>> { }
+    public interface IGuarantCertificateUseCase : IUseCaseRequestHandler<GuarantCertificateRequest, GenericResponse<GuarantCertificateResponse>> { }
     public interface IGetRoomByFriendlyIDUseCase : IUseCaseRequestHandler<GetRoomByFriendlyIDRequest, GenericResponse<GetRoomByFriendlyIDResponse>> { }
     public interface INewRoomUseCase : IUseCaseRequestHandler<NewRoomRequest, GenericResponse<NewRoomResponse>> { }
+    public interface IGenerateCertificateUseCase : IUseCaseRequestHandler<GenerateCertificateRequest, GenericResponse<GenerateCertificateResponse>> { }
 }

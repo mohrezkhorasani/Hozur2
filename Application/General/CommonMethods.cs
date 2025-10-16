@@ -18,23 +18,22 @@ namespace Application.General
         public IConfiguration _configuration { get; }
         public IDBContext _db { get; }
         public IDBContext _db1 { get; }
-        private IHostingEnvironment _hosting;
+        private IWebHostEnvironment _hosting;
 
-        public CommonMethods(IConfiguration configuration, IDBContext db, IHostingEnvironment hosting)
+        public CommonMethods(IConfiguration configuration, IDBContext db, IWebHostEnvironment hosting)
         {
             _configuration = configuration;
             _db = db;
             _hosting = hosting;
         }
 
-        public CommonMethods(IConfiguration configuration, IDBContext db, IDBContext db1, IHostingEnvironment hosting)
+        public CommonMethods(IConfiguration configuration, IDBContext db, IDBContext db1, IWebHostEnvironment hosting)
         {
             _configuration = configuration;
             _db = db;
             _db1 = db1;
             _hosting = hosting;
         }
-
         public async Task<(UserTBL, MeetingTBL)> Initialize<T>(T message)
         where T : NewUserRequest
         {
@@ -132,6 +131,10 @@ namespace Application.General
             if (user.ID == null) return false;
             if (user.AllowedGUID.Any(e => e.ToString() == q)) return true;
             return false;
+        }
+        public async Task<(bool,string)> CheckGuaranteedUser(UserTBL user, MeetingTBL meet)
+        {
+            return (true, "ok"); 
         }
 
         public async Task<bool> CheckUserAccessibilityToMeet(UserTBL user, MeetingTBL meet, string action = "")
