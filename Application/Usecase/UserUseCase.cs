@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Org.BouncyCastle.Utilities.Encoders;
 using QuestPDF.Fluent;
 using QuestPDF.Infrastructure;
 using System;
@@ -997,8 +998,11 @@ namespace Application.Usecase
 
 
 
-                var resultPath = WordService.CreateCertificatePdf(outputPath, fontPath, bgpath, um.UserNickName , meet.RoomTBL.Title, meet.Title,
-                        Statics.ConvertPersianMonthToNumber(meet.JalaliDate).Replace("-", "/"), role, um.ID.ToString()); cert.FileURL = "https://vc.hekmateislami.com/";
+                var resultPath = WordService.CreateCertificatePdf(outputPath, fontPath, bgpath, um.UserNickName , message.NationalCode, message.Sex,
+                    meet.RoomTBL.Title, meet.Title,Statics.ConvertPersianMonthToNumber(meet.JalaliDate).Replace("-", "/"),
+                    role, um.ID.ToString()); 
+
+                cert.FileURL = "https://vc.hekmateislami.com/";
 
                 //string compressedPath = PdfCompressor.CompressPdf(@$"{outputPath}");
 

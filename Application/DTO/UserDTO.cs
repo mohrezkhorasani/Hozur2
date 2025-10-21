@@ -238,6 +238,7 @@ namespace Application.DTO
     public class GenerateCertificateRequest : NewUserRequest, IUseCaseRequest<GenericResponse<GenerateCertificateResponse>>
     {
         public string NationalCode { get; set; }
+        public bool Sex { get; set; }//True = MALE //FALSE = FEMALE
     }
 
     public class GenerateCertificateResponse : BaseParentResponce

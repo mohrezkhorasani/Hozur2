@@ -22,13 +22,17 @@ namespace Infrastructure.Word
             _wwwroot = wwwroot;
         }
 
-        public string CreateCertificatePdf(string pdfPath, string fontPath, string bgImagePath, string Name,string category, string title, string date, string role, string number)
+        public string CreateCertificatePdf(string pdfPath, string fontPath, string bgImagePath, string Name,
+            bool isMale,string NationalCode, string category, string title, string date, string role, string number)
         {
             QuestPDF.Settings.License = LicenseType.Community;
             // متن‌ها
             var date1 = Statics.ToPersianNumbers($"{number}");
             var date2 = Statics.ToPersianNumbers($"{date}");
-            var lineIntroductionUser = $@"بدین وسیله گواهی می‌شود جناب‌آقای/سرکارخانم {Name} در   {category}  " + (!string.IsNullOrEmpty(title) ? " با موضوع " : "");
+            string sex = "جناب آقای";
+            if (!isMale)
+                sex = "سرکار خانم";
+            var lineIntroductionUser = $@"بدین وسیله گواهی می‌شود {sex} {Name} با کد ملی {Statics.ToPersianNumbers(NationalCode)} در   {category}  " + (!string.IsNullOrEmpty(title) ? " با موضوع " : "");
             var lineTitleOfMeet = title;
             var lineDateTitle = "که در تاریخ ";
             var lineDateValue = Statics.ToPersianNumbers($"       {date}       ");

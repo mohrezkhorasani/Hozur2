@@ -153,7 +153,7 @@ namespace CoreMe.VM
         [DefaultValue("u65-al5-bnp-tgm")]
         public string MeetID { get; set; }
         [DefaultValue(false)]
-        public bool IsModerator{ get; set; }
+        public bool IsModerator { get; set; }
         public string Password { get; set; }
         [DefaultValue("مجمع عالی حکمت اسلامی")]
         public string NickName { get; set; }
@@ -194,20 +194,22 @@ namespace CoreMe.VM
     public class GuarantCertificateViewModel : UserMainVM
     {
         public string NationalCode { get; set; }
+        [DefaultValue(true)]
+        public bool Sex { get; set; }
     }
     public class NewUserMeetingLogViewModel : UserMainVM
     {
         public string KeyLog { get; set; } //left,join, activity
         public string? ValueLog { get; set; } //raised hand, microphone opened, microphone closed,file share,screen share open,screen share close,file share close,
         public string? OS { get; set; } 
-        public string Role { get; set; }    
-        public string MeetUserID { get; set; }    
+        public string Role { get; set; }
+        public string MeetUserID { get; set; }
     }
     public class NewUserMeetingLogFromModeratorViewModel : UserMainVM
     {
         public string KeyLog { get; set; } //left,join, activity
         public string? ValueLog { get; set; } //raised hand, microphone opened, microphone closed,file share,screen share open,screen share close,file share close,
-        public string MeetUserID { get; set; }   
+        public string MeetUserID { get; set; }
         public string UserExtID { get; set; }
 
     }
