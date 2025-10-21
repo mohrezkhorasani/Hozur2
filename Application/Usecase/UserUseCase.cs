@@ -849,7 +849,7 @@ namespace Application.Usecase
                 CertificateTBL cert = null;
                 if (_db.CertificateTBLs.Any(e => e.IDUserTBLToMeetingTBL == um.ID))
                 {
-                    cert = await _db.CertificateTBLs.FirstOrDefaultAsync(e => e.IDUserTBLToMeetingTBL == um.ID);
+                    cert = await _db.CertificateTBLs.Where(e => e.IDUserTBLToMeetingTBL == um.ID).FirstAsync();
                 } 
                 else
                 {

@@ -39,13 +39,18 @@ namespace SCPHandler
 
                 using (var session = new Session())
                 {
+                    session.Timeout = TimeSpan.FromMinutes(5);
+                    session.ReconnectTime = TimeSpan.FromSeconds(20);
                     // اتصال به سرور
                     session.Open(sessionOptions);
+
 
                     // تنظیمات انتقال
                     var transferOptions = new TransferOptions
                     {
-                        TransferMode = TransferMode.Binary
+                        TransferMode = TransferMode.Binary,
+                        FilePermissions = null,
+                        PreserveTimestamp = false
                     };
 
                     // آپلود فایل
