@@ -64,10 +64,10 @@ namespace Infrastructure.Word
                     {
                         // --- دو تاریخ بالا سمت چپ با Margin ---
                         column.Item().PaddingLeft(55).PaddingTop(32)
-                            .Text(date1).FontFamily(fontPath).SemiBold().FontSize(17).FontColor(QuestPDF.Infrastructure.Color.FromHex("#000000")).AlignLeft();
+                            .Text(date1).FontFamily(fontPath).FontSize(17).FontColor(QuestPDF.Infrastructure.Color.FromHex("#000000")).AlignLeft();
 
                         column.Item().PaddingLeft(55).PaddingTop(-10)
-                            .Text(date2).FontFamily(fontPath).SemiBold().FontSize(17).FontColor(QuestPDF.Infrastructure.Color.FromHex("#000000")).AlignLeft();
+                            .Text(date2).FontFamily(fontPath).FontSize(17).FontColor(QuestPDF.Infrastructure.Color.FromHex("#000000")).AlignLeft();
 
                         // فاصله قبل متن اصلی
                         column.Item().PaddingTop(50).Text(lineIntroductionUser)
