@@ -8,6 +8,7 @@ using Infrastructure.Word;
 using Microsoft.EntityFrameworkCore;
 using Presenter;
 using Presistence.Entities;
+using SCPHandler;
 
 
 
@@ -61,10 +62,12 @@ builder.Services.AddScoped<IGetLivesUseCase, GetLivesUseCase>();
 builder.Services.AddScoped<IStartMeetingUseCase, StartMeetingUseCase>();
 builder.Services.AddScoped<IGetMeetingURLUseCase, GetMeetingURLUseCase>();
 builder.Services.AddScoped<IGetRoomsUseCase, GetRoomsUseCase>();
+builder.Services.AddScoped<IGuarantCertificateUseCase,  GuarantCertificateUseCase>();
 
 
 
 #region Infrustructure
+builder.Services.AddScoped<IScpUploader, ScpUploader>();
 builder.Services.AddScoped<IBBBGetMeetings, BBBGetMeeting>();
 builder.Services.AddScoped<IWordService>(sp =>
 {

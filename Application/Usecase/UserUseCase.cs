@@ -19,6 +19,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Reflection.Metadata;
+using System.Runtime.ConstrainedExecution;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -674,7 +675,6 @@ namespace Application.Usecase
     }
     #endregion
 
-
     #region GetLives
     public class GetLivesUseCase : IGetLivesUseCase
     {
@@ -711,6 +711,7 @@ namespace Application.Usecase
         }
     }
     #endregion
+
     #region StartMeeting
     public class StartMeetingUseCase : IStartMeetingUseCase
     {
@@ -805,13 +806,18 @@ namespace Application.Usecase
         private IWebHostEnvironment hosting;
         public IWordService WordService { get; }
         private IBBBGetMeetings IBBBGetMeetings { get; }
+        private IScpUploader scpUploader { get; }
         public GuarantCertificateUseCase(IDBContext repository,
             IConfiguration configuration,
             IBBBGetMeetings bBBGetMeetings,
-            IWordService WordService
+            IWordService WordService,
+            IScpUploader scpUploader,
+            IWebHostEnvironment hosting
             )
         {
+            this.hosting = hosting;
             _db = repository;
+            this.scpUploader = scpUploader;
             _commonMethods = new CommonMethods(configuration, repository, hosting);
             IBBBGetMeetings = bBBGetMeetings;
             this.WordService = WordService;
@@ -820,73 +826,86 @@ namespace Application.Usecase
         public async Task handleAsync(GuarantCertificateRequest message,
             IOutPutPort<GenericResponse<GuarantCertificateResponse>> outputPort)
         {
-            var init = await _commonMethods.Initialize<GuarantCertificateRequest>(message);
-            var user = init.Item1;
-            var meet = init.Item2;
-
-
-            var check = await _commonMethods.CheckGuaranteedUser(user, meet);
-            if (!check.Item1)
+            try
             {
+                var init = await _commonMethods.Initialize<GuarantCertificateRequest>(message);
+                var user = init.Item1;
+                var meet = init.Item2;
+
+
+                var check = await _commonMethods.CheckGuaranteedUser(user, meet);
+                if (!check.Item1)
+                {
+
+                    outputPort.Handle(new GenericResponse<GuarantCertificateResponse>(new GuarantCertificateResponse
+                    {
+                        Message = check.Item2,
+                        Status = 403,
+                    }));
+                    return;
+                }
+                var um = _db.UserTBLToMeetingTBLs.Where(e => e.MeetID == meet.MeetID && e.UUID == user.UUID).First();
+
+                CertificateTBL cert = null;
+                if (_db.CertificateTBLs.Any(e => e.IDUserTBLToMeetingTBL == um.ID))
+                {
+                    cert = await _db.CertificateTBLs.FirstOrDefaultAsync(e => e.IDUserTBLToMeetingTBL == um.ID);
+                } 
+                else
+                {
+                    cert = new CertificateTBL
+                    {
+                        Status = MainEntity_Status.CERT_FULL,
+                        Type = MainEntity_Types.CERT_NORMAL,
+                        Title = "گواهینامه حضور در جلسه",
+                        IDUserTBLToMeetingTBL = um.ID,
+
+                        Validation = check.Item1
+                    };
+                    _db.CertificateTBLs.Add(cert);
+                    _db.SaveChanges();
+                }
+
+                string role = "شرکت‌کننده";
+                if (um.Role == "MODERATOR")
+                {
+                    role = "مدرس";
+                }
+
+
+
+
+                //var wwwroot = hosting.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+                //var fontPath = "IranNastaliq";
+                //var inputFile = Path.Combine(wwwroot, "pdf", "sample.docx");
+                //var bgpath = Path.Combine(wwwroot, "bg.png");
+                //var outputPath = Path.Combine(wwwroot, "pdf", "certificates", $@"certif-{um.ID}.pdf");
+
+                //var resultPath = WordService.CreateCertificatePdf(outputPath, fontPath, bgpath, um.UserNickName, meet.RoomTBL.Title, meet.Title,
+                //        Statics.ConvertPersianMonthToNumber(meet.JalaliDate).Replace("-", "/"), role, um.ID.ToString());
+                //cert.FileURL = "https://vc.hekmateislami.com/";
+                //cert.FilePath = Path.Combine("pdf", "certificates", $"certif-{um.ID}.pdf");
+                //scpUploader.UploadFile(outputPath);
 
                 outputPort.Handle(new GenericResponse<GuarantCertificateResponse>(new GuarantCertificateResponse
                 {
-                    Message = check.Item2,
-                    Status = 403,
+                    Message = "ok",
+                    Status = 200,
+                    Number = um.ID
+                }));
+            }
+            catch (Exception e)
+            {
+                outputPort.Handle(new GenericResponse<GuarantCertificateResponse>(new GuarantCertificateResponse
+                {
+                    Message = e.Message + e.InnerException,
+                    Status = 400,
                 }));
                 return;
             }
-            var um = _db.UserTBLToMeetingTBLs.FirstOrDefault(e => e.MeetID == meet.MeetID && e.UUID == user.UUID);
-
-            CertificateTBL cert = null;
-            if (_db.CertificateTBLs.Any(e => e.IDUserTBLToMeetingTBL == um.ID))
-            {
-                cert = await _db.CertificateTBLs.FirstOrDefaultAsync(e => e.IDUserTBLToMeetingTBL == um.ID);
-            }
-            else
-            {
-                cert = new CertificateTBL
-                {
-                    Status = MainEntity_Status.CERT_FULL,
-                    Type = MainEntity_Types.CERT_NORMAL,
-                    Title = "گواهینامه حضور در جلسه",
-                    IDUserTBLToMeetingTBL = um.ID,
-                    Validation= check.Item1
-                };
-                _db.CertificateTBLs.Add(cert);
-                _db.SaveChanges();
-            }
-
-            string role = "شرکت‌کننده";
-            if (um.Role == "MODERATOR")
-            {
-                role = "مدرس";
-            }
-
-
-
-
-            var wwwroot = hosting.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
-            var fontPath = "IranNastaliq";
-            var inputFile = Path.Combine(wwwroot, "pdf", "sample.docx");
-            var bgpath = Path.Combine(wwwroot, "bg.png");
-            var outputPath = Path.Combine(wwwroot, "pdf", $"{meet.ID}-{user.ID}.pdf");
-
-            var esultPath= WordService.CreateCertificatePdf(outputPath, fontPath, bgpath, um.UserNickName, meet.Title, meet.JalaliDate, role, um.ID.ToString());
-            cert.FileURL = "https://hek-either.ir/";
-            cert.FilePath = Path.Combine("pdf", $"{meet.ID}-{user.ID}.pdf");
-
-            outputPort.Handle(new GenericResponse<GuarantCertificateResponse>(new GuarantCertificateResponse
-            {
-                Message = "ok",
-                Status = 200,
-                Number=um.ID
-            }));
-
         }
     }
     #endregion
-
 
     #region GenerateCertificate
     public class GenerateCertificateUseCase : IGenerateCertificateUseCase
@@ -895,59 +914,120 @@ namespace Application.Usecase
         public CommonMethods _commonMethods { get; }
         public IWordService WordService { get; }
         private IWebHostEnvironment _env;
+        private IScpUploader scpUploader { get; }
 
         public GenerateCertificateUseCase(IDBContext repository,
             IConfiguration configuration, IWordService wordService,
-            IWebHostEnvironment hosting
+            IWebHostEnvironment hosting,
+            IScpUploader scpUploader
+
             )
         {
             _db = repository;
             _env = hosting;
             _commonMethods = new CommonMethods(configuration, repository, _env);
             WordService = wordService;
+            this.scpUploader = scpUploader;
         }
 
         public async Task handleAsync(GenerateCertificateRequest message,
             IOutPutPort<GenericResponse<GenerateCertificateResponse>> outputPort)
         {
-            var init = await _commonMethods.Initialize<GenerateCertificateRequest>(message);
-            var user = init.Item1;
-            var meet = init.Item2;
-            var checkCert = await _commonMethods.CheckGuaranteedUser(user, meet);
-            if (!checkCert.Item1)
+            try
+            {
+
+
+                var init = await _commonMethods.Initialize<GenerateCertificateRequest>(message);
+                var user = init.Item1;
+                var meet = init.Item2;
+                var checkCert = await _commonMethods.CheckGuaranteedUser(user, meet);
+                if (!checkCert.Item1)
+                {
+                    outputPort.Handle(new GenericResponse<GenerateCertificateResponse>(new GenerateCertificateResponse
+                    {
+                        Message = checkCert.Item2,
+                        Status = 200,
+                    }));
+                    return;
+                }
+                //if (string.IsNullOrEmpty(user.NationalCode))
+                //{
+                //    user.NationalCode = message.NationalCode;
+                //    _db.Update(user); _db.SaveChanges();
+                //}
+                //if (user.NationalCode != message.NationalCode)
+                //{
+                //    outputPort.Handle(new GenericResponse<GenerateCertificateResponse>(new GenerateCertificateResponse
+                //    {
+                //        Message = "کد ملی وارد شده متعلق به حساب شما نیست در صورتی که میخواهید کد ملی سامانه را تغییر بدهید با پشتیبانی تماس حاصل فرمایید!",
+                //        Status = 200,
+                //    }));
+                //    return;
+                //}
+                var um = _db.UserTBLToMeetingTBLs.Where(e => e.MeetID == meet.MeetID && e.UUID == user.UUID).First();
+                string role = "شرکت‌کننده";
+                if (um.Role == "MODERATOR")
+                {
+                    role = "مدرس";
+                }
+                if (!_db.CertificateTBLs.Any(e => e.IDUserTBLToMeetingTBL == um.ID))
+                {
+                    outputPort.Handle(new GenericResponse<GenerateCertificateResponse>(new GenerateCertificateResponse
+                    {
+                        Message = "هنوز گواهینامه برای شما صادر نشده است!",
+                        Status = 404,
+                    }));
+                    return;
+                }
+                var cert = await _db.CertificateTBLs.FirstOrDefaultAsync(e => e.IDUserTBLToMeetingTBL == um.ID);
+                cert.NationalCode = message.NationalCode;
+                if (!cert.Validation)
+                {
+                    outputPort.Handle(new GenericResponse<GenerateCertificateResponse>(new GenerateCertificateResponse
+                    {
+                        Message = "Not validate",
+                        Status = 403,
+                    }));
+                    return;
+                }
+                var wwwroot = _env.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+                var fontPath = "IranNastaliq";
+                var bgpath = Path.Combine(wwwroot, "bg.png");
+                var outputPath = Path.Combine(wwwroot, "pdf", "certificates", $@"certif-{um.ID}.pdf");
+
+
+
+                var resultPath = WordService.CreateCertificatePdf(outputPath, fontPath, bgpath, um.UserNickName , meet.RoomTBL.Title, meet.Title,
+                        Statics.ConvertPersianMonthToNumber(meet.JalaliDate).Replace("-", "/"), role, um.ID.ToString()); cert.FileURL = "https://vc.hekmateislami.com/";
+
+                //string compressedPath = PdfCompressor.CompressPdf(@$"{outputPath}");
+
+                cert.FilePath = Path.Combine("cert", $@"certif-{um.ID}.pdf");
+                _db.CertificateTBLs.Update(cert);
+                _db.SaveChanges();
+
+                scpUploader.UploadFile(outputPath);
+
+                outputPort.Handle(new GenericResponse<GenerateCertificateResponse>(new GenerateCertificateResponse
+                {
+                    Message = "ok",
+                    Status = 200,
+                    Link = Path.Join(cert.FileURL, cert.FilePath)
+
+                }));
+            }
+            catch (Exception e)
             {
                 outputPort.Handle(new GenericResponse<GenerateCertificateResponse>(new GenerateCertificateResponse
                 {
-                    Message = checkCert.Item2,
-                    Status = 200,
+                    Message = e.Message + e.InnerException,
+                    Status = 400,
+
                 }));
-                return;
             }
-            var um = _db.UserTBLToMeetingTBLs.FirstOrDefault(e => e.MeetID == meet.MeetID && e.UUID == user.UUID);
-            string role = "شرکت‌کننده";
-            if (um.Role == "MODERATOR")
-            {
-                role = "مدرس";
-            }
-            var wwwroot = _env.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
-            var fontPath = "IranNastaliq";
-            var inputFile = Path.Combine(wwwroot, "pdf", "sample.docx");
-            var bgpath = Path.Combine(wwwroot, "bg.png");
-            var outputPath = Path.Combine(wwwroot, "pdf", "output2.pdf");
-
-
-
-            WordService.CreateCertificatePdf(outputPath, fontPath, bgpath, um.UserNickName, meet.Title, meet.JalaliDate,);
-
-            outputPort.Handle(new GenericResponse<GenerateCertificateResponse>(new GenerateCertificateResponse
-            {
-                Message = "ok",
-                Status = 200,
-            }));
-
         }
 
-      
+
 
     }
     #endregion

@@ -38,7 +38,7 @@ namespace Presistence.Entities
             builder.ToTable("UserTBLToMeetingTBL");
 
             builder.HasKey(x => x.ID);
-            builder.Property(x => x.ID).UseIdentityColumn(seed: 1111111, increment: 2);
+            builder.Property(x => x.ID).UseIdentityColumn(seed: 11111111, increment: 4);
 
             builder.Property(e => e.Explain).IsRequired(false).HasMaxLength(3000);
             builder.Property(e => e.DateInsert).HasDefaultValueSql("SYSDATETIME()");

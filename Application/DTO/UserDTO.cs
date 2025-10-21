@@ -237,13 +237,12 @@ namespace Application.DTO
     #region GenerateCertificate
     public class GenerateCertificateRequest : NewUserRequest, IUseCaseRequest<GenericResponse<GenerateCertificateResponse>>
     {
-        public string? Date { get; set; }
-        public string? MeetID { get; set; }
-        public string? Teacher{ get; set; }
+        public string NationalCode { get; set; }
     }
 
     public class GenerateCertificateResponse : BaseParentResponce
     {
+        public string Link { get; set; }
     }
     #endregion
 

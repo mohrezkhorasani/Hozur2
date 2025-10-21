@@ -134,6 +134,13 @@ namespace Application.General
         }
         public async Task<(bool,string)> CheckGuaranteedUser(UserTBL user, MeetingTBL meet)
         {
+            if (new List<MainEntity_Types> 
+            { MainEntity_Types.USER_CREATOR, MainEntity_Types.USER_MODERATOR, MainEntity_Types.USER_ADMIN, MainEntity_Types.USER_ADMINSTRATOR }.Contains(user.Type))
+            {
+                return (true,"خب");
+            }
+            if ((DateTime.Now - meet.DateInsert).TotalMinutes < 50)
+                return (true,"هنوز برای صدور گواهی زوده");
             return (true, "ok"); 
         }
 

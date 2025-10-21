@@ -34,6 +34,8 @@ public class MappingProfile : Profile
 
         CreateMap<GenerateCertificateViewModel, GenerateCertificateRequest>()
           .ForMember(dest => dest.GeneralHeaders, opt => opt.Ignore());
+        CreateMap<GuarantCertificateViewModel, GuarantCertificateRequest>()
+          .ForMember(dest => dest.GeneralHeaders, opt => opt.Ignore());
 
     }
 }

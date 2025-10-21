@@ -5,10 +5,15 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
+using System.Reflection.PortableExecutable;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
-using System.Security.Cryptography;
+using System.IO;
+using iTextSharp.text;
+using iTextSharp.text.pdf;
+
 
 namespace Application.General
 {
@@ -40,6 +45,32 @@ namespace Application.General
         {
             return ((price * decentPercent) / 100);
         }
+        private static readonly Dictionary<string, string> MonthMap = new Dictionary<string, string>
+    {
+        {"فروردین", "۰۱"},
+        {"اردیبهشت", "۰۲"},
+        {"خرداد", "۰۳"},
+        {"تیر", "۰۴"},
+        {"مرداد", "۰۵"},
+        {"شهریور", "۰۶"},
+        {"مهر", "۰۷"},
+        {"آبان", "۰۸"},
+        {"آذر", "۰۹"},
+        {"دی", "۱۰"},
+        {"بهمن", "۱۱"},
+        {"اسفند", "۱۲"}
+    };
+        public static string ConvertPersianMonthToNumber(string persianDate)
+        {
+            foreach (var month in MonthMap)
+            {
+                if (persianDate.Contains(month.Key))
+                {
+                    return persianDate.Replace(month.Key, month.Value);
+                }
+            }
+            throw new ArgumentException("ماه نامعتبر است.");
+        }
         public static string ToPersianNumbers(string input)
         {
             if (string.IsNullOrEmpty(input))
@@ -47,9 +78,13 @@ namespace Application.General
 
             char[] persianDigits = { '۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹' };
             char[] result = input.ToCharArray();
-
+            
             for (int i = 0; i < result.Length; i++)
             {
+                if (persianDigits.Contains(result[i]))
+                {
+                    continue;
+                }
                 if (char.IsDigit(result[i]))
                 {
                     // '0' در یونیکد 48 است
@@ -324,6 +359,52 @@ namespace Application.General
                 12 => "اسفند",
                 _ => ""
             };
+        }
+    }
+public static class PdfCompressor
+    {
+        public static string CompressPdf(string inputPath)
+        {
+            try
+            {
+                if (!File.Exists(inputPath))
+                    throw new FileNotFoundException("File not found.", inputPath);
+
+                string dir = Path.GetDirectoryName(inputPath);
+                string name = Path.GetFileNameWithoutExtension(inputPath);
+                string outputPath = Path.Combine(dir, $"{name}_compressed.pdf");
+
+                using (var reader = new PdfReader(inputPath))
+                {
+                    reader.RemoveUnusedObjects(); // حذف اشیاء غیرضروری
+
+                    using (var fs = new FileStream(outputPath, FileMode.Create, FileAccess.Write))
+                    using (var document = new Document())
+                    using (var writer = PdfWriter.GetInstance(document, fs))
+                    {
+                        writer.SetFullCompression();
+                        document.Open();
+
+                        PdfContentByte cb = writer.DirectContent;
+
+                        for (int i = 1; i <= reader.NumberOfPages; i++)
+                        {
+                            document.NewPage();
+                            PdfImportedPage page = writer.GetImportedPage(reader, i);
+                            cb.AddTemplate(page, 0, 0);
+                        }
+
+                        document.Close();
+                    }
+                }
+
+                return outputPath;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error: {ex.Message}");
+                return null;
+            }
         }
     }
 

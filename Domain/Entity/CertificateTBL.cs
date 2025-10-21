@@ -19,5 +19,6 @@ namespace Domain.Entity
         public string? FilePath { get; set; }
         public string? FileURL { get; set; }
         public bool Validation { get; set; }=false;
+        public string? NationalCode { get; set; }
     }
 }

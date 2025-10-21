@@ -179,6 +179,7 @@ namespace CoreMe.VM
     {
 
         public string MeetID { get; set; }
+        [DefaultValue("u65-al5-bnp-tgm")]
         public string RoomID { get; set; }
     }
 
@@ -189,9 +190,10 @@ namespace CoreMe.VM
     }
     public class GenerateCertificateViewModel : UserMainVM
     {
-        public string? Date { get; set; }
-        public string? MeetID { get; set; }
-        public string? Teacher { get; set; }
+    }
+    public class GuarantCertificateViewModel : UserMainVM
+    {
+        public string NationalCode { get; set; }
     }
     public class NewUserMeetingLogViewModel : UserMainVM
     {

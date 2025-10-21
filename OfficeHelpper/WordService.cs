@@ -22,13 +22,13 @@ namespace Infrastructure.Word
             _wwwroot = wwwroot;
         }
 
-        public string CreateCertificatePdf(string pdfPath, string fontPath, string bgImagePath, string Name, string title, string date, string role, string number)
+        public string CreateCertificatePdf(string pdfPath, string fontPath, string bgImagePath, string Name,string category, string title, string date, string role, string number)
         {
             QuestPDF.Settings.License = LicenseType.Community;
             // متن‌ها
             var date1 = Statics.ToPersianNumbers($"{number}");
             var date2 = Statics.ToPersianNumbers($"{date}");
-            var lineIntroductionUser = $@"بدین وسیله گواهی می‌شود جناب آقای ❝{Name}❞ در گروه علمی فلسفه" + (!string.IsNullOrEmpty(title) ? "با موضوع" : "");
+            var lineIntroductionUser = $@"بدین وسیله گواهی می‌شود جناب‌آقای/سرکارخانم {Name} در   {category}  " + (!string.IsNullOrEmpty(title) ? " با موضوع " : "");
             var lineTitleOfMeet = title;
             var lineDateTitle = "که در تاریخ ";
             var lineDateValue = Statics.ToPersianNumbers($"       {date}       ");
@@ -64,10 +64,10 @@ namespace Infrastructure.Word
                     {
                         // --- دو تاریخ بالا سمت چپ با Margin ---
                         column.Item().PaddingLeft(55).PaddingTop(32)
-                            .Text(date1).FontFamily(fontPath).Bold().FontSize(17).FontColor(QuestPDF.Infrastructure.Color.FromHex("#000000")).AlignLeft();
+                            .Text(date1).FontFamily(fontPath).SemiBold().FontSize(17).FontColor(QuestPDF.Infrastructure.Color.FromHex("#000000")).AlignLeft();
 
                         column.Item().PaddingLeft(55).PaddingTop(-10)
-                            .Text(date2).FontFamily(fontPath).Bold().FontSize(17).FontColor(QuestPDF.Infrastructure.Color.FromHex("#000000")).AlignLeft();
+                            .Text(date2).FontFamily(fontPath).SemiBold().FontSize(17).FontColor(QuestPDF.Infrastructure.Color.FromHex("#000000")).AlignLeft();
 
                         // فاصله قبل متن اصلی
                         column.Item().PaddingTop(50).Text(lineIntroductionUser)

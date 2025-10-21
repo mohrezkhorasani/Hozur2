@@ -48,6 +48,9 @@ namespace Persistence.Migrations
                     b.Property<long>("IDUserTBLToMeetingTBL")
                         .HasColumnType("bigint");
 
+                    b.Property<string>("NationalCode")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<int>("Status")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
@@ -378,7 +381,7 @@ namespace Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bigint");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("ID"), 1111111L, 2);
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("ID"), 11111111L, 4);
 
                     b.Property<string>("CertificateFileURL")
                         .HasColumnType("nvarchar(max)");

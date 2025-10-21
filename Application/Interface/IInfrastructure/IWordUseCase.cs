@@ -8,6 +8,11 @@ namespace Application.Interface.IInfrastructure
 {
     public interface IWordService
     {
-        string CreateCertificatePdf(string pdfPath, string fontPath, string bgImagePath, string Name, string title, string date, string role, string number);
+        string CreateCertificatePdf(string pdfPath, string fontPath, string bgImagePath, string Name,string category, string title, string date, string role, string number);
+    }
+
+    public interface IScpUploader
+    {
+        void UploadFile(string localFilePath);
     }
 }
