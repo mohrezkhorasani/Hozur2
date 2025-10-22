@@ -25,15 +25,8 @@ using System;
 using System.Collections.Generic;
 
 namespace Presistence.Entities
-
 {
-
-
-
-    
-
     public class MeetingTBLConfiguration : IEntityTypeConfiguration<MeetingTBL>
-
     {
 
         public void Configure(EntityTypeBuilder<MeetingTBL> builder)

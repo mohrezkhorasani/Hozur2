@@ -32,8 +32,8 @@ namespace Infrastructure.Word
             string sex = "جناب آقای";
             if (!isMale)
                 sex = "سرکار خانم";
-            var lineIntroductionUser = $@"بدین وسیله گواهی می‌شود {sex} {Name} با کد ملی {Statics.ToPersianNumbers(NationalCode)} در   {category}  " + (!string.IsNullOrEmpty(title) ? " با موضوع " : "");
-            var lineTitleOfMeet = title;
+            var lineIntroductionUser = $@"بدین وسیله گواهی می‌شود {sex} {Name} با کد ملی {Statics.ToPersianNumbers(NationalCode)}";
+            var lineTitleOfMeet = $" در   {category}  " + (!string.IsNullOrEmpty(title) ? " با موضوع " : "" )+ $"{title}" ;
             var lineDateTitle = "که در تاریخ ";
             var lineDateValue = Statics.ToPersianNumbers($"       {date}       ");
             var line3Part3 = "برگزار شد، به عنوان ";
