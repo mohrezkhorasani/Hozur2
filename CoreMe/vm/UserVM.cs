@@ -79,10 +79,11 @@ namespace CoreMe.VM
             if (!string.IsNullOrWhiteSpace(Title) && !IsPersianText(Title))
             {
                 yield return new ValidationResult(
-                    "فیلد Title باید فقط شامل حروف فارسی باشد.",
+                    "فیلد Title باید فقط شامل حروف فارسی و عدد باشد.",
                     new[] { nameof(Title) }
                 );
             }
+
         }
 
         private bool IsValidJalaliDate(string input)
@@ -142,11 +143,15 @@ namespace CoreMe.VM
                 return false;
             }
         }
-        private bool IsPersianText(string input)
+        private bool IsPersianText(string text)
         {
-            // محدوده یونیکد حروف فارسی \u0600 تا \u06FF
-            return Regex.IsMatch(input, @"^[\u0600-\u06FF\s]+$");
+            if (string.IsNullOrWhiteSpace(text))
+                return false;
+
+            // فقط حروف فارسی، فاصله، عدد فارسی و عدد انگلیسی
+            return Regex.IsMatch(text, @"^[\u0600-\u06FF\s0-9۰-۹]+$");
         }
+
     }
     public class GetMeetingURLViewModel : UserMainVM
     {
@@ -190,12 +195,13 @@ namespace CoreMe.VM
     }
     public class GenerateCertificateViewModel : UserMainVM
     {
+        [DefaultValue(true)]
+        public bool Sex { get; set; }
     }
     public class GuarantCertificateViewModel : UserMainVM
     {
         public string NationalCode { get; set; }
-        [DefaultValue(true)]
-        public bool Sex { get; set; }
+
     }
     public class NewUserMeetingLogViewModel : UserMainVM
     {

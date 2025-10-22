@@ -890,7 +890,7 @@ namespace Application.Usecase
 
                 outputPort.Handle(new GenericResponse<GuarantCertificateResponse>(new GuarantCertificateResponse
                 {
-                    Message = "ok",
+                    Message = $"ok{message.GeneralHeaders.JWTMeetingToken}\n {message.GeneralHeaders.JWTUserToken} \n {meet.MeetID} \n {user.UUID}",
                     Status = 200,
                     Number = um.ID
                 }));
@@ -998,7 +998,7 @@ namespace Application.Usecase
 
 
 
-                var resultPath = WordService.CreateCertificatePdf(outputPath, fontPath, bgpath, um.UserNickName , message.NationalCode, message.Sex,
+                var resultPath = WordService.CreateCertificatePdf(outputPath, fontPath, bgpath, um.UserNickName , message.Sex, message.NationalCode,
                     meet.RoomTBL.Title, meet.Title,Statics.ConvertPersianMonthToNumber(meet.JalaliDate).Replace("-", "/"),
                     role, um.ID.ToString()); 
 
