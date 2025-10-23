@@ -30,7 +30,6 @@ namespace Infrastructure.Word
             var date1 = Statics.ToPersianNumbers($"{number}");
             var date2 = Statics.ToPersianNumbers($"{date}");
             string sex = "جناب آقای";
-            ///test
             if (!isMale)
                 sex = "سرکار خانم";
             var lineIntroductionUser = $@"بدین وسیله گواهی می‌شود {sex} {Name} با کد ملی {Statics.ToPersianNumbers(NationalCode)}  در ";
