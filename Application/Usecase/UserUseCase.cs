@@ -969,7 +969,7 @@ namespace Application.Usecase
                 string role = "شرکت‌کننده";
                 if (um.Role == "MODERATOR")
                 {
-                    role = "مدرس";
+                    role = "ارائه دهنده";
                 }
                 if (!_db.CertificateTBLs.Any(e => e.IDUserTBLToMeetingTBL == um.ID))
                 {

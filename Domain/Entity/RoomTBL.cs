@@ -17,6 +17,7 @@ namespace Domain.Entity
         public string Title { get; set; }
         public UserTBL OwnerTBL { get; set; }
         public long IDOwnerTBL{ get; set; }
+        public string? TTR_URL{ get; set; }
         public ICollection<MeetingTBL> MeetingTBLs { get; set; }
         public ICollection<UserTBLToMeetingTBL> UserTBLToMeetingTBLs { get; set; }
         public ICollection<RoomTBLToUserTBL> RoomTBLToUserTBLs { get; set; }

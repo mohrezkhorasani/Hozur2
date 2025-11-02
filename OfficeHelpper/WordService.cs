@@ -32,13 +32,16 @@ namespace Infrastructure.Word
             string sex = "جناب آقای";
             if (!isMale)
                 sex = "سرکار خانم";
-            var lineIntroductionUser = $@"بدین وسیله گواهی می‌شود {sex} {Name} با کد ملی {Statics.ToPersianNumbers(NationalCode)}  در ";
+            var lineIntroductionUser = $@"بدین وسیله گواهی می‌شود {sex} ";
+            var lineIntroductionUser2 = $"{Name} ";
+            var lineIntroductionUser3= $"با کد ملی {Statics.ToPersianNumbers(NationalCode)}  در ";
+
             var lineTitleOfMeet = $"{category}  " + (!string.IsNullOrEmpty(title) ? " با موضوع " : "" )+ $"{title}" ;
-            var lineDateTitle = "که در تاریخ ";
+            var lineDateTitle = ".که در تاریخ";
             var lineDateValue = Statics.ToPersianNumbers($"       {date}       ");
             var line3Part3 = "برگزار شد، به عنوان ";
             var linerole = $"       {role}       ";
-            var lineFinish = $" در جلسه حضور داشتند ";
+            var lineFinish = $"   در جلسه حضور داشتند   ";
             var line4 = " توفیق روزافزون ایشان را در عرصه های مختلف علمی از خدای منان مسئلت داریم";
 
 
@@ -74,8 +77,16 @@ namespace Infrastructure.Word
                             .Text(date2).FontFamily(fontPath).FontSize(17).FontColor(QuestPDF.Infrastructure.Color.FromHex("#000000")).AlignLeft();
 
                         // فاصله قبل متن اصلی
-                        column.Item().PaddingTop(50).Text(lineIntroductionUser)
-                            .FontFamily(fontPath).FontSize(28).WordSpacing(0.1f).FontColor(QuestPDF.Infrastructure.Color.FromHex("#000000")).AlignCenter();
+                        column.Item().PaddingTop(50)
+                         .Text(text =>
+                         {
+                             text.DefaultTextStyle(x => x.FontFamily(fontPath).FontSize(28));
+
+                             text.Span(lineIntroductionUser).FontSize(28).WordSpacing(0.1f).FontColor(QuestPDF.Infrastructure.Color.FromHex("#000000"));
+                             text.Span(lineIntroductionUser2).FontSize(28).WordSpacing(0.1f).FontColor(QuestPDF.Infrastructure.Color.FromHex("#065E47"));
+                             text.Span(lineIntroductionUser3).FontSize(28).WordSpacing(0.1f).FontColor(QuestPDF.Infrastructure.Color.FromHex("#000000"));
+                             text.AlignCenter();  // راست چین کردن کل خط
+                         });
 
                         column.Item().PaddingTop(-10).Text(lineTitleOfMeet)
                             .FontFamily(fontPath).FontSize(38).FontColor(QuestPDF.Infrastructure.Color.FromHex("#065E47")).AlignCenter();

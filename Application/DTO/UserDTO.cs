@@ -249,11 +249,8 @@ namespace Application.DTO
 
 
 
-    //GetCertificateFile
 
     //GetMeetings [ by title?,teacher-name?,jalali-date?, room-id? ]
-
-    //GetRooms [ by title ]
 
     //GetUsersInAMeeting [ by meet-id ]
 
