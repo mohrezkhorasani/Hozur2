@@ -897,6 +897,7 @@ namespace Application.Usecase
             }
             catch (Exception e)
             {
+                    
                 outputPort.Handle(new GenericResponse<GuarantCertificateResponse>(new GuarantCertificateResponse
                 {
                     Message = e.Message + e.InnerException,
