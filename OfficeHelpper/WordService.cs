@@ -80,22 +80,22 @@ namespace Infrastructure.Word
                         column.Item().PaddingTop(50)
                          .Text(text =>
                          {
-                             text.DefaultTextStyle(x => x.FontFamily(fontPath).FontSize(28));
+                             text.DefaultTextStyle(x => x.FontFamily(fontPath).FontSize(18));
 
-                             text.Span(lineIntroductionUser).FontSize(28).WordSpacing(0.1f).FontColor(QuestPDF.Infrastructure.Color.FromHex("#000000"));
-                             text.Span(lineIntroductionUser2).FontSize(28).WordSpacing(0.1f).FontColor(QuestPDF.Infrastructure.Color.FromHex("#065E47"));
-                             text.Span(lineIntroductionUser3).FontSize(28).WordSpacing(0.1f).FontColor(QuestPDF.Infrastructure.Color.FromHex("#000000"));
+                             text.Span(lineIntroductionUser).FontSize(18).WordSpacing(0.1f).FontColor(QuestPDF.Infrastructure.Color.FromHex("#000000"));
+                             text.Span(lineIntroductionUser2).FontSize(18).WordSpacing(0.1f).FontColor(QuestPDF.Infrastructure.Color.FromHex("#065E47"));
+                             text.Span(lineIntroductionUser3).FontSize(18).WordSpacing(0.1f).FontColor(QuestPDF.Infrastructure.Color.FromHex("#000000"));
                              text.AlignCenter();  // راست چین کردن کل خط
                          });
 
                         column.Item().PaddingTop(-10).Text(lineTitleOfMeet)
-                            .FontFamily(fontPath).FontSize(38).FontColor(QuestPDF.Infrastructure.Color.FromHex("#065E47")).AlignCenter();
+                            .FontFamily(fontPath).FontSize(25).FontColor(QuestPDF.Infrastructure.Color.FromHex("#065E47")).AlignCenter();
 
                         // خط سوم با دو کلمه قرمز
                         column.Item().PaddingTop(10)
           .Text(text =>
           {
-              text.DefaultTextStyle(x => x.FontFamily(fontPath).FontSize(28));
+              text.DefaultTextStyle(x => x.FontFamily(fontPath).FontSize(18));
 
               text.Span(lineDateTitle).FontColor(QuestPDF.Infrastructure.Color.FromHex("#000000"));
               text.Span(lineDateValue).FontColor(QuestPDF.Infrastructure.Color.FromHex("#FB2C36"));
@@ -108,7 +108,7 @@ namespace Infrastructure.Word
                         // خط چهارم
                         column.Item().PaddingTop(10)
                             .Text(line4)
-                            .FontFamily(fontPath).FontSize(28).FontColor(QuestPDF.Infrastructure.Color.FromHex("#000000"))
+                            .FontFamily(fontPath).FontSize(18).FontColor(QuestPDF.Infrastructure.Color.FromHex("#000000"))
                             .AlignCenter()
                             .DirectionFromRightToLeft(); // راست به چپ
                     });
