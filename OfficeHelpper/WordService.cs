@@ -23,7 +23,7 @@ namespace Infrastructure.Word
         }
 
         public string CreateCertificatePdf(string pdfPath, string fontPath, string bgImagePath, string Name,
-            bool isMale,string NationalCode, string category, string title, string date, string role, string number)
+            bool isMale, string NationalCode, string category, string title, string date, string role, string number)
         {
             QuestPDF.Settings.License = LicenseType.Community;
             // متن‌ها
@@ -34,9 +34,9 @@ namespace Infrastructure.Word
                 sex = "سرکار خانم";
             var lineIntroductionUser = $@"بدین وسیله گواهی می‌شود {sex} ";
             var lineIntroductionUser2 = $"{Name} ";
-            var lineIntroductionUser3= $"با کد ملی {Statics.ToPersianNumbers(NationalCode)}  در ";
+            var lineIntroductionUser3 = $"با کد ملی {Statics.ToPersianNumbers(NationalCode)}  در {category}  {(!string.IsNullOrEmpty(title) ? " با موضوع " : "")}";
 
-            var lineTitleOfMeet = $"{category}  " + (!string.IsNullOrEmpty(title) ? " با موضوع " : "" )+ $"{title}" ;
+            var lineTitleOfMeet = $"" + "" + $"{title}";
             var lineDateTitle = ".که در تاریخ";
             var lineDateValue = Statics.ToPersianNumbers($"       {date}       ");
             var line3Part3 = "برگزار شد، به عنوان ";
@@ -57,64 +57,85 @@ namespace Infrastructure.Word
             float heightPt = imgHeightPx * 72f / dpiY;
 
 
+
             QuestPDF.Fluent.Document.Create(container =>
             {
                 container.Page(page =>
                 {
                     page.Size(widthPt, heightPt);
                     page.Margin(0);
-
-                    // تصویر پس‌زمینه کل صفحه
                     page.Background().Image(bgImagePath, ImageScaling.FitArea);
 
-                    page.Content().Padding(50).Column(column =>
+                    page.Content().PaddingHorizontal(100).PaddingVertical(30).Column(column =>
                     {
-                        // --- دو تاریخ بالا سمت چپ با Margin ---
-                        column.Item().PaddingLeft(55).PaddingTop(32)
-                            .Text(date1).FontFamily(fontPath).FontSize(17).FontColor(QuestPDF.Infrastructure.Color.FromHex("#000000")).AlignLeft();
+                        // --- دو تاریخ بالا سمت چپ ---
+                        column.Item().PaddingLeft(5).PaddingTop(52)
+                            .ScaleToFit()
+                            .AlignLeft()
+                            .Text(date1)
+                            .FontFamily(fontPath)
+                            .FontSize(17)
+                            .FontColor("#000000");
 
-                        column.Item().PaddingLeft(55).PaddingTop(-10)
-                            .Text(date2).FontFamily(fontPath).FontSize(17).FontColor(QuestPDF.Infrastructure.Color.FromHex("#000000")).AlignLeft();
+                        column.Item().PaddingLeft(5).PaddingTop(-10)
+                            .ScaleToFit()
+                            .AlignLeft()
+                            .Text(date2)
+                            .FontFamily(fontPath)
+                            .FontSize(17)
+                            .FontColor("#000000");
 
-                        // فاصله قبل متن اصلی
-                        column.Item().PaddingTop(50)
-                         .Text(text =>
-                         {
-                             text.DefaultTextStyle(x => x.FontFamily(fontPath).FontSize(18));
+                        // --- متن معرفی ---
+                        column.Item().PaddingTop(70).PaddingHorizontal(60)
+                            .ScaleToFit()
+                            .Text(text =>
+                            {
+                                text.DefaultTextStyle(x => x.FontFamily(fontPath).FontSize(24));
+                                text.Span(lineIntroductionUser).FontColor("#000000");
+                                text.Span(lineIntroductionUser2).FontColor("#065E47");
+                                text.Span(lineIntroductionUser3).FontColor("#000000");
+                                text.AlignCenter();
+                            });
 
-                             text.Span(lineIntroductionUser).FontSize(18).WordSpacing(0.1f).FontColor(QuestPDF.Infrastructure.Color.FromHex("#000000"));
-                             text.Span(lineIntroductionUser2).FontSize(18).WordSpacing(0.1f).FontColor(QuestPDF.Infrastructure.Color.FromHex("#065E47"));
-                             text.Span(lineIntroductionUser3).FontSize(18).WordSpacing(0.1f).FontColor(QuestPDF.Infrastructure.Color.FromHex("#000000"));
-                             text.AlignCenter();  // راست چین کردن کل خط
-                         });
+                        // --- عنوان اصلی ---
+                        column.Item()
+                            .PaddingTop(-5)
+                            .PaddingHorizontal(60)
+                            .ScaleToFit()
+                            .Text(lineTitleOfMeet)
+                            .FontFamily(fontPath)
+                            .FontSize(29)
+                            .FontColor("#065E47")
+                            .AlignCenter();
 
-                        column.Item().PaddingTop(-10).Text(lineTitleOfMeet)
-                            .FontFamily(fontPath).FontSize(25).FontColor(QuestPDF.Infrastructure.Color.FromHex("#065E47")).AlignCenter();
+                        // --- خط سوم ---
+                        column.Item()
+                            //.PaddingTop(10)
+                            .ScaleToFit()
+                            .Text(text =>
+                            {
+                                text.DefaultTextStyle(x => x.FontFamily(fontPath).FontSize(24));
+                                text.Span(lineDateTitle).FontColor("#000000");
+                                text.Span(lineDateValue).FontColor("#FB2C36");
+                                text.Span(" برگزار شد، به عنوان ").FontColor("#000000");
+                                text.Span(linerole).FontColor("#FB2C36");
+                                text.Span(lineFinish).FontColor("#000000");
+                                text.AlignCenter();
+                            });
 
-                        // خط سوم با دو کلمه قرمز
-                        column.Item().PaddingTop(10)
-          .Text(text =>
-          {
-              text.DefaultTextStyle(x => x.FontFamily(fontPath).FontSize(18));
-
-              text.Span(lineDateTitle).FontColor(QuestPDF.Infrastructure.Color.FromHex("#000000"));
-              text.Span(lineDateValue).FontColor(QuestPDF.Infrastructure.Color.FromHex("#FB2C36"));
-              text.Span(" برگزار شد، به عنوان ").FontColor(QuestPDF.Infrastructure.Color.FromHex("#000000"));
-              text.Span(linerole).FontColor(QuestPDF.Infrastructure.Color.FromHex("#FB2C36"));
-              text.Span(lineFinish).FontColor(QuestPDF.Infrastructure.Color.FromHex("#000000")); // نقطه داخل Span آخر
-
-              text.AlignCenter();  // راست چین کردن کل خط
-          });
-                        // خط چهارم
-                        column.Item().PaddingTop(10)
+                        // --- خط چهارم ---
+                        column.Item()
+                            //.PaddingTop(10)
+                            .ScaleToFit()
                             .Text(line4)
-                            .FontFamily(fontPath).FontSize(18).FontColor(QuestPDF.Infrastructure.Color.FromHex("#000000"))
+                            .FontFamily(fontPath)
+                            .FontSize(24)
+                            .FontColor("#000000")
                             .AlignCenter()
-                            .DirectionFromRightToLeft(); // راست به چپ
+                            .DirectionFromRightToLeft();
                     });
                 });
-            })
-            .GeneratePdf(pdfPath);
+            }).GeneratePdf(pdfPath);
             return pdfPath;
         }
     }

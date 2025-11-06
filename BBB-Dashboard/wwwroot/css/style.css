@@ -10724,11 +10724,14 @@ body {
 .dashboard-icon-box .view-all:hover {
     color: #287dfa
 }
+.dashboard--icon-box .info__desc {
+    color: #D4D4D4;
+    font-weight: 400
+}
 
-.dashboard--icon-box .info__desc,
 .dashboard--icon-box .info__title,
 .dashboard--icon-box .view-all {
-    color      : #fff;
+    color: #FFF;
     font-weight: 700
 }
 

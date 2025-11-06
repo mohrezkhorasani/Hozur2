@@ -1037,4 +1037,93 @@ namespace Application.Usecase
     }
     #endregion
 
+
+
+
+
+    #region GetTrophies
+    public class GetTrophiesUseCase : IGetTrophiesUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        public IWordService WordService { get; }
+        private IWebHostEnvironment _env;
+        private IScpUploader scpUploader { get; }
+
+        public GetTrophiesUseCase(IDBContext repository,
+            IConfiguration configuration, IWordService wordService,
+            IWebHostEnvironment hosting,
+            IScpUploader scpUploader
+
+            )
+        {
+            _db = repository;
+            _env = hosting;
+            _commonMethods = new CommonMethods(configuration, repository, _env);
+            WordService = wordService;
+            this.scpUploader = scpUploader;
+        }
+
+        public async Task handleAsync(GetTrophiesRequest message,
+            IOutPutPort<GenericResponse<GetTrophiesResponse>> outputPort)
+        {
+            try
+            {
+
+
+                DateTime today = DateTime.Today;
+                int daysUntilSaturday = ((int)DayOfWeek.Saturday - (int)today.DayOfWeek + 7) % 7;
+                DateTime thisWeekSaturday = today.AddDays(-daysUntilSaturday); // شنبه همین هفته
+
+
+                outputPort.Handle(new GenericResponse<GetTrophiesResponse>(new GetTrophiesResponse
+                {
+                    Message = "ok",
+                    Status = 200,
+                    CountAllMeetings = _db.MeetingTBLs.Count(),
+                    CountAllPartis = _db.UserTBLToMeetingTBLs.Count(),
+                    CountWeekActiveTeacher = _db.MeetingTBLs.Where(e => e.DateInsert > thisWeekSaturday).GroupBy(e => e.IDTeacher).Count(),
+                    CountWeekMeeting= _db.MeetingTBLs.Count(e => e.DateInsert > thisWeekSaturday),
+                    SharedOBJ_ServerDetails = new SharedOBJ_ServerDetails
+                    {
+                        DatabaseRecords=15,
+                        DatabaseUsage=500,
+                        DiskUsage=18000,
+                        MemoryUsage=12000
+                    },
+                    SharedOBJ_ViewDetails= new SharedOBJ_ViewDetails
+                    {
+                        All=18000,
+                        Unique=1400,
+                        Chrome=_db.UserTBLToMeetingTBLLogs.Count(e=>e.OS.Contains("Chrome")),
+                        FireFox=_db.UserTBLToMeetingTBLLogs.Count(e=>e.OS.Contains("Firefox")),
+                        IE=_db.UserTBLToMeetingTBLLogs.Count(e=>e.OS.Contains("IE")),
+                        Opera=_db.UserTBLToMeetingTBLLogs.Count(e=>e.OS.Contains("Opera")),
+                        OtherBrowser=_db.UserTBLToMeetingTBLLogs.Count(e=>e.OS.Contains("a")),
+                        Safari = _db.UserTBLToMeetingTBLLogs.Count(e=>e.OS.Contains("safari")),
+                        Today = _db.UserTBLToMeetingTBLs.Count(e=>e.DateInsert>DateTime.Today),
+                        Joint=0,
+                        AverageTimeSpent=TimeSpan.MinValue.TotalMilliseconds,
+                        Desktop = _db.UserTBLToMeetingTBLLogs.Count(e => e.OS.Contains("Windows")),
+                        Mobile = _db.UserTBLToMeetingTBLLogs.Count(e => e.OS.ToLower().Contains("android")),
+                        Tablet = _db.UserTBLToMeetingTBLLogs.Count(e => e.OS.ToLower().Contains("ios")),
+                    }
+                }));
+            }
+            catch (Exception e)
+            {
+                outputPort.Handle(new GenericResponse<GetTrophiesResponse>(new GetTrophiesResponse
+                {
+                    Message = e.Message + e.InnerException,
+                    Status = 400,
+
+                }));
+            }
+        }
+
+
+
+    }
+    #endregion
+
 }
