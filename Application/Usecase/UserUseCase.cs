@@ -120,6 +120,16 @@ namespace Application.Usecase
                     }));
                     return;
                 }
+                if (!_db.RoomTBLs.Any(e => e.FriendlyID == message.RoomID))
+                {
+                    _db.RoomTBLs.Add(new RoomTBL
+                    {
+                        FriendlyID= message.RoomID,
+                        IDOwnerTBL=user.ID,
+                        Title="",
+                    });
+                    _db.SaveChanges();
+                }
                 MeetingTBL? meet = new MeetingTBL
                 {
                     RoomFriendlyID = message.RoomID,
@@ -1036,9 +1046,6 @@ namespace Application.Usecase
 
     }
     #endregion
-
-
-
 
 
     #region GetTrophies
