@@ -2,11 +2,12 @@
 @rendermode InteractiveServer
 @using Application.DTO
 @using Application.DTO.Generals
+@using Application.General
 @using Application.Interface.IUsecase
 @using Microsoft.AspNetCore.Components
 @using SafaretoWeb.ApplicationUsage
 @inject IJSRuntime JS
-
+@inject IGetRoomStatsUseCase IGetRoomStatsUseCase
 
 
 
@@ -17,6 +18,7 @@
 @inject IGetTrophiesUseCase IGetTrophiesUseCase
 @inject IGetRoomStatsUseCase IGetRoomStatsUseCase
 @code {
+    private List<string> BG = new List<string>();
     private GetTrophiesResponse GetTrophiesResponse;
     private GetRoomStatsResponse GetRoomStatsResponse;
     private async Task CallGetTrophiesResponse()
@@ -29,26 +31,82 @@
 
         // ساخت Presenter
         var presenter = new GenericPresenter<GenericResponse<GetTrophiesResponse>>();
-        var GetRoomStatsResponsePer = new GenericPresenter<GenericResponse<GetRoomStatsResponse>>();
+        // var GetRoomStatsResponsePer = new GenersicPresenter<GenericResponse<GetRoomStatsResponse>>();
 
         // صدا زدن UseCase
         await IGetTrophiesUseCase.handleAsync(request, presenter);
-        await IGetRoomStatsUseCase.handleAsync(new GetRoomStatsRequest { }, GetRoomStatsResponsePer);
+        // await IGetRoomStatsUseCase.handleAsync(new GetRoomStatsRequest { }, GetRoomStatsResponsePer);
 
-        
+
 
         // دریافت Response از Presenter
         GetTrophiesResponse = presenter.Response.data;
-        GetRoomStatsResponse = GetRoomStatsResponsePer.Response.data;
+        // GetRoomStatsResponse = GetRoomStatsResponsePer.Response.data;
+    }
+    private async Task CallGetRoomStatsResponse()
+    {
+        // ساخت Request
+        var request = new GetRoomStatsRequest
+        {
+
+        };
+
+        // ساخت Presenter
+        var presenter = new GenericPresenter<GenericResponse<GetRoomStatsResponse>>();
+
+        // صدا زدن UseCase
+        await IGetRoomStatsUseCase.handleAsync(request, presenter);
+
+
+
+        GetRoomStatsResponse = presenter.Response.data;
+        VisibleRooms = GetRoomStatsResponse.Rooms.Take(8).ToList();
+    }
+    @inject IGetLivesUseCase IGetLivesUseCase
+    private GetLivesResponse GetLivesResponse;
+    private async Task CallGetLivesResponse()
+    {
+        // ساخت Request
+        var request = new GetLivesRequest
+        {
+
+        };
+
+        // ساخت Presenter
+        var presenter = new GenericPresenter<GenericResponse<GetLivesResponse>>();
+        // var GetLivesResponsePer = new GenersicPresenter<GenericResponse<GetLivesResponse>>();
+
+        // صدا زدن UseCase
+        await IGetLivesUseCase.handleAsync(request, presenter);
+        // await IGetLivesUseCase.handleAsync(new GetLivesRequest { }, GetLivesResponsePer);
+
+
+
+        // دریافت Response از Presenter
+        GetLivesResponse = presenter.Response.data;
+        // GetLivesResponse = GetLivesResponsePer.Response.data;
+        StateHasChanged();
     }
     protected override async Task OnInitializedAsync()
     {
+        for (int i = 0; i < 4;)
+        {
+            var rand = new Random().Next(1, 25);
+            if (new int[] { 20, 10,7,15,14,6,19 }.Contains(rand)) continue;
+            i++;
+            BG.Add(rand.ToString());
+        }
         #region GetTrophiesResponse
         _ = CallGetTrophiesResponse();
+        _ = CallGetRoomStatsResponse();
+        _ = CallGetLivesResponse();
         #endregion
+
+
+
     }
 }
- 
+
 
 @if (GetTrophiesResponse == null)
 {
@@ -65,23 +123,23 @@ else
 {
 
 
-<div class="user-canvas-container" dir="rtl">
-    <div class="side-menu-close">
-        <i class="la la-times"></i>
-    </div><!-- end menu-toggler -->
-    <div class="user-canvas-nav">
-        <div class="section-tab section-tab-2 text-center pt-4 pb-3 pl-4">
-            <ul class="nav nav-tabs" id="myTab" role="tablist">
-                <li class="nav-item">
-                    <a class="nav-link active" id="notification-tab" data-toggle="tab" href="#notification" role="tab" aria-controls="notification" aria-selected="false">
-                        اطلاعیه ها
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" id="message-tab" data-toggle="tab" href="#message" role="tab" aria-controls="message" aria-selected="false">
-                        پیام ها
-                    </a>
-                </li>
+    <div class="user-canvas-container" dir="rtl">
+        <div class="side-menu-close">
+            <i class="la la-times"></i>
+        </div><!-- end menu-toggler -->
+        <div class="user-canvas-nav">
+            <div class="section-tab section-tab-2 text-center pt-4 pb-3 pl-4">
+                <ul class="nav nav-tabs" id="myTab" role="tablist">
+                    <li class="nav-item">
+                        <a class="nav-link active" id="notification-tab" data-toggle="tab" href="#notification" role="tab" aria-controls="notification" aria-selected="false">
+                            اطلاعیه ها
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="message-tab" data-toggle="tab" href="#message" role="tab" aria-controls="message" aria-selected="false">
+                            پیام ها
+                        </a>
+                    </li>
 
                     <li class="nav-item">
                         <a class="nav-link" id="account-tab" data-toggle="tab" href="#account" role="tab" aria-controls="account" aria-selected="true">
@@ -590,57 +648,112 @@ else
                                     <h3 class="title">فعالیت این ماه</h3>
                                 </div>
                                 <div class="form-content">
-                                    <div class="row">
-                                        <div class="col-lg-3 responsive-column-l">
-                                            <div class="icon-box icon-layout-2 dashboard-icon-box dashboard--icon-box bg-1 pb-0">
-                                                <div class="d-flex pb-3 justify-content-between">
-                                                    <div class="info-content">
-                                                        <h1 class="info__title">گروه مصباح الانس</h1>
-                                                        <h4 class="info__desc mt-4" style="color:darkgray">آخرین جلسه: 1404/07/01</h4>
-                                                    </div>
-                                                    <div class="info-icon icon-element bg-white text-color-2">
-                                                        <div class="rank-circle bg-2">1</div>
+                                    @if (VisibleRooms != null)
+                                    {
+                                        <div class="row" id="rooms-container">
+
+                                            @foreach (var i in VisibleRooms)
+                                            {
+                                                <div class="col-lg-3 responsive-column-l room-item">
+                                                    <div class="icon-box icon-layout-2 dashboard-icon-box dashboard--icon-box bg-@BG[GetRoomStatsResponse.Rooms.IndexOf(i) % 4] pb-0">
+                                                        <div class="d-flex pb-3 justify-content-between">
+                                                            <div class="info-content">
+                                                                <h1 class="info__title">@i.Title</h1>
+                                                                <h4 class="info__desc mt-4" style="color:darkgray">آخرین جلسه: @Statics.GetPersianDate(DateTime.Parse(i.LatestMeeting))</h4>
+                                                            </div>
+                                                            <div class="info-icon icon-element bg-white text-color-2">
+                                                                <div class="rank-circle bg-3 ">@(GetRoomStatsResponse.Rooms.IndexOf(i) + 1)</div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="dashboard-stats">
+                                                            <div class="stat-item" data-tooltip="تعداد جلسات">
+                                                                <i class="la la-calendar"></i>
+                                                                <span>@i.CountAllMeeting</span>
+                                                            </div>
+                                                            <div class="stat-item" data-tooltip="تعداد شرکت‌کنندگان">
+                                                                <i class="la la-users"></i>
+                                                                <span>@i.CountAllPartis</span>
+                                                            </div>
+                                                            <div class="stat-item" data-tooltip="گواهینامه‌های صادرشده">
+                                                                <i class="la la-certificate"></i>
+                                                                <span>@i.CountAllCertsGenerated</span>
+                                                            </div>
+                                                            <div class="stat-item" data-tooltip="واجدین شرایط گواهینامه">
+                                                                <i class="la la-check-circle"></i>
+                                                                <span>@i.CountAllCertsReady</span>
+                                                            </div>
+                                                            <div class="stat-item" data-tooltip="تعداد اساتید">
+                                                                <i class="la la-chalkboard-teacher"></i>
+                                                                <span>@i.CountAllTeacher</span>
+                                                            </div>
+                                                            @if (GetLivesResponse != null && GetLivesResponse.Data.Any(e => e.RoomID == i.ID))
+                                                            {
+                                                                <div class="stat-item live-indicator" data-tooltip="درحال اجرا">
+                                                                    <i class="la la-video"></i>
+                                                                </div>
+                                                            }
+
+                                                        </div>
+
+                                                        <div class="section-block"></div>
+                                                        <a href="@i.Link" class="d-flex align-items-center justify-content-between view-all">
+                                                            برو به لینک جلسه <i class="la la-arrow-left"></i>
+                                                        </a>
+                                                        <a href="#" class="d-flex align-items-center justify-content-between view-all">
+                                                            ایجاد جلسه آزاد <i class="la la-arrow-left"></i>
+                                                        </a>
                                                     </div>
                                                 </div>
+                                            }
 
-                                                <div class="dashboard-stats">
-                                                    <div class="stat-item" data-tooltip="تعداد جلسات">
-                                                        <i class="la la-calendar"></i>
-                                                        <span>34</span>
-                                                    </div>
-                                                    <div class="stat-item" data-tooltip="تعداد شرکت‌کنندگان">
-                                                        <i class="la la-users"></i>
-                                                        <span>19</span>
-                                                    </div>
-                                                    <div class="stat-item" data-tooltip="گواهینامه‌های صادرشده">
-                                                        <i class="la la-certificate"></i>
-                                                        <span>100</span>
-                                                    </div>
-                                                    <div class="stat-item" data-tooltip="واجدین شرایط گواهینامه">
-                                                        <i class="la la-check-circle"></i>
-                                                        <span>15</span>
-                                                    </div>
-                                                    <div class="stat-item" data-tooltip="تعداد اساتید">
-                                                        <i class="la la-chalkboard-teacher"></i>
-                                                        <span>15</span>
-                                                    </div>
-                                                </div>
-
-                                                <div class="section-block"></div>
-                                                <a href="#" class="d-flex align-items-center justify-content-between view-all">
-                                                    برو به لینک جلسه <i class="la la-arrow-left"></i>
-                                                </a>
-                                                <a href="#" class="d-flex align-items-center justify-content-between view-all">
-                                                    ایجاد جلسه آزاد <i class="la la-arrow-left"></i>
-                                                </a>
-                                            </div>
                                         </div>
+                                        @if (GetRoomStatsResponse.Rooms.Count > 8)
+                                        {
+                                            <div class="text-center mt-4">
+                                                <button @onclick="LoadMore" class="btn btn-primary btn-sm" id="load-more-btn">
+                                                    @MoreRoomTitleButton <i class="la la-chevron-@(VisibleRooms.Count + 8 >= GetRoomStatsResponse.Rooms.Count?"up":"down") ms-1"></i>
 
-                                    </div><!-- end row -->
-                                </div>
-                            </div><!-- end form-box -->
-                        </div><!-- end col-lg-12 -->
-                        #<!-- #bar chart -->
+                                                </button>
+                                            </div>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <div>در حال بارگیری دیتا...</div>
+                                    }
+                                    @code {
+                                    private List<SharedOBJ_RoomStats> VisibleRooms = new();
+                                    private string MoreRoomTitleButton="نمایش بیشتر";
+                                    private void LoadMore()
+                                    {
+                                        if (VisibleRooms.Count >= GetRoomStatsResponse.Rooms.Count)
+                                        {
+                                            VisibleRooms = GetRoomStatsResponse.Rooms.Take(8).ToList();
+                                            MoreRoomTitleButton = "نمایش بیشتر";
+                                        }
+                                        else if (VisibleRooms.Count + 8 >= GetRoomStatsResponse.Rooms.Count)
+                                        {
+                                            VisibleRooms = GetRoomStatsResponse.Rooms;
+                                            MoreRoomTitleButton = "نمایش کمتر";
+                                        }
+                                        else
+                                        {
+                                            VisibleRooms = GetRoomStatsResponse.Rooms.Take(VisibleRooms.Count+8).ToList();
+                                            MoreRoomTitleButton = "نمایش بیشتر";
+                                        }
+                                        StateHasChanged();
+                                    }
+
+                                }
+                            </div>
+                        </div>
+
+                        <!-- end form-box -->
+                    </div>
+
+                    <!-- end col-lg-12 -->
+                    #<!-- #bar chart -->
                     @code {
                         private List<ChartData> ChartDataList = new();
 
@@ -817,7 +930,9 @@ else
                                 </div><!-- end row -->
                             </div>
                         </div><!-- end form-box -->
-                    </div><!-- end col-lg-6 -->
+                    </div>
+
+                    <!-- end col-lg-6 -->
                     <div class="col-lg-3 responsive-column--m">
                         <div class="form-box dashboard-card">
                             <div class="form-title-wrap">
@@ -848,7 +963,9 @@ else
                                 </ul>
                             </div>
                         </div><!-- end form-box -->
-                    </div><!-- end col-lg-3 -->
+                    </div>
+
+                    <!-- end col-lg-3 -->
                     <div class="col-lg-3 responsive-column--m">
                         <div class="form-box dashboard-card">
                             <div class="form-title-wrap">
@@ -871,8 +988,12 @@ else
                                 </ul>
                             </div>
                         </div><!-- end form-box -->
-                    </div><!-- end col-lg-3 -->
-                </div><!-- end row -->
+                    </div>
+
+                    <!-- end col-lg-3 -->
+                </div>
+
+                <!-- end row -->
                 <div class="border-top mt-4"></div>
                 <div class="row align-items-center">
                     <div class="col-lg-7">
@@ -893,10 +1014,18 @@ else
                             </ul>
                         </div><!-- end copy-right-content -->
                     </div><!-- end col-lg-5 -->
-                </div><!-- end row -->
-            </div><!-- end container-fluid -->
-        </div><!-- end dashboard-main-content -->
-    </div><!-- end dashboard-content-wrap -->
+                </div>
+
+                <!-- end row -->
+            </div>
+
+            <!-- end container-fluid -->
+        </div>
+
+        <!-- end dashboard-main-content -->
+    </div>
+
+    <!-- end dashboard-content-wrap -->
 </section>
 
 <!-- end dashboard-area -->

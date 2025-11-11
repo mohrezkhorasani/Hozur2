@@ -943,17 +943,24 @@ namespace Application.Usecase
                 var rooms = _db.RoomTBLs.ToList();
                 foreach (var r in rooms)
                 {
+                    var dbMeet = _db.MeetingTBLs.Where(e => e.RoomFriendlyID == r.FriendlyID).Include(e=>e.UserTBLToMeetingTBLs).ThenInclude(e=>e.CertificateTBL).ToList();
+                    var countallcertsgenerated = dbMeet.Count(e => e.UserTBLToMeetingTBLs.Any(r=>r.CertificateTBL!=null && r.CertificateTBL.FilePath != null));
+                    var ready = dbMeet.Count(e => e.UserTBLToMeetingTBLs.Any(r => r.CertificateTBL != null && r.CertificateTBL.FilePath == null));
+                    var meeting = dbMeet.Count(e => e.RoomFriendlyID == r.FriendlyID);
+                    var partis = dbMeet.Sum(e => e.UserTBLToMeetingTBLs.Count());
+                    var teacher = dbMeet.GroupBy(e => e.IDTeacher).Count();
+                    var latest= dbMeet.OrderByDescending(e => e.ID).First().DateInsert.ToShortDateString();
                     stats.Add(new SharedOBJ_RoomStats
                     {
-                        CountAllCertsGenerated=_db.CertificateTBLs.Count(e=>e.UserTBLToMeetingTBL.MeetingTBL.RoomFriendlyID==r.FriendlyID && e.FilePath!=null),
-                        CountAllCertsReady=_db.CertificateTBLs.Count(e=>e.UserTBLToMeetingTBL.MeetingTBL.RoomFriendlyID==r.FriendlyID && e.FilePath == null),
-                        CountAllMeeting=_db.MeetingTBLs.Count(e=>e.RoomFriendlyID==r.FriendlyID),
-                        CountAllPartis=_db.UserTBLToMeetingTBLs.Count(e=>e.MeetingTBL.RoomFriendlyID==r.FriendlyID),
-                        CountAllTeacher=_db.MeetingTBLs.Where(e=>e.RoomFriendlyID==r.FriendlyID).GroupBy(e=>e.IDTeacher).Count(),
-                        LatestMeeting=_db.MeetingTBLs.Where(e=>e.RoomFriendlyID==r.FriendlyID).OrderByDescending(e=>e.ID).First().DateInsert.ToShortDateString(),
+                        CountAllCertsGenerated= countallcertsgenerated,
+                        CountAllCertsReady= ready,
+                        CountAllMeeting= meeting,
+                        CountAllPartis= partis,
+                        CountAllTeacher= teacher,
+                        LatestMeeting= latest,
                         Title=r.Title,
                         Link=$"https://vc.hekmateislami.com/rooms/{r.FriendlyID}/join",
-                        ID=r.ID
+                        ID=r.FriendlyID
                     });
                 }
 
@@ -962,6 +969,7 @@ namespace Application.Usecase
                 {
                     Message = "ok",
                     Status = 200,
+                    Rooms=stats.OrderByDescending(e=>DateOnly.Parse(e.LatestMeeting)).ToList()
 
                 }));
             }

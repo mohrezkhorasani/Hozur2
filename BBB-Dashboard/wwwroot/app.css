@@ -347,7 +347,68 @@
     padding: 0;
     box-sizing: border-box;
 }
+/* -------------------------------------------------
+   Live Indicator – White background + Red blinking icon
+   ------------------------------------------------- */
+.dashboard-stats .stat-item.live-indicator {
+    background: #fff !important;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    position: relative;
+    overflow: hidden;
+}
 
+    /* Red icon + blinking animation */
+    .dashboard-stats .stat-item.live-indicator i {
+        color: #e53935 !important; /* Red like YouTube Live */
+        text-shadow: none;
+        font-size: 26px;
+        animation: liveBlink 1.5s infinite ease-in-out;
+    }
+
+    /* Optional: Small red dot in corner (like real live badge) */
+    .dashboard-stats .stat-item.live-indicator::before {
+        content: '';
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        width: 10px;
+        height: 10px;
+        background: #e53935;
+        border-radius: 50%;
+        box-shadow: 0 0 8px rgba(229, 57, 53, 0.8);
+        animation: livePulse 1.5s infinite ease-in-out;
+    }
+
+/* Blinking animation */
+@keyframes liveBlink {
+    0%, 100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.4;
+    }
+}
+
+/* Pulsing glow for the dot */
+@keyframes livePulse {
+    0%, 100% {
+        box-shadow: 0 0 8px rgba(229, 57, 53, 0.8);
+        transform: scale(1);
+    }
+
+    50% {
+        box-shadow: 0 0 16px rgba(229, 57, 53, 1);
+        transform: scale(1.2);
+    }
+}
+
+/* Keep tooltip style consistent */
+.dashboard-stats .stat-item.live-indicator::after {
+    background: #2c3e50;
+    color: #fff;
+}
 body {
     font-family: 'Roboto', sans-serif;
     direction: rtl;

@@ -714,8 +714,9 @@ namespace Application.Usecase
                 Status = 200,
                 Data = meets.Select(e => new MiniRoomJSON
                 {
-                    RoomID = _db.MeetingTBLs.FirstOrDefault(r => r.MeetID.EndsWith(e.RoomID)).RoomFriendlyID,
-                    Title = e.Title
+                    RoomID = e.RoomID,
+                    Title = e.Title,
+                    Created = e.Created
                 }).ToList()
             }));
 

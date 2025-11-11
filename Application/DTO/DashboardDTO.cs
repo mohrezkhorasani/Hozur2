@@ -252,7 +252,7 @@ namespace Application.DTO
     public class SharedOBJ_RoomStats
     {
         public string Title { get; set; }
-        public long ID{ get; set; }
+        public string ID{ get; set; }
         public string LatestMeeting { get; set; }
         public int CountAllMeeting { get; set; }
         public int CountAllPartis { get; set; }

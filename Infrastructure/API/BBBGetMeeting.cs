@@ -33,8 +33,9 @@ namespace Infrastructure.API
             BBBResponse result = (BBBResponse)serializer.Deserialize(reader);
             return result.Meetings.MeetingList.Select(e => new MiniRoomJSON
             {
-                RoomID = e.CreateTime,
-                Title = e.MeetingName
+                RoomID = e.MetaDatas[0].RoomID,
+                Title = e.MeetingName,
+                Created=new DateTime(long.Parse(e.CreateTime))
             }).ToList();
 
         }
@@ -108,7 +109,7 @@ namespace Infrastructure.API
             /*
 
             */
-        }
+        }   
         public async Task<bool> IsMeetingRunningAsync(string meetingID)
         {
             string apiCall = "isMeetingRunning";
