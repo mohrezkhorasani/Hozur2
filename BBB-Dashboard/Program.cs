@@ -35,6 +35,7 @@ builder.Services.AddScoped<IGetMeetingURLUseCase, GetMeetingURLUseCase>();
 builder.Services.AddScoped<IGetRoomsUseCase, GetRoomsUseCase>();
 builder.Services.AddScoped<IGuarantCertificateUseCase, GuarantCertificateUseCase>();
 builder.Services.AddScoped<IGetRoomStatsUseCase, GetRoomStatsUseCase>();
+builder.Services.AddScoped<IGetLastMeetingUseCase, GetLastMeetingUseCase>();
 
 
 

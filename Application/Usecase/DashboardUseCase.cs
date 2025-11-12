@@ -989,4 +989,81 @@ namespace Application.Usecase
     }
     #endregion
 
+    #region GetLastMeeting
+    public class GetLastMeetingUseCase : IGetLastMeetingUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        public IWordService WordService { get; }
+        private IWebHostEnvironment _env;
+        private IScpUploader scpUploader { get; }
+
+        public GetLastMeetingUseCase(IDBContext repository,
+            IConfiguration configuration, IWordService wordService,
+            IWebHostEnvironment hosting,
+            IScpUploader scpUploader
+
+            )
+        {
+            _db = repository;
+            _env = hosting;
+            _commonMethods = new CommonMethods(configuration, repository, _env);
+            WordService = wordService;
+            this.scpUploader = scpUploader;
+        }
+
+        public async Task handleAsync(GetLastMeetingRequest message,
+            IOutPutPort<GenericResponse<GetLastMeetingResponse>> outputPort)
+        {
+            try
+            {
+
+
+                DateTime today = DateTime.Today;
+                int daysUntilSaturday = ((int)DayOfWeek.Saturday - (int)today.DayOfWeek + 7) % 7;
+                DateTime thisWeekSaturday = today.AddDays(-daysUntilSaturday); // شنبه همین هفته
+
+
+                var data = _db.MeetingTBLs.OrderByDescending(e => e.ID).Skip(message.Count * (message.Page - 1)).Take(message.Count).Include(e=>e.Teacher)
+                    .Include(e=>e.UserTBLToMeetingTBLs).Include(e=>e.RoomTBL).Include(e=>e.Creator).ToList();
+                var count = _db.MeetingTBLs.Count();
+                
+
+                outputPort.Handle(new GenericResponse<GetLastMeetingResponse>(new GetLastMeetingResponse
+                {
+                    Message = "ok",
+                    Status = 200,
+                    CountAll = count,
+                    SharedOBJ_Rooms= data.Select(e=>new SharedOBJ_Rooms
+                    {
+                        Date=e.DateInsert,
+                        MeetID=e.MeetID,
+                        MeetTitle=e.Title,
+                        RoomTitle=new SharedOBJ_Partis { Name= e.RoomTBL.Title ,ID= e.RoomTBL.ID},
+                        TeacherTitle=e.Teacher==null?null: new SharedOBJ_Partis { Name= $"{e.Teacher.Firstname}{e.Teacher.LastName}" ,ID=e.Teacher.ID},
+                        ModeratorTitle=e.UserTBLToMeetingTBLs.Where(r=>r.Role== "MODERATOR").Select(r=> new SharedOBJ_Partis { ID = r.ID, Name = $"{r.UserNickName}" }).First(),
+                        Partis= e.UserTBLToMeetingTBLs==null?null: e.UserTBLToMeetingTBLs.Select(r=>new SharedOBJ_Partis
+                        {
+                            ID=r.ID,
+                            Name=r.UserNickName
+                        }).ToList()
+                    }).ToList()
+                }));
+            }
+            catch (Exception e)
+            {
+                outputPort.Handle(new GenericResponse<GetLastMeetingResponse>(new GetLastMeetingResponse
+                {
+                    Message = e.Message + e.InnerException,
+                    Status = 400,
+
+                }));
+            }
+        }
+
+
+
+    }
+    #endregion
+
 }
