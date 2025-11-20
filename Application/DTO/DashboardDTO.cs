@@ -327,7 +327,7 @@ namespace Application.DTO
     public class GetLastMeetingRequest : DashboardBaseRequest, IUseCaseRequest<GenericResponse<GetLastMeetingResponse>>
     {
         public int Count { get; set; }
-        public int Page{ get; set; }
+        public int Page { get; set; }
     }
 
     public class GetLastMeetingResponse : BaseParentResponce
@@ -343,12 +343,37 @@ namespace Application.DTO
         public SharedOBJ_Partis TeacherTitle { get; set; }
         public SharedOBJ_Partis ModeratorTitle { get; set; }
         public DateTime Date { get; set; }
-        public List<SharedOBJ_Partis> Partis{get;set;}
+        public List<SharedOBJ_Partis> Partis { get; set; }
     }
     public class SharedOBJ_Partis
-    { 
+    {
         public long ID { get; set; }
-        public string Name{ get; set; }
+        public string Name { get; set; }
     }
     #endregion
+
+
+    #region GetPartis
+    public class GetPartisRequest : DashboardBaseRequest, IUseCaseRequest<GenericResponse<GetPartisResponse>>
+    {
+        public int Count { get; set; }
+        public int Page { get; set; }
+    }
+
+    public class GetPartisResponse : BaseParentResponce
+    {
+        public int CountAll { get; set; }
+        public List<SharedOBJ_PartisBig> SharedOBJ_Partis { get; set; }
+    }
+   
+    public class SharedOBJ_PartisBig
+    {
+        public long ID { get; set; }
+        public string Name { get; set; }
+        public string LastAct{ get; set; }
+        public int Cert { get; set; }
+        public int Count { get; set; }
+    }
+    #endregion
+
 }

@@ -943,24 +943,24 @@ namespace Application.Usecase
                 var rooms = _db.RoomTBLs.ToList();
                 foreach (var r in rooms)
                 {
-                    var dbMeet = _db.MeetingTBLs.Where(e => e.RoomFriendlyID == r.FriendlyID).Include(e=>e.UserTBLToMeetingTBLs).ThenInclude(e=>e.CertificateTBL).ToList();
-                    var countallcertsgenerated = dbMeet.Count(e => e.UserTBLToMeetingTBLs.Any(r=>r.CertificateTBL!=null && r.CertificateTBL.FilePath != null));
+                    var dbMeet = _db.MeetingTBLs.Where(e => e.RoomFriendlyID == r.FriendlyID).Include(e => e.UserTBLToMeetingTBLs).ThenInclude(e => e.CertificateTBL).ToList();
+                    var countallcertsgenerated = dbMeet.Count(e => e.UserTBLToMeetingTBLs.Any(r => r.CertificateTBL != null && r.CertificateTBL.FilePath != null));
                     var ready = dbMeet.Count(e => e.UserTBLToMeetingTBLs.Any(r => r.CertificateTBL != null && r.CertificateTBL.FilePath == null));
                     var meeting = dbMeet.Count(e => e.RoomFriendlyID == r.FriendlyID);
                     var partis = dbMeet.Sum(e => e.UserTBLToMeetingTBLs.Count());
                     var teacher = dbMeet.GroupBy(e => e.IDTeacher).Count();
-                    var latest= dbMeet.OrderByDescending(e => e.ID).First().DateInsert.ToShortDateString();
+                    var latest = dbMeet.OrderByDescending(e => e.ID).First().DateInsert.ToShortDateString();
                     stats.Add(new SharedOBJ_RoomStats
                     {
-                        CountAllCertsGenerated= countallcertsgenerated,
-                        CountAllCertsReady= ready,
-                        CountAllMeeting= meeting,
-                        CountAllPartis= partis,
-                        CountAllTeacher= teacher,
-                        LatestMeeting= latest,
-                        Title=r.Title,
-                        Link=$"https://vc.hekmateislami.com/rooms/{r.FriendlyID}/join",
-                        ID=r.FriendlyID
+                        CountAllCertsGenerated = countallcertsgenerated,
+                        CountAllCertsReady = ready,
+                        CountAllMeeting = meeting,
+                        CountAllPartis = partis,
+                        CountAllTeacher = teacher,
+                        LatestMeeting = latest,
+                        Title = r.Title,
+                        Link = $"https://vc.hekmateislami.com/rooms/{r.FriendlyID}/join",
+                        ID = r.FriendlyID
                     });
                 }
 
@@ -969,7 +969,7 @@ namespace Application.Usecase
                 {
                     Message = "ok",
                     Status = 200,
-                    Rooms=stats.OrderByDescending(e=>DateOnly.Parse(e.LatestMeeting)).ToList()
+                    Rooms = stats.OrderByDescending(e => DateOnly.Parse(e.LatestMeeting)).ToList()
 
                 }));
             }
@@ -1024,28 +1024,28 @@ namespace Application.Usecase
                 DateTime thisWeekSaturday = today.AddDays(-daysUntilSaturday); // شنبه همین هفته
 
 
-                var data = _db.MeetingTBLs.OrderByDescending(e => e.ID).Skip(message.Count * (message.Page - 1)).Take(message.Count).Include(e=>e.Teacher)
-                    .Include(e=>e.UserTBLToMeetingTBLs).Include(e=>e.RoomTBL).Include(e=>e.Creator).ToList();
+                var data = _db.MeetingTBLs.OrderByDescending(e => e.ID).Skip(message.Count * (message.Page - 1)).Take(message.Count).Include(e => e.Teacher)
+                    .Include(e => e.UserTBLToMeetingTBLs).Include(e => e.RoomTBL).Include(e => e.Creator).ToList();
+
                 var count = _db.MeetingTBLs.Count();
-                
 
                 outputPort.Handle(new GenericResponse<GetLastMeetingResponse>(new GetLastMeetingResponse
                 {
                     Message = "ok",
                     Status = 200,
                     CountAll = count,
-                    SharedOBJ_Rooms= data.Select(e=>new SharedOBJ_Rooms
+                    SharedOBJ_Rooms = data.Select(e => new SharedOBJ_Rooms
                     {
-                        Date=e.DateInsert,
-                        MeetID=e.MeetID,
-                        MeetTitle=e.Title,
-                        RoomTitle=new SharedOBJ_Partis { Name= e.RoomTBL.Title ,ID= e.RoomTBL.ID},
-                        TeacherTitle=e.Teacher==null?null: new SharedOBJ_Partis { Name= $"{e.Teacher.Firstname}{e.Teacher.LastName}" ,ID=e.Teacher.ID},
-                        ModeratorTitle=e.UserTBLToMeetingTBLs.Where(r=>r.Role== "MODERATOR").Select(r=> new SharedOBJ_Partis { ID = r.ID, Name = $"{r.UserNickName}" }).First(),
-                        Partis= e.UserTBLToMeetingTBLs==null?null: e.UserTBLToMeetingTBLs.Select(r=>new SharedOBJ_Partis
+                        Date = e.DateInsert,
+                        MeetID = e.MeetID,
+                        MeetTitle = e.Title,
+                        RoomTitle = new SharedOBJ_Partis { Name = e.RoomTBL.Title, ID = e.RoomTBL.ID },
+                        TeacherTitle = e.Teacher == null ? null : new SharedOBJ_Partis { Name = $"{e.Teacher.Firstname}{e.Teacher.LastName}", ID = e.Teacher.ID },
+                        ModeratorTitle = e.UserTBLToMeetingTBLs.Where(r => r.Role == "MODERATOR").Select(r => new SharedOBJ_Partis { ID = r.ID, Name = $"{r.UserNickName}" }).First(),
+                        Partis = e.UserTBLToMeetingTBLs == null ? null : e.UserTBLToMeetingTBLs.Select(r => new SharedOBJ_Partis
                         {
-                            ID=r.ID,
-                            Name=r.UserNickName
+                            ID = r.ID,
+                            Name = r.UserNickName
                         }).ToList()
                     }).ToList()
                 }));
@@ -1053,6 +1053,86 @@ namespace Application.Usecase
             catch (Exception e)
             {
                 outputPort.Handle(new GenericResponse<GetLastMeetingResponse>(new GetLastMeetingResponse
+                {
+                    Message = e.Message + e.InnerException,
+                    Status = 400,
+
+                }));
+            }
+        }
+
+
+
+    }
+    #endregion
+
+
+    #region GetPartis
+    public class GetPartisUseCase : IGetPartisUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        public IWordService WordService { get; }
+        private IWebHostEnvironment _env;
+        private IScpUploader scpUploader { get; }
+
+        public GetPartisUseCase(IDBContext repository,
+            IConfiguration configuration, IWordService wordService,
+            IWebHostEnvironment hosting,
+            IScpUploader scpUploader
+
+            )
+        {
+            _db = repository;
+            _env = hosting;
+            _commonMethods = new CommonMethods(configuration, repository, _env);
+            WordService = wordService;
+            this.scpUploader = scpUploader;
+        }
+
+        public async Task handleAsync(GetPartisRequest message,
+            IOutPutPort<GenericResponse<GetPartisResponse>> outputPort)
+        {
+            try
+            {
+
+
+                DateTime today = DateTime.Today;
+                int daysUntilSaturday = ((int)DayOfWeek.Saturday - (int)today.DayOfWeek + 7) % 7;
+                DateTime thisWeekSaturday = today.AddDays(-daysUntilSaturday); // شنبه همین هفته
+
+                message.Page -= 1;
+
+                var data = _db.UserTBLs
+                   .OrderByDescending(u => u.UserTBLToMeetingTBLs
+                       .Max(m => m.DateInsert))
+                   .Skip(message.Page * message.Count)
+                   .Take(message.Count)
+                   .Include(e=>e.UserTBLToMeetingTBLs)
+                   .ToList();
+
+
+                var count = _db.MeetingTBLs.Count();
+
+                outputPort.Handle(new GenericResponse<GetPartisResponse>(new GetPartisResponse
+                {
+                    Message = "ok",
+                    Status = 200,
+                    CountAll = count,
+                    SharedOBJ_Partis = data.Select(e => new SharedOBJ_PartisBig
+                    {
+                        ID = e.ID,
+                        Name = string.IsNullOrEmpty(e.Firstname) && string.IsNullOrEmpty(e.LastName) ? e.UserTBLToMeetingTBLs.First().UserNickName : $"{e.Firstname}{e.LastName}",
+                        Cert = e.UserTBLToMeetingTBLs.Count(r => r.CertificateFileURL != null),
+                        Count = e.UserTBLToMeetingTBLs.Count,
+                        LastAct = e.UserTBLToMeetingTBLs.OrderByDescending(r => r.DateInsert).First().DateInsert.ToPersianDate()
+
+                    }).ToList()
+                }));
+            }
+            catch (Exception e)
+            {
+                outputPort.Handle(new GenericResponse<GetPartisResponse>(new GetPartisResponse
                 {
                     Message = e.Message + e.InnerException,
                     Status = 400,

@@ -22,4 +22,5 @@ namespace Application.Interface.IUsecase
     public interface IGetRoomStatsUseCase : IUseCaseRequestHandler<GetRoomStatsRequest, GenericResponse<GetRoomStatsResponse>> { }
     public interface IGetTrophiesUseCase : IUseCaseRequestHandler<GetTrophiesRequest, GenericResponse<GetTrophiesResponse>> { }
     public interface IGetLastMeetingUseCase : IUseCaseRequestHandler<GetLastMeetingRequest, GenericResponse<GetLastMeetingResponse>> { }
+    public interface IGetPartisUseCase : IUseCaseRequestHandler<GetPartisRequest, GenericResponse<GetPartisResponse>> { }
 }

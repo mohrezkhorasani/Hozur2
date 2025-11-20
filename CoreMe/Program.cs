@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Presenter;
 using Presistence.Entities;
 using SCPHandler;
-
+using MiddleWares;
 
 
 
@@ -93,5 +93,8 @@ app.UseHttpsRedirection();
 app.UseAuthorization();
 
 app.MapControllers();
+
+//middlewares
+
 
 app.Run();

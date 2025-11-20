@@ -1,0 +1,199 @@
+﻿@page "/partis"
+@using Application.DTO
+@using Application.DTO.Generals
+@using Application.Interface.IUsecase
+@using BBBDashboard.MiddleWare.ext
+@using Microsoft.AspNetCore.Components.Web
+@using SafaretoWeb.ApplicationUsage
+@inject IJSRuntime JS
+@rendermode InteractiveServer
+
+
+<!-- ================================
+    START DASHBOARD AREA
+================================= -->
+<section class="dashboard-area">
+    <BBB_Dashboard.Components.Layout.Header />
+
+    <div class="dashboard-content-wrap">
+        <div class="dashboard-bread dashboard--bread dashboard-bread-2">
+            <div class="container-fluid">
+                <div class="row align-items-center">
+                    <div class="col-lg-6">
+                        <div class="breadcrumb-content">
+                            <div class="section-heading">
+                                <h2 class="sec__title font-size-30 text-white">شرکت‌کنندگان</h2>
+                            </div>
+                        </div><!-- end breadcrumb-content -->
+                    </div><!-- end col-lg-6 -->
+                    <div class="col-lg-6">
+                        <div class="breadcrumb-list text-right">
+                            <ul class="list-items">
+                                <li><a href="/" class="text-white">صفحه اصلی</a></li>
+                                <li>دشبرد</li>
+                                <li>شرکت کنندگان</li>
+                            </ul>
+                        </div><!-- end breadcrumb-list -->
+                    </div><!-- end col-lg-6 -->
+                </div><!-- end row -->
+            </div>
+        </div><!-- end dashboard-bread -->
+        <div class="dashboard-main-content">
+
+            <div class="container-fluid py-4" dir="rtl">
+                <h3 class="mb-4 text-center">مدیریت کاربران</h3>
+
+                <!-- فیلد جستجو -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <input type="text" class="form-control" placeholder="جستجو در نام، شناسه یا گواهینامه..."
+                                   @bind="SearchTerm" @bind:event="oninput" />
+                            <span class="input-group-text">
+                                <i class="bi bi-search"></i>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- جدول -->
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover align-middle text-center">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>شناسه</th>
+                                <th>نام ثبت نامی</th>
+                                <th>گواهینامه ها</th>
+                                <th>حضور</th>
+                                <th>آخرین فعالیت</th>
+                                <th>عملیات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var user in FilteredUsers)
+                            {
+                                <tr>
+                                    <td>@user.ID</td>
+                                    <td>@user.Name</td>
+                                    <td>
+                                        @if (user.Cert!=0)
+                                        {
+                                            <span class="badge bg-success">@user.Cert</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">ندارد</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-danger")">
+                                        @user.Count
+                                        </span>
+                                    </td>
+                                    <td>@user.LastAct</td>
+                                    <td>
+                                        <div class="dropdown d-inline">
+                                            <button class="btn btn-sm btn-outline-primary dropdown-toggle"
+                                                    type="button" data-bs-toggle="dropdown">
+                                                بیشتر
+                                            </button>
+                                            <ul class="dropdown-menu">
+                                                <li>
+                                                    <a class="dropdown-item text-danger" href="javascript:void(0)"
+                                                       @onclick="() => DeleteUser(user.ID)">حذف</a>
+                                                </li>
+                                                <li>
+                                                    <a class="dropdown-item" href="javascript:void(0)"
+                                                       @onclick="() => ViewSessions(user.ID)">جلسات</a>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                @if (!FilteredUsers.Any() && !string.IsNullOrEmpty(SearchTerm))
+                {
+                    <div class="alert alert-info text-center">
+                        هیچ کاربری با عبارت "<strong>@SearchTerm</strong>" یافت نشد.
+                    </div>
+                }
+            </div>
+
+            <!-- end container-fluid -->
+        </div>
+
+        <!-- end dashboard-main-content -->
+    </div><!-- end dashboard-content-wrap -->
+</section><!-- end dashboard-area -->
+<!-- ================================
+    END DASHBOARD AREA
+================================= -->
+
+
+
+@code {
+    private string SearchTerm = "";
+    private List<SharedOBJ_PartisBig> users = new();
+    private List<SharedOBJ_PartisBig> FilteredUsers => users
+        .Where(u =>
+            u.ID.ToString().Contains(SearchTerm, StringComparison.OrdinalIgnoreCase) ||
+            u.Name.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase) 
+        )
+        .ToList();
+    @inject IGetPartisUseCase IGetPartisUseCase
+    private GetPartisResponse GetPartisResponse;
+    private int CurrentPage = 1;
+    private int CountPerPage = 5;
+    private async Task CallGetPartisResponse()
+    {
+        // ساخت Request
+        var request = new GetPartisRequest
+        {
+            Page = CurrentPage,
+            Count = CountPerPage,
+        };
+
+        // ساخت Presenter
+        var presenter = new GenericPresenter<GenericResponse<GetPartisResponse>>();
+        // var GetPartisResponsePer = new GenersicPresenter<GenericResponse<GetPartisResponse>>();
+
+        // صدا زدن UseCase
+        await IGetPartisUseCase.handleAsync(request, presenter);
+        // await IGetPartisUseCase.handleAsync(new GetPartisRequest { }, GetPartisResponsePer);
+
+
+
+        // دریافت Response از Presenter
+        GetPartisResponse = presenter.Response.data;
+        users = GetPartisResponse.SharedOBJ_Partis;
+    
+        // GetPartisResponse = GetPartisResponsePer.Response.data;
+        StateHasChanged();
+    }
+
+    protected override void OnInitialized()
+    {
+        _ = CallGetPartisResponse();
+    }
+
+    private async Task DeleteUser(long id)
+    {
+        var confirm = await JS.InvokeAsync<bool>("confirm", $"آیا از حذف کاربر {id} مطمئن هستید؟");
+        if (confirm)
+        {
+            users.RemoveAll(u => u.ID == id);
+            StateHasChanged();
+        }
+    }
+
+    private void ViewSessions(long id)
+    {
+        // مثلاً ریدایرکت یا نمایش مدال
+        JS.InvokeVoidAsync("alert", $"نمایش جلسات کاربر {id}");
+    }
+}
+

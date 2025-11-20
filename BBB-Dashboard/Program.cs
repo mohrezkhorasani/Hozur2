@@ -6,6 +6,7 @@ using BBB_Dashboard.Components;
 using Infrastructure.API;
 using Infrastructure.Word;
 using Microsoft.EntityFrameworkCore;
+using MiddleWares;
 using Presistence.Entities;
 using SCPHandler;
 
@@ -36,6 +37,8 @@ builder.Services.AddScoped<IGetRoomsUseCase, GetRoomsUseCase>();
 builder.Services.AddScoped<IGuarantCertificateUseCase, GuarantCertificateUseCase>();
 builder.Services.AddScoped<IGetRoomStatsUseCase, GetRoomStatsUseCase>();
 builder.Services.AddScoped<IGetLastMeetingUseCase, GetLastMeetingUseCase>();
+builder.Services.AddScoped<IGetPartisUseCase, GetPartisUseCase>();
+builder.Services.AddHttpContextAccessor();
 
 
 
@@ -73,5 +76,11 @@ app.UseAntiforgery();
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
+
+
+//MiddleWare
+app.UseMiddleware<UserIpMiddleware>();
+
+
 
 app.Run();

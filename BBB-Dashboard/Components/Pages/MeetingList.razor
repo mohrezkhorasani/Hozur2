@@ -8,7 +8,7 @@
 @using SafaretoWeb.ApplicationUsage
 @inject IJSRuntime JS
 @using System.Globalization
-
+@inject IHttpContextAccessor HttpContextAccessor
 
 @code {
     @inject IGetLastMeetingUseCase IGetLastMeetingUseCase
@@ -44,6 +44,9 @@
     protected async override Task OnInitializedAsync()
     {
         _ = CallGetLastMeetingResponse();
+        string UserIP = HttpContextAccessor.HttpContext?.Items["UserIP"]?.ToString(); 
+        string UserIP2 = HttpContextAccessor.HttpContext?.Connection?.RemoteIpAddress?.ToString();
+
     }
 }
 
@@ -368,7 +371,7 @@
                     <div class="col-lg-6">
                         <div class="breadcrumb-content">
                             <div class="section-heading">
-                                <h2 class="sec__title font-size-30 text-white">سفارشات</h2>
+                                <h2 class="sec__title font-size-30 text-white">جلسات</h2>
                             </div>
                         </div><!-- end breadcrumb-content -->
                     </div><!-- end col-lg-6 -->
