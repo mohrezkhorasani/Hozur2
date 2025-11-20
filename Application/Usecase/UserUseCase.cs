@@ -653,6 +653,7 @@ namespace Application.Usecase
         }
     }
     #endregion
+
     #region GetRoomByFriendlyID
     public class GetRoomByFriendlyIDUseCase : IGetRoomByFriendlyIDUseCase
     {
@@ -693,20 +694,29 @@ namespace Application.Usecase
         public CommonMethods _commonMethods { get; }
         private IWebHostEnvironment hosting;
         private IBBBGetMeetings IBBBGetMeetings { get; }
+        private IScpUploader IScpUploader { get; }
         public GetLivesUseCase(IDBContext repository,
             IConfiguration configuration,
-            IBBBGetMeetings bBBGetMeetings
+            IBBBGetMeetings bBBGetMeetings,
+            IScpUploader IScpUploader
             )
         {
             _db = repository;
             _commonMethods = new CommonMethods(configuration, repository, hosting);
             IBBBGetMeetings = bBBGetMeetings;
+            this.IScpUploader = IScpUploader;
         }
+
 
         public async Task handleAsync(GetLivesRequest message,
             IOutPutPort<GenericResponse<GetLivesResponse>> outputPort)
         {
             var meets = await IBBBGetMeetings.Request(message);
+
+            IBBBGetMeetings.GetMeeting("1bf11043f89ab8d45d782d38610bdafa9f8a6ebb-1762062673683");
+            var r =await IBBBGetMeetings.GetRecordingsByMeetingId("1khe4quugbx7ziilyojrvapwebknxbn1jydcjozl");
+
+            var resp = IScpUploader.ExecuteRemoteCommand("ls -lht");
 
             outputPort.Handle(new GenericResponse<GetLivesResponse>(new GetLivesResponse
             {
@@ -1047,7 +1057,6 @@ namespace Application.Usecase
 
     }
     #endregion
-
 
     #region GetTrophies
     public class GetTrophiesUseCase : IGetTrophiesUseCase

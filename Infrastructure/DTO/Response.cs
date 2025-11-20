@@ -16,13 +16,11 @@ namespace Infrastructure.DTO
         [XmlElement("meetings")]
         public Meetings Meetings { get; set; }
     }
-
     public class Meetings
     {
         [XmlElement("meeting")]
         public List<Meeting> MeetingList { get; set; }
     }
-
     public class Meeting
     {
         [XmlElement("meetingID")]
@@ -88,4 +86,5 @@ namespace Infrastructure.DTO
         [XmlElement("running")]
         public string Running { get; set; }
     }
+  
 }

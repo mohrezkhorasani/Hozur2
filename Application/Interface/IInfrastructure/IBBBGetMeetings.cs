@@ -14,5 +14,20 @@ namespace Application.Interface.IInfrastructure
         public Task<List<MiniRoomJSON>> Request(GetLivesRequest req);
         public Task<MeetJSON> CreateMeetingAsync(string meetingID, string meetingName);
         public Task<string> GetJoinUrlAsync(string meetingID, string fullName,bool asmoderator, string moderatorPassowrd);
+        public Task<List<RecordingInfo>> GetRecordingsByMeetingId(string meetingId);
+        public Task GetMeeting(string meetingId);
+    }
+    public class RecordingInfo
+    {
+        public string RecordID { get; set; }
+        public string MeetingID { get; set; }
+        public string Name { get; set; }
+        public bool Published { get; set; }
+        public DateTime StartTime { get; set; }
+        public DateTime EndTime { get; set; }
+        public string PlaybackFormat { get; set; }
+        public string PlaybackUrl { get; set; }
+        public long Size { get; set; }
+        public string Thumbnail { get; set; } // optional
     }
 }

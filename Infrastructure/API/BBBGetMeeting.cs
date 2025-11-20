@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 using System.Xml.Serialization;
 
 namespace Infrastructure.API
@@ -143,6 +144,101 @@ namespace Infrastructure.API
             }
         }
 
+        public async Task<List<RecordingInfo>> GetRecordingsByMeetingId(string meetingId)
+        {
+            if (string.IsNullOrWhiteSpace(meetingId))
+                throw new ArgumentException("meetingId is required");
 
+            string apiCall = "getRecordings";
+
+            // Build query string: only filter by meetingID (you can also add recordID if needed)
+            string queryString = $"meetingID={Uri.EscapeDataString(meetingId)}";
+
+            // For more filtering: $"meetingID={meetingId}&recordID=..."
+
+            string checksumInput = apiCall + queryString + Statics.BBB_SECRET;
+            string checksum = Statics.ComputeSha1(checksumInput);
+
+            // Full URL
+            string fullUrl = $"{Statics.BBB_BASE_URL}{apiCall}?{queryString}&checksum={checksum}";
+
+            using HttpClient client = new HttpClient();
+            client.Timeout = TimeSpan.FromSeconds(30);
+
+            string xmlResponse = await client.GetStringAsync(fullUrl);
+
+            // Parse BBB XML response
+            var doc = XDocument.Parse(xmlResponse);
+
+            var ns = doc.Root.GetDefaultNamespace();
+
+            if (doc.Root.Element("returncode")?.Value != "SUCCESS")
+            {
+                var message = doc.Root.Element("message")?.Value ?? "Unknown error";
+                var messageKey = doc.Root.Element("messageKey")?.Value;
+                throw new Exception($"BBB API Error: {messageKey} - {message}");
+            }
+
+            var recordings = new List<RecordingInfo>();
+
+            foreach (var rec in doc.Root.Element("recordings")?.Elements("recording") ?? Enumerable.Empty<XElement>())
+            {
+                var playback = rec.Element("playback")?.Element("format");
+                var urlElement = playback?.Element("url");
+
+                recordings.Add(new RecordingInfo
+                {
+                    RecordID = rec.Element("recordID")?.Value ?? "",
+                    MeetingID = rec.Element("meetingID")?.Value ?? "",
+                    Name = rec.Element("name")?.Value ?? "",
+                    Published = bool.TryParse(rec.Element("published")?.Value, out bool p) && p,
+                    StartTime = DateTimeOffset.FromUnixTimeMilliseconds(long.Parse(rec.Element("startTime")?.Value ?? "0")).UtcDateTime,
+                    EndTime = DateTimeOffset.FromUnixTimeMilliseconds(long.Parse(rec.Element("endTime")?.Value ?? "0")).UtcDateTime,
+                    PlaybackFormat = playback?.Element("type")?.Value ?? "",
+                    PlaybackUrl = urlElement?.Value,
+                    Size = long.TryParse(rec.Element("size")?.Value, out long s) ? s : 0,
+                    Thumbnail = playback?.Element("preview")?.Elements("image")
+                                .FirstOrDefault(i => i.Attribute("alt").Value.Contains("thumbnail"))?.Value
+                });
+            }
+
+            return recordings;
+        }
+        public async Task GetMeeting(string meetingId)
+        {
+            if (string.IsNullOrWhiteSpace(meetingId))
+                throw new ArgumentException("meetingId is required");
+
+            string apiCall = "getMeetings";
+
+            // Build query string: only filter by meetingID (you can also add recordID if needed)
+            string queryString = $"meetingID={Uri.EscapeDataString(meetingId)}";
+
+            // For more filtering: $"meetingID={meetingId}&recordID=..."
+
+            string checksumInput = apiCall + queryString + Statics.BBB_SECRET;
+            string checksum = Statics.ComputeSha1(checksumInput);
+
+            // Full URL
+            string fullUrl = $"{Statics.BBB_BASE_URL}{apiCall}?{queryString}&checksum={checksum}";
+
+            using HttpClient client = new HttpClient();
+            client.Timeout = TimeSpan.FromSeconds(30);
+
+            string xmlResponse = await client.GetStringAsync(fullUrl);
+
+            // Parse BBB XML response
+            var doc = XDocument.Parse(xmlResponse);
+
+           var ns = doc.Root.GetDefaultNamespace();
+
+            if (doc.Root.Element("returncode")?.Value != "SUCCESS")
+            {
+                var message = doc.Root.Element("message")?.Value ?? "Unknown error";
+                var messageKey = doc.Root.Element("messageKey")?.Value;
+                throw new Exception($"BBB API Error: {messageKey} - {message}");
+            }
+
+        }
     }
 }

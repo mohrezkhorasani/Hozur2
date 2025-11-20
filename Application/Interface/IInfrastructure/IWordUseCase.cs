@@ -15,5 +15,6 @@ namespace Application.Interface.IInfrastructure
     public interface IScpUploader
     {
         void UploadFile(string localFilePath);
+        public string ExecuteRemoteCommand(string command);
     }
 }

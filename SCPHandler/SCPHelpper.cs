@@ -11,14 +11,56 @@ namespace SCPHandler
         private const string username = "webupload";
         private const string password = "@12a";
         private const string remoteFolder = "/var/www/bigbluebutton-default/assets/cert/";
-        string sshPrivateKeyPath = @"F:\DOTNET\New folder\CoreMe\wwwroot\pvkey.ppk"; // مسیر کلید خصوصی
+        string sshPrivateKeyPath = @"F:\DOTNET\New folder\CoreMe\wwwroot\webupload_key"; // مسیر کلید خصوصی
         private IWebHostEnvironment hosting;
 
         public ScpUploader(IWebHostEnvironment host)
         {
             this.hosting = host;
         }
+        public string ExecuteRemoteCommand(string command)
+        {
+            try
+            {
 
+                //var baseDirectory = hosting.ContentRootPath;
+                //sshPrivateKeyPath = Path.Combine(baseDirectory, "pvkey.ppk");
+
+                var sessionOptions = new SessionOptions
+                {
+                    Protocol = Protocol.Sftp,
+                    HostName = host,
+                    UserName = username,
+                    SshPrivateKeyPath = sshPrivateKeyPath,
+                    SshHostKeyFingerprint = "ssh-ed25519 255 NIpA/fnLdkoTfjvnLtxZkW038Jm5uweC4JJ3t7yin+I"
+                };
+
+                using (var session = new Session())
+                {
+                    session.Timeout = TimeSpan.FromMinutes(5);
+                    session.Open(sessionOptions);
+
+                    // اجرای دستور
+                    var commandResult = session.ExecuteCommand(command);
+
+                    // بررسی خطا
+                    if (commandResult.IsSuccess)
+                    {
+                        return commandResult.Output.Trim();
+                    }
+                    else
+                    {
+                        string error = commandResult.ErrorOutput.Trim();
+                        throw new Exception($"خطا در اجرای دستور روی سرور:\nخروجی خطا: {error}\nکد خروج: {commandResult.ExitCode}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"خطا در اجرای دستور SSH: {ex.Message}");
+                throw new Exception($"اجرای دستور شکست خورد: {ex.Message}", ex);
+            }
+        }
         public void UploadFile(string localFilePath)
         {
             try

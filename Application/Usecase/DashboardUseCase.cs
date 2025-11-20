@@ -1066,7 +1066,6 @@ namespace Application.Usecase
     }
     #endregion
 
-
     #region GetPartis
     public class GetPartisUseCase : IGetPartisUseCase
     {
