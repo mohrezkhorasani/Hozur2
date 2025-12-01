@@ -20,6 +20,7 @@ namespace Domain.Entity
             "OpenedScreenShare",
             "ClosedScreenShare",
             "CloseSharedFile",
+            "Question"
         };
         [NotMapped]
         public List<string> Keys = new List<string>
