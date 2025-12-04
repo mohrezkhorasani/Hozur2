@@ -10,7 +10,6 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using Org.BouncyCastle.Utilities.Encoders;
 using QuestPDF.Fluent;
 using QuestPDF.Infrastructure;
 using System;
@@ -1025,7 +1024,7 @@ namespace Application.Usecase
 
 
                 var data = _db.MeetingTBLs.OrderByDescending(e => e.ID).Skip(message.Count * (message.Page - 1)).Take(message.Count).Include(e => e.Teacher)
-                    .Include(e => e.UserTBLToMeetingTBLs).Include(e => e.RoomTBL).Include(e => e.Creator).ToList();
+                    .Include(e => e.UserTBLToMeetingTBLs).ThenInclude(e=>e.UserTBLToMeetingTBLLogs).Include(e => e.RoomTBL).Include(e => e.Creator).ToList();
 
                 var count = _db.MeetingTBLs.Count();
 
@@ -1045,7 +1044,8 @@ namespace Application.Usecase
                         Partis = e.UserTBLToMeetingTBLs == null ? null : e.UserTBLToMeetingTBLs.Select(r => new SharedOBJ_Partis
                         {
                             ID = r.ID,
-                            Name = r.UserNickName
+                            Name = r.UserNickName,
+                            Timer=_commonMethods.GetTimerUserLogs(r.UserTBLToMeetingTBLLogs)
                         }).ToList()
                     }).ToList()
                 }));

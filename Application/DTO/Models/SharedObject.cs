@@ -19,7 +19,7 @@ namespace Application.DTO.Models
         public string StartedTime{ get; set; }
         public string Status { get; set; } //live - end
         public MiniRoomJSON Room { get; set; }
-        public MiniUserJSON Teacher { get; set; }
+        public List<MiniUserJSON> Teacher { get; set; }
         public MiniUserJSON Creator { get; set; }
 
     }

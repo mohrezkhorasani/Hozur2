@@ -24,6 +24,8 @@ namespace CoreMe.VM
         [DefaultValue(null)]
         public string? AllowedGUID { get; set; }
         public string? Role { get; set; }
+        [DefaultValue(null)]
+        public string? RoomName { get; set; }
     }
     public class NewUserViewModel : UserMainVM, IValidatableObject
     {
@@ -44,8 +46,8 @@ namespace CoreMe.VM
 
     public class UpdateMeetingViewModel : UserMainVM, IValidatableObject
     {
-        [DefaultValue("نظری")]
-        public string Teacher { get; set; }
+        [DefaultValue("[\"نظری\"]")]
+        public string[] Teacher { get; set; }
         [DefaultValue("علوم فلسفی")]
         public string Title { get; set; }
         [DefaultValue("1404-مهر-12")]
@@ -67,7 +69,7 @@ namespace CoreMe.VM
             }
 
             // بررسی فارسی بودن Teacher
-            if (!string.IsNullOrWhiteSpace(Teacher) && !IsPersianText(Teacher))
+            if (Teacher!=null && Teacher.Length>0 && !string.IsNullOrWhiteSpace(Teacher[0]) && !IsPersianText(Teacher[0]))
             {
                 yield return new ValidationResult(
                     "فیلد Teacher باید فقط شامل حروف فارسی باشد.",

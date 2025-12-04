@@ -5,6 +5,8 @@ using Domain.Entity;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -54,12 +56,15 @@ namespace Application.General
             else
             {
                 user = await GetUser(message.GeneralHeaders.JWTUserToken);
+                Statics.Log("Initialize", "user is " + (user.UUID));
+
             }
             if (user.AddIP(message.GeneralHeaders.RequestedIP))
             {
                 _db.Update(user);
                 _db.SaveChanges();
             }
+            Statics.Log("Initialize", "user is " + (message.GeneralHeaders.JWTMeetingToken));
             var meet = await GetMeeting(message.GeneralHeaders.JWTMeetingToken);
             return (user, meet);
         }
@@ -114,7 +119,7 @@ namespace Application.General
         }
         public async Task<MeetingTBL> GetMeetWithoutID(string q)
         {
-            if (!await _db.MeetingTBLs.AnyAsync(e => e.MeetID == q)) return null ;
+            if (!await _db.MeetingTBLs.AnyAsync(e => e.MeetID == q)) return null;
             return _db.MeetingTBLs
             .Where(e => e.MeetID == q).Include(e => e.Creator)
             .Include(e => e.Teacher).Include(e => e.RoomTBL)
@@ -132,17 +137,17 @@ namespace Application.General
             if (user.AllowedGUID.Any(e => e.ToString() == q)) return true;
             return false;
         }
-        public async Task<(bool,string)> CheckGuaranteedUser(UserTBL user, MeetingTBL meet)
+        public async Task<(bool, string)> CheckGuaranteedUser(UserTBL user, MeetingTBL meet)
         {
-            if (new List<MainEntity_Types> 
-            { MainEntity_Types.USER_CREATOR, MainEntity_Types.USER_MODERATOR, MainEntity_Types.USER_ADMIN, MainEntity_Types.USER_ADMINSTRATOR 
+            if (new List<MainEntity_Types>
+            { MainEntity_Types.USER_CREATOR, MainEntity_Types.USER_MODERATOR, MainEntity_Types.USER_ADMIN, MainEntity_Types.USER_ADMINSTRATOR
             ,MainEntity_Types.USER_GUEST , MainEntity_Types.USER_VIEWER,}.Contains(user.Type))
             {
-                return (true,"خب");
+                return (true, "خب");
             }
             if ((DateTime.Now - meet.DateInsert).TotalMinutes < 50)
-                return (true,"هنوز برای صدور گواهی زوده");
-            return (true, "ok"); 
+                return (true, "هنوز برای صدور گواهی زوده");
+            return (true, "ok");
         }
 
         public async Task<bool> CheckUserAccessibilityToMeet(UserTBL user, MeetingTBL meet, string action = "")
@@ -177,19 +182,29 @@ namespace Application.General
 
         public async Task<MeetingTBL> GetMeeting(string jwt)
         {
-            var claims = JwtHelper.GetAllClaims(jwt);
-            var meetID = claims["guid"];
-            var roomID = claims["room"];
-            var meet = new MeetingTBL
+            try
             {
-                MeetID = meetID,
-                RoomFriendlyID = roomID
-            };
-            if (await CheckMeetingExist(meet))
-            {
-                meet = await GetMeetWithoutID(meet.MeetID);
-                return meet;
+                var claims = JwtHelper.GetAllClaims(jwt);
+                Statics.Log("jwt is", jwt);
+                Statics.Log("claims", string.Join(",", claims));
+                var meetID = claims["guid"];
+                var roomID = claims["room"];
+                var meet = new MeetingTBL
+                {
+                    MeetID = meetID,
+                    RoomFriendlyID = roomID
+                };
+                if (await CheckMeetingExist(meet))
+                {
+                    meet = await GetMeetWithoutID(meet.MeetID);
+                    return meet;
+                }
             }
+            catch (Exception e)
+            {
+                Statics.Log("exp", e.Message);
+            }
+
             return null;
         }
         public async Task<UserTBL> GetUser(string jwt)
@@ -266,5 +281,23 @@ namespace Application.General
             );
         }
 
+        public string GetTimerUserLogs(ICollection<UserTBLToMeetingTBLLogs> userTBLToMeetingTBLLogs)
+        {
+            if (!userTBLToMeetingTBLLogs.Any(e => e.Key.ToLower() == "join"))
+            {
+                return "غائب";
+            }
+            string result = "";
+            var list = userTBLToMeetingTBLLogs.Where(e => e.Key.ToLower() == "join").OrderBy(e => e.DateInsert).ToList();
+            foreach (var i in list)
+            {
+                //check for next left
+                //loop
+                //به این صورت که با تاریخ چک بشه اولین لفت بعدیو بگیره
+            }
+
+
+            return result;
+        }
     }
 }

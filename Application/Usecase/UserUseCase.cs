@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using Org.BouncyCastle.Utilities.Encoders;
+using Newtonsoft.Json;
 using QuestPDF.Fluent;
 using QuestPDF.Infrastructure;
 using System;
@@ -103,8 +103,8 @@ namespace Application.Usecase
                     PhoneNumber = message.PhoneNumber,
                     Type = UserTBL.MapRoleToType(message.Role),
                     Status = MainEntity_Status.USER_ACTIVATED_BY_CREATING_MEETING
-
                 };
+                Statics.Log("NewMeetingUseCase", message.RoomName);
                 user = await _commonMethods.NewUser(user);
                 if (user.AddIP(message.GeneralHeaders.RequestedIP))
                 {
@@ -126,7 +126,7 @@ namespace Application.Usecase
                     {
                         FriendlyID= message.RoomID,
                         IDOwnerTBL=user.ID,
-                        Title="",
+                        Title=message.RoomName==null?"":message.RoomName,
                     });
                     _db.SaveChanges();
                 }
@@ -141,10 +141,14 @@ namespace Application.Usecase
                 };
 
                 meet = await _commonMethods.NewMeeting(meet);
+
                 meet = await _db.MeetingTBLs.Include(e => e.Creator)
                     .Include(e => e.Teacher).Include(e => e.RoomTBL)
+                    .Include(e => e.UserTBLToMeetingTBLs).ThenInclude(e => e.UserTBL)
                     .FirstOrDefaultAsync(e => e.ID == meet.ID);
                 if (meet == null) return;
+                var teachers = meet.UserTBLToMeetingTBLs.Where(e => e.Type == MainEntity_Types.USER_TEACHER).Select(e => e.UserTBL).ToList();
+
                 outputPort.Handle(new GenericResponse<NewMeetingResponse>(new NewMeetingResponse
                 {
                     Message = "ok",
@@ -160,11 +164,11 @@ namespace Application.Usecase
                             Fullname = $"{meet.Creator.Firstname} {meet.Creator.LastName}",
                             ID = meet.Creator.ID,
                         },
-                        Teacher = meet.Teacher == null ? null : new DTO.Models.MiniUserJSON
+                        Teacher = teachers.Select(r => new DTO.Models.MiniUserJSON
                         {
-                            Fullname = $"{meet.Teacher.Firstname} {meet.Teacher.LastName}",
-                            ID = meet.Teacher.ID,
-                        },
+                            Fullname = $"{r.Firstname} {r.LastName}",
+                            ID = r.ID,
+                        }).ToList(),
                         Room = new DTO.Models.MiniRoomJSON
                         {
                             RoomID = meet.RoomFriendlyID,
@@ -226,36 +230,65 @@ namespace Application.Usecase
             meet.Title = message.Title;
             meet.JalaliDate = message.JalaliDate;
             meet.Status = MainEntity_Status.MEETING_LIVE;
-            UserTBL teacher = null;
-            if (_db.UserTBLs.Any(
-                e => (e.Firstname + " " + e.LastName).Trim() == message.Teacher
-                    && e.Status == MainEntity_Status.USER_ACTIVE
-                    && e.Type == MainEntity_Types.USER_TEACHER
-            ))
-            {
-                teacher = _db.UserTBLs.FirstOrDefault(
-                    e => (e.Firstname + " " + e.LastName).Trim() == message.Teacher
-                    && e.Status == MainEntity_Status.USER_ACTIVE
-                    && e.Type == MainEntity_Types.USER_TEACHER
-                );
-            }
-            else
-            {
-                teacher = new UserTBL
+            List<UserTBL> teachers = new List<UserTBL>();
+
+            Statics.Log("UpdateMeeting", JsonConvert.SerializeObject(message.Teacher));
+
+            foreach (var t in message.Teacher) {
+
+                UserTBL teacher =null;
+                if (_db.UserTBLs.Any(
+                    e => (e.Firstname + " " + e.LastName).Trim() == t
+                        && e.Status == MainEntity_Status.USER_ACTIVE
+                        && e.Type == MainEntity_Types.USER_TEACHER
+                ))
                 {
-                    Firstname = message.Teacher,
-                    Type = MainEntity_Types.USER_TEACHER,
-                    Status = MainEntity_Status.USER_ACTIVE,
-                    Username = message.Teacher,
-                    UUID = new Random().NextInt64(-999999999999999999, -99999999999999999).ToString()
-                };
-                _db.UserTBLs.Add(teacher);
-                _db.SaveChanges();
+                    Statics.Log("UpdateMeeting", $"{t} existed user!");
 
+                    teacher = _db.UserTBLs.FirstOrDefault(
+                        e => (e.Firstname + " " + e.LastName).Trim() == t
+                        && e.Status == MainEntity_Status.USER_ACTIVE
+                        && e.Type == MainEntity_Types.USER_TEACHER
+                    );
+                    teachers.Add(teacher);
+                }
+                else
+                {
+                    teacher = new UserTBL
+                    {
+                        Firstname = t,
+                        Type = MainEntity_Types.USER_TEACHER,
+                        Status = MainEntity_Status.USER_ACTIVE,
+                        Username = t,
+                        UUID = new Random().NextInt64(-999999999999999999, -99999999999999999).ToString()
+                    };
+                    teachers.Add(teacher);
+                    _db.UserTBLs.Add(teacher);
+                    _db.SaveChanges();
+                }
+                if (!_db.UserTBLToMeetingTBLs.Any(e => e.UUID == teacher.UUID && e.MeetID == meet.MeetID))
+                {
+                    _db.UserTBLToMeetingTBLs.Add(new UserTBLToMeetingTBL
+                    {
+                        MeetID = meet.MeetID,
+                        Type = MainEntity_Types.USER_TEACHER,
+                        Status = MainEntity_Status.MEETING_STARTED_LATER,
+                        UUID = teacher.UUID,
+                        UserMeetID = "TEACHER",
+                        Role = "Teacher",
+                        UserNickName = "Teacher",
+                        IsCertificated = false,
+                        TokenJWT = "nope",
+                        TimeSpendSeconds = 0,
+
+                    });
+                    _db.SaveChanges();
+                }
             }
+            
 
-            meet.IDTeacher = teacher.ID;
-            meet.Teacher = teacher;
+            meet.IDTeacher = teachers[teachers.Count-1].ID;
+            meet.Teacher = teachers[teachers.Count - 1];
             _db.Update(meet);
             _db.SaveChanges();
 
@@ -274,11 +307,11 @@ namespace Application.Usecase
                         Fullname = $"{meet.Creator.Firstname} {meet.Creator.LastName}",
                         ID = meet.Creator.ID,
                     },
-                    Teacher = new DTO.Models.MiniUserJSON
+                    Teacher = teachers.Select(r=> new DTO.Models.MiniUserJSON
                     {
-                        Fullname = $"{meet.Teacher.Firstname} {meet.Teacher.LastName}",
-                        ID = meet.Teacher.ID,
-                    },
+                        Fullname = $"{r.Firstname} {r.LastName}",
+                        ID = r.ID,
+                    }).ToList(),
                     Room = new DTO.Models.MiniRoomJSON
                     {
                         RoomID = meet.RoomFriendlyID,
@@ -370,8 +403,11 @@ namespace Application.Usecase
 
             meet = await _db.MeetingTBLs.Include(e => e.Creator)
                 .Include(e => e.Teacher).Include(e => e.RoomTBL)
+                .Include(e=>e.UserTBLToMeetingTBLs).ThenInclude(e=>e.UserTBL)
                 .FirstOrDefaultAsync(e => e.ID == meet.ID);
             if (meet == null) return;
+            var teachers = meet.UserTBLToMeetingTBLs.Where(e => e.Type == MainEntity_Types.USER_TEACHER).Select(e=>e.UserTBL).ToList();
+
             outputPort.Handle(new GenericResponse<NewUserMettingsResponse>(new NewUserMettingsResponse
             {
                 Message = "ok",
@@ -388,11 +424,11 @@ namespace Application.Usecase
                         Fullname = $"{meet.Creator.Firstname} {meet.Creator.LastName}",
                         ID = meet.Creator.ID,
                     },
-                    Teacher = meet.Teacher == null ? null : new DTO.Models.MiniUserJSON
+                    Teacher = teachers.Select(r => new DTO.Models.MiniUserJSON
                     {
-                        Fullname = $"{meet.Teacher.Firstname} {meet.Teacher.LastName}",
-                        ID = meet.Teacher.ID,
-                    },
+                        Fullname = $"{r.Firstname} {r.LastName}",
+                        ID = r.ID,
+                    }).ToList(),
                     Room = new DTO.Models.MiniRoomJSON
                     {
                         RoomID = meet.RoomFriendlyID,
@@ -535,6 +571,8 @@ namespace Application.Usecase
         public async Task handleAsync(GetTeacherListRequest message,
             IOutPutPort<GenericResponse<GetTeacherListResponse>> outputPort)
         {
+            Statics.Log("GetTeacherListUseCase", JsonConvert.SerializeObject(message.GeneralHeaders));
+
             var init = await _commonMethods.Initialize<GetTeacherListRequest>(message);
             var user = init.Item1;
             var meet = init.Item2;
@@ -853,11 +891,14 @@ namespace Application.Usecase
                 var init = await _commonMethods.Initialize<GuarantCertificateRequest>(message);
                 var user = init.Item1;
                 var meet = init.Item2;
-
+                Statics.Log("GuarantCertificateUseCase","a");
+                Statics.Log("GuarantCertificateUseCase",meet==null? "null": meet.MeetID);
+                Statics.Log("GuarantCertificateUseCase", user == null? "null": user.UUID);
 
                 var check = await _commonMethods.CheckGuaranteedUser(user, meet);
                 if (!check.Item1)
                 {
+                    Statics.Log("GuarantCertificateUseCase", check.Item2);
 
                     outputPort.Handle(new GenericResponse<GuarantCertificateResponse>(new GuarantCertificateResponse
                     {
@@ -919,6 +960,7 @@ namespace Application.Usecase
             catch (Exception e)
             {
                     
+                Statics.Log("GuarantCertificateUseCase",e.Message);
                 outputPort.Handle(new GenericResponse<GuarantCertificateResponse>(new GuarantCertificateResponse
                 {
                     Message = e.Message + e.InnerException,
@@ -973,6 +1015,7 @@ namespace Application.Usecase
                     }));
                     return;
                 }
+                Statics.Log("GenerateCertificateUseCase", "checkCert");
                 //if (string.IsNullOrEmpty(user.NationalCode))
                 //{
                 //    user.NationalCode = message.NationalCode;
@@ -995,6 +1038,7 @@ namespace Application.Usecase
                 }
                 if (!_db.CertificateTBLs.Any(e => e.IDUserTBLToMeetingTBL == um.ID))
                 {
+                    Statics.Log("GenerateCertificateUseCase", $"{um.ID}");
                     outputPort.Handle(new GenericResponse<GenerateCertificateResponse>(new GenerateCertificateResponse
                     {
                         Message = "هنوز گواهینامه برای شما صادر نشده است!",
@@ -1031,8 +1075,10 @@ namespace Application.Usecase
                 cert.FilePath = Path.Combine("cert", $@"certif-{um.ID}.pdf");
                 _db.CertificateTBLs.Update(cert);
                 _db.SaveChanges();
+                Statics.Log("GenerateCertificateUseCase", "Ta upload");
 
                 scpUploader.UploadFile(outputPath);
+                Statics.Log("GenerateCertificateUseCase", "oops");
 
                 outputPort.Handle(new GenericResponse<GenerateCertificateResponse>(new GenerateCertificateResponse
                 {
@@ -1044,11 +1090,11 @@ namespace Application.Usecase
             }
             catch (Exception e)
             {
+                Statics.Log("GenerateCertificateUseCase","exception "+ e.Message + e.InnerException);
                 outputPort.Handle(new GenericResponse<GenerateCertificateResponse>(new GenerateCertificateResponse
                 {
                     Message = e.Message + e.InnerException,
                     Status = 400,
-
                 }));
             }
         }

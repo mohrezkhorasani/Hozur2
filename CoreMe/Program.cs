@@ -6,40 +6,88 @@ using AutoMapper;
 using Infrastructure.API;
 using Infrastructure.Word;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.OpenApi;
 using Presenter;
 using Presistence.Entities;
 using SCPHandler;
-using MiddleWares;
 
-
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddAutoMapper(typeof(Program));
-// Add services to the container.
+
+builder.Services.AddAutoMapper(_ => { }, typeof(Program));
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowHekmateSubdomains", policy =>
-{
-    policy
-        .SetIsOriginAllowed(origin =>
+    options.AddPolicy("AllowHekmateSubdomains", builder =>
+    {
+        builder.SetIsOriginAllowed(origin =>
         {
-            return new Uri(origin).Host.ToLower().Split("/")[0].EndsWith(".hekmateislami.com")
-                   || new Uri(origin).Host.ToLower() == "hekmateislami.com";
+            if (string.IsNullOrEmpty(origin)) return false;
+
+            var uri = new Uri(origin);
+            var host = uri.Host.ToLower();
+
+            // Allow local dev + production subdomains
+            return host == "localhost"
+                   || host == "127.0.0.1"
+                   || host.EndsWith(".hekmateislami.com")
+                   || host == "hekmateislami.com"
+                   || host == "hek.either.ir"
+                   || host.EndsWith(".either.ir");
         })
-        .AllowCredentials()
         .AllowAnyHeader()
-        .AllowAnyMethod();
-});
+        .AllowAnyMethod()
+        .AllowCredentials();  // must have concrete origin for credentials
+    });
 
     // Policy خاص برای یک API خاص
     options.AddPolicy("AllowOnlyVC", policy =>
+        {
+            policy
+                .WithOrigins("https://vc.hekmateislami.com") // دقیقا همین ساب‌دامین
+                .AllowAnyHeader()
+                .AllowAnyMethod();
+        });
+    options.AddPolicy("AllowAllOrigins", builder =>
     {
-        policy
-            .WithOrigins("https://vc.hekmateislami.com") // دقیقا همین ساب‌دامین
+        builder
+            .SetIsOriginAllowed(origin =>
+            {
+                if (string.IsNullOrEmpty(origin)) return false;
+
+                var uri = new Uri(origin);
+                var host = uri.Host.ToLower();
+
+                return host == "localhost"
+                       || host == "127.0.0.1"
+                       || host.EndsWith(".hekmateislami.com")
+                       || host.EndsWith(".either.ir");
+            })
             .AllowAnyHeader()
-            .AllowAnyMethod();
+            .AllowAnyMethod()
+            .AllowCredentials(); // include this if using cookies or auth
+    });
+    options.AddPolicy("AllowSwagger", builder =>
+    {
+        builder.SetIsOriginAllowed(origin =>
+        {
+            if (string.IsNullOrEmpty(origin)) return false;
+            var host = new Uri(origin).Host.ToLower();
+            return host == "localhost"
+                   || host == "127.0.0.1"
+                   || host.EndsWith(".hekmateislami.com")
+                   || host.EndsWith(".either.ir");
+        })
+        .AllowAnyHeader()
+        .AllowAnyMethod()
+        .AllowCredentials(); // if Swagger UI uses credentials
     });
 });
+
+
 
 builder.Services.AddControllers();
 builder.Services.AddDbContext<DBContext>(option =>
@@ -62,7 +110,7 @@ builder.Services.AddScoped<IGetLivesUseCase, GetLivesUseCase>();
 builder.Services.AddScoped<IStartMeetingUseCase, StartMeetingUseCase>();
 builder.Services.AddScoped<IGetMeetingURLUseCase, GetMeetingURLUseCase>();
 builder.Services.AddScoped<IGetRoomsUseCase, GetRoomsUseCase>();
-builder.Services.AddScoped<IGuarantCertificateUseCase,  GuarantCertificateUseCase>();
+builder.Services.AddScoped<IGuarantCertificateUseCase, GuarantCertificateUseCase>();
 
 
 
@@ -76,18 +124,43 @@ builder.Services.AddScoped<IWordService>(sp =>
     return new WordService(wwwroot);
 });
 #endregion
+Directory.CreateDirectory("logs");
+File.AppendAllText($"logs/std-{DateTime.Today:yyyy-MM-dd}.log",
+    $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} [INF] اپ استارت شد — {Environment.NewLine}");
+
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "CoreMe", Version = "v1" });
+
+    // Remove servers for local development
+    c.AddServer(new Microsoft.OpenApi.OpenApiServer { Url = "/" });
+});
+
 
 var app = builder.Build();
 // if (app.Environment.IsDevelopment())
 // {
+//app.UseCors("AllowAllOrigins");
+app.UseCors("AllowAllOrigins"); 
+
 app.UseSwagger();
-app.UseSwaggerUI();
+app.UseSwaggerUI(c =>
+{
+    // Relative URL points to your swagger.json
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "CoreMe v1");
+    c.RoutePrefix = string.Empty; // optional: serve Swagger UI at root /
+});
+
 // }
-app.UseCors("AllowHekmateSubdomains");  
+
+
+//app.UseCors("AllowHekmateSubdomains");
+
+
+
 app.UseHttpsRedirection();
 
 app.UseAuthorization();

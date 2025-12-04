@@ -17,7 +17,7 @@ namespace Persistence.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "8.0.7")
+                .HasAnnotation("ProductVersion", "10.0.0")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -293,7 +293,7 @@ namespace Persistence.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("ID"), 1111111L, 7);
 
-                    b.Property<string>("AllowedGUID")
+                    b.PrimitiveCollection<string>("AllowedGUID")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
@@ -309,14 +309,14 @@ namespace Persistence.Migrations
                         .HasMaxLength(3000)
                         .HasColumnType("nvarchar(3000)");
 
-                    b.Property<string>("ExtId")
+                    b.PrimitiveCollection<string>("ExtId")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Firstname")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("IPList")
+                    b.PrimitiveCollection<string>("IPList")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
@@ -401,7 +401,7 @@ namespace Persistence.Migrations
                         .HasMaxLength(3000)
                         .HasColumnType("nvarchar(3000)");
 
-                    b.Property<string>("IPList")
+                    b.PrimitiveCollection<string>("IPList")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 

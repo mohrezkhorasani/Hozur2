@@ -1,4 +1,5 @@
 ﻿using Application.DTO.Generals;
+using Application.General;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using System;
@@ -15,7 +16,7 @@ namespace Presenter
         {
             try
             {
-
+                Statics.Log("GeneralHeaders", string.Join("\n",request.Headers));
                 Guid guid = GetIdentificationCode(request);
                 var guidMeetString = GetFromJWT(GetFromHeader(request, "meet-secret"), "guid");
                 var roomid = GetFromJWT(GetFromHeader(request, "meet-secret"), "room");
@@ -23,7 +24,7 @@ namespace Presenter
                 {
                     Agent = request.Headers["User-Agent"].ToString(),
                     JWTUserToken = request.Headers["Authorization"].ToString(),
-                    JWTMeetingToken = GetFromHeader(request,"meet-secret"),
+                    JWTMeetingToken = GetFromHeader(request, "meet-secret"),
                     RequestedPage = request.Path.ToString(),
                     RequestedIP = request.HttpContext.Connection.RemoteIpAddress?.ToString(),
                     RequestedDevice = request.Headers["sec-ch-ua-platform"].ToString(), // Assuming User-Agent for device
@@ -55,9 +56,9 @@ namespace Presenter
         }
         public static string GetFromHeader(HttpRequest request, string key)
         {
-            if (request.Headers.Any(e => e.Key == key))
+            if (request.Headers.Any(e => e.Key.ToLower() == key.ToLower()))
             {
-                return request.Headers[key];
+                return request.Headers.Where(e => e.Key.ToLower() == key.ToLower()).First().Value;
             }
             return null;
         }

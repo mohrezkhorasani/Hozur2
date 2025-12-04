@@ -19,6 +19,7 @@ namespace Application.DTO
         public string? Email { get; set; }
         public string? AllowedGUID { get; set; }
         public string? Role { get; set; }
+        public string? RoomName { get; set; }
 
     }
 
@@ -79,7 +80,7 @@ namespace Application.DTO
     #region UpdateMeeting
     public class UpdateMeetingRequest : NewUserRequest, IUseCaseRequest<GenericResponse<UpdateMeetingResponse>>
     {
-        public string Teacher { get; set; }
+        public string[] Teacher { get; set; }
         public string Title { get; set; }
         public string JalaliDate { get; set; }
         public string Explain { get; set; }

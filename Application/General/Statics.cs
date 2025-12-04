@@ -11,8 +11,6 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using System.IO;
-using iTextSharp.text;
-using iTextSharp.text.pdf;
 
 
 namespace Application.General
@@ -304,7 +302,20 @@ namespace Application.General
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
+        // یه متد ساده برای لاگ زدن (کپی کن بذار توی Program.cs یا یه کلاس جدا)
+        public static void Log(string level, string message)
+        {
+            try
+            {
+                var line = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} [{level}] {message}{Environment.NewLine}";
+                Directory.CreateDirectory("logs");
+                File.AppendAllText($"logs/std-{DateTime.Today:yyyy-MM-dd}.log", line);
+            }
+            catch(Exception e)
+            {
 
+            }
+        }
         public static string GenerateJWTMeet(MeetingTBL tbl)
         {
             var key = new SymmetricSecurityKey(Encoding.UTF8
@@ -364,49 +375,49 @@ namespace Application.General
     }
 public static class PdfCompressor
     {
-        public static string CompressPdf(string inputPath)
-        {
-            try
-            {
-                if (!File.Exists(inputPath))
-                    throw new FileNotFoundException("File not found.", inputPath);
+        //public static string CompressPdf(string inputPath)
+        //{
+        //    try
+        //    {
+        //        if (!File.Exists(inputPath))
+        //            throw new FileNotFoundException("File not found.", inputPath);
 
-                string dir = Path.GetDirectoryName(inputPath);
-                string name = Path.GetFileNameWithoutExtension(inputPath);
-                string outputPath = Path.Combine(dir, $"{name}_compressed.pdf");
+        //        string dir = Path.GetDirectoryName(inputPath);
+        //        string name = Path.GetFileNameWithoutExtension(inputPath);
+        //        string outputPath = Path.Combine(dir, $"{name}_compressed.pdf");
 
-                using (var reader = new PdfReader(inputPath))
-                {
-                    reader.RemoveUnusedObjects(); // حذف اشیاء غیرضروری
+        //        using (var reader = new PdfReader(inputPath))
+        //        {
+        //            reader.RemoveUnusedObjects(); // حذف اشیاء غیرضروری
 
-                    using (var fs = new FileStream(outputPath, FileMode.Create, FileAccess.Write))
-                    using (var document = new Document())
-                    using (var writer = PdfWriter.GetInstance(document, fs))
-                    {
-                        writer.SetFullCompression();
-                        document.Open();
+        //            using (var fs = new FileStream(outputPath, FileMode.Create, FileAccess.Write))
+        //            using (var document = new Document())
+        //            using (var writer = PdfWriter.GetInstance(document, fs))
+        //            {
+        //                writer.SetFullCompression();
+        //                document.Open();
 
-                        PdfContentByte cb = writer.DirectContent;
+        //                PdfContentByte cb = writer.DirectContent;
 
-                        for (int i = 1; i <= reader.NumberOfPages; i++)
-                        {
-                            document.NewPage();
-                            PdfImportedPage page = writer.GetImportedPage(reader, i);
-                            cb.AddTemplate(page, 0, 0);
-                        }
+        //                for (int i = 1; i <= reader.NumberOfPages; i++)
+        //                {
+        //                    document.NewPage();
+        //                    PdfImportedPage page = writer.GetImportedPage(reader, i);
+        //                    cb.AddTemplate(page, 0, 0);
+        //                }
 
-                        document.Close();
-                    }
-                }
+        //                document.Close();
+        //            }
+        //        }
 
-                return outputPath;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error: {ex.Message}");
-                return null;
-            }
-        }
+        //        return outputPath;
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        Console.WriteLine($"Error: {ex.Message}");
+        //        return null;
+        //    }
+        //}
     }
     public static class DateExtensions
     {

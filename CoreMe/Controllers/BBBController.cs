@@ -1,9 +1,11 @@
 using Application.DTO;
+using Application.General;
 using Application.Interface.IUsecase;
 using AutoMapper;
 using CoreMe.VM;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
+using Newtonsoft.Json;
 using Presenter;
 
 namespace CoreMe.Controllers
@@ -133,12 +135,12 @@ namespace CoreMe.Controllers
         // [EnableCors("AllowHekmateSubdomains")]
         public async Task<IActionResult> NewMeeting(NewMeetingViewModel vm)
         {
+                Statics.Log("NewMeetingContr", JsonConvert.SerializeObject(vm));
             NewMeetingRequest req = _mapper.Map<NewMeetingRequest>(vm);
             req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
             await _INewMeetingUseCase.handleAsync(req, _NewMeetingResponse);
             return _NewMeetingResponse.jsonContentResult;
         }
-
 
         [HttpPost("/user/NewUserMettings")]
         // [EnableCors("AllowHekmateSubdomains")]
@@ -164,6 +166,8 @@ namespace CoreMe.Controllers
         [HttpGet("/user/GetTeacherList")]
         public async Task<IActionResult> GetTeacherList([FromQuery] string q = "")
         {
+            Statics.Log("GetTeacherList", string.Join("\n", Request.Headers));
+            Statics.Log("GetTeacherList", string.Join("\n", Request.Headers.Select(e=>e.Key).ToList()));
             GetTeacherListRequest req = new GetTeacherListRequest
             {
                 Query = q
@@ -262,6 +266,9 @@ namespace CoreMe.Controllers
         {
             GuarantCertificateRequest req = _mapper.Map<GuarantCertificateRequest>(vm);
             req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
+            Statics.Log("GuarantCertificate", "GeneralHeaders22222"+JsonConvert.SerializeObject(req.GeneralHeaders));
+            Statics.Log("GuarantCertificate", "GeneralHeaders22222"+(req.GeneralHeaders.JWTMeetingToken));
+
             await _IGuarantCertificateUseCase.handleAsync(req, _GuarantCertificateResponse);
             return _GuarantCertificateResponse.jsonContentResult;
         }

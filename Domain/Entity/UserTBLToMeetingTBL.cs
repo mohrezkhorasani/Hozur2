@@ -19,7 +19,7 @@ namespace Domain.Entity
         public DateTime DateInsert { get; set; }
         public string MeetID { get; set; }
         public MeetingTBL MeetingTBL { get; set; }
-        public string UUID { get; set; }
+        public string UUID { get; set; }    
         public string TokenJWT { get; set; }
         public UserTBL UserTBL { get; set; }
         public bool IsCertificated { get; set; } = false;
