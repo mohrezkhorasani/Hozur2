@@ -116,6 +116,7 @@
         GetRoomStatsResponse = presenter.Response.data;
         VisibleRooms = GetRoomStatsResponse.Rooms.Take(8).ToList();
     }
+
     @inject IGetLivesUseCase IGetLivesUseCase
     private GetLivesResponse GetLivesResponse;
     private async Task CallGetLivesResponse()
