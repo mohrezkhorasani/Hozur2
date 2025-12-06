@@ -434,5 +434,24 @@ public static class PdfCompressor
             }
         }
     }
+    public static class PersianDateHelper
+    {
+        private static readonly string[] PersianDayNames = new[]
+        {
+        "یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنج‌شنبه", "جمعه", "شنبه"
+    };
+
+        /// <summary>
+        /// تاریخ میلادی رو می‌گیره و نام روز هفته به فارسی برمی‌گردونه (مثل: سه‌شنبه)
+        /// </summary>
+        public static string GetPersianDayName(this DateTime date)
+        {
+            int dayIndex = (int)date.DayOfWeek; // یکشنبه = 0, ..., شنبه = 6
+
+            // در .NET یکشنبه اولین روز هفته است، اما در تقویم پارسی شنبه آخرین روز و یکشنبه اولین روز است
+            // پس جابجایی می‌کنیم:
+            return dayIndex == 6 ? PersianDayNames[6] : PersianDayNames[dayIndex + 1];
+        }
+    }
 
 }

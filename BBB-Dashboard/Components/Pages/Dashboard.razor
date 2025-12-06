@@ -8,7 +8,7 @@
 @using SafaretoWeb.ApplicationUsage
 @inject IJSRuntime JS
 @inject IGetRoomStatsUseCase IGetRoomStatsUseCase
-
+@inject IHttpContextAccessor HttpContextAccessor
 
 
 
@@ -18,6 +18,7 @@
 @inject IGetTrophiesUseCase IGetTrophiesUseCase
 @inject IGetRoomStatsUseCase IGetRoomStatsUseCase
 @code {
+    public bool LoadingPage = true;
     private List<string> BG = new List<string>();
     private GetTrophiesResponse GetTrophiesResponse;
     private GetRoomStatsResponse GetRoomStatsResponse;
@@ -41,7 +42,60 @@
 
         // دریافت Response از Presenter
         GetTrophiesResponse = presenter.Response.data;
-        // GetRoomStatsResponse = GetRoomStatsResponsePer.Response.data;
+        LoadingPage = false;
+        StateHasChanged();
+    }
+    @inject IGetLastMeetingUseCase IGetLastMeetingUseCase
+    private GetLastMeetingResponse GetLastMeetingResponse;
+    private async Task CallGetLastMeetingResponse()
+    {
+        // ساخت Request
+        var request = new GetLastMeetingRequest
+        {
+            Count = 6,
+            Page = 1
+        };
+
+        // ساخت Presenter
+        var presenter = new GenericPresenter<GenericResponse<GetLastMeetingResponse>>();
+        // var GetRoomStatsResponsePer = new GenersicPresenter<GenericResponse<GetRoomStatsResponse>>();
+
+        // صدا زدن UseCase
+        await IGetLastMeetingUseCase.handleAsync(request, presenter);
+        // await IGetRoomStatsUseCase.handleAsync(new GetRoomStatsRequest { }, GetRoomStatsResponsePer);
+
+
+
+        // دریافت Response از Presenter
+        GetLastMeetingResponse = presenter.Response.data;
+        LoadingPage = false;
+        StateHasChanged();
+    }
+    @inject IGetLastCertUseCase IGetLastCertUseCase
+    private GetLastCertResponse GetLastCertResponse;
+    private async Task CallGetLastCertResponse()
+    {
+        // ساخت Request
+        var request = new GetLastCertRequest
+        {
+            Count = 6,
+            Page = 1
+        };
+
+        // ساخت Presenter
+        var presenter = new GenericPresenter<GenericResponse<GetLastCertResponse>>();
+        // var GetRoomStatsResponsePer = new GenersicPresenter<GenericResponse<GetRoomStatsResponse>>();
+
+        // صدا زدن UseCase
+        await IGetLastCertUseCase.handleAsync(request, presenter);
+        // await IGetRoomStatsUseCase.handleAsync(new GetRoomStatsRequest { }, GetRoomStatsResponsePer);
+
+
+
+        // دریافت Response از Presenter
+        GetLastCertResponse = presenter.Response.data;
+        LoadingPage = false;
+        StateHasChanged();
     }
     private async Task CallGetRoomStatsResponse()
     {
@@ -89,17 +143,22 @@
     }
     protected override async Task OnInitializedAsync()
     {
+        LoadingPage = true;
+        StateHasChanged();
+        var r = HttpContextAccessor.HttpContext;
         for (int i = 0; i < 4;)
         {
             var rand = new Random().Next(1, 25);
-            if (new int[] { 20, 10,7,15,14,6,19 }.Contains(rand)) continue;
+            if (new int[] { 20, 10, 7, 15, 14, 6, 19 }.Contains(rand)) continue;
             i++;
             BG.Add(rand.ToString());
         }
         #region GetTrophiesResponse
         _ = CallGetTrophiesResponse();
-        _ = CallGetRoomStatsResponse();
+        // _ = CallGetRoomStatsResponse();
         _ = CallGetLivesResponse();
+        _ = CallGetLastMeetingResponse();
+        _ = CallGetLastCertResponse();
         #endregion
 
 
@@ -108,7 +167,7 @@
 }
 
 
-@if (GetTrophiesResponse == null)
+@if (GetTrophiesResponse == null || LoadingPage)
 {
     <div class="preloader" id="preloader">
         <div class="loader">
@@ -495,11 +554,12 @@ else
                                             }
 
                                         </div>
-                                        @if (GetRoomStatsResponse.Rooms.Count > 8)
+
+                                        @if (GetRoomStatsResponse != null && GetRoomStatsResponse.Rooms.Count > 8)
                                         {
                                             <div class="text-center mt-4">
                                                 <button @onclick="LoadMore" class="btn btn-primary btn-sm" id="load-more-btn">
-                                                    @MoreRoomTitleButton <i class="la la-chevron-@(VisibleRooms.Count + 8 >= GetRoomStatsResponse.Rooms.Count?"up":"down") ms-1"></i>
+                                                    @MoreRoomTitleButton <i class="la la-chevron-@(VisibleRooms.Count + 8 >= GetRoomStatsResponse.Rooms.Count ? "up" : "down") ms-1"></i>
 
                                                 </button>
                                             </div>
@@ -509,9 +569,9 @@ else
                                     {
                                         <div>در حال بارگیری دیتا...</div>
                                     }
-                                    @code {
+                                @code {
                                     private List<SharedOBJ_RoomStats> VisibleRooms = new();
-                                    private string MoreRoomTitleButton="نمایش بیشتر";
+                                    private string MoreRoomTitleButton = "نمایش بیشتر";
                                     private void LoadMore()
                                     {
                                         if (VisibleRooms.Count >= GetRoomStatsResponse.Rooms.Count)
@@ -526,7 +586,7 @@ else
                                         }
                                         else
                                         {
-                                            VisibleRooms = GetRoomStatsResponse.Rooms.Take(VisibleRooms.Count+8).ToList();
+                                            VisibleRooms = GetRoomStatsResponse.Rooms.Take(VisibleRooms.Count + 8).ToList();
                                             MoreRoomTitleButton = "نمایش بیشتر";
                                         }
                                         StateHasChanged();
@@ -543,11 +603,13 @@ else
                     #<!-- #bar chart -->
                     @code {
                         private List<ChartData> ChartDataList = new();
-
+                        private bool ChartFix = true;
                         protected override async Task OnAfterRenderAsync(bool firstRender)
                         {
                             if (firstRender)
                             {
+                                LoadingPage = true;
+                                StateHasChanged();
                                 ChartDataList = new List<ChartData>
                                         {
                                         new ChartData { Label = "فروردین", Value = 120 },
@@ -558,8 +620,12 @@ else
                                         new ChartData { Label = "شهریور", Value = 310 }
                                         };
 
-                                await RenderChart();
+                                LoadingPage = false;
+                                StateHasChanged();
+
                             }
+                            await RenderChart();
+
                         }
 
                         private async Task RenderChart()
@@ -615,8 +681,12 @@ else
                                     }
                                 }
                             };
+                            @if (GetRoomStatsResponse != null && ChartDataList != null && ChartDataList.Count > 0 && ChartFix && !LoadingPage)
+                            {
+                                await JS.InvokeVoidAsync("renderBarChart", "participantsBarChart", config);
+                                ChartFix = !ChartFix;
 
-                            await JS.InvokeVoidAsync("renderBarChart", "participantsBarChart", config);
+                            }
                         }
 
                         public class ChartData
@@ -625,6 +695,95 @@ else
                             public int Value { get; set; }
                         }
                     }
+
+                    <div class="row d-flex align-items-stretch">
+
+                        <!-- ستون چپ: نمودار + جلسات اخیر -->
+                        <div class="col-lg-6 mb-4">
+
+                            <div class="form-box dashboard-card">
+                                <div class="form-title-wrap d-flex justify-content-between align-items-center">
+                                    <h3 class="title mb-0">جلسات اخیر</h3>
+                                    <a href="/meetings" class="btn-text font-size-14">مشاهده همه <i class="la la-arrow-left mr-1"></i></a>
+                                </div>
+                                <div class="form-content pt-3">
+                                    <div class="table-responsive">
+                                        <table class="table table-hover">
+                                            <tbody>
+                                                @if (GetLastMeetingResponse != null)
+                                                {
+                                                    @foreach (var i in GetLastMeetingResponse.SharedOBJ_Rooms)
+                                                    {
+                                                        <tr>
+                                                            <td class="text-muted font-size-14">@PersianDateHelper.GetPersianDayName(i.Date)</td>
+                                                            <td>
+                                                                <strong>@(string.IsNullOrEmpty(i.MeetTitle) ? "بدون عنوان" : i.MeetTitle)</strong><br>
+                                                                <small class="text-muted">@i.RoomTitle.Name.ToString()</small>
+                                                            </td>
+                                                            <td class="text-center">
+                                                                <span class="badge badge-success font-size-14">@i.Partis.Count().ToString() نفر</span>
+                                                            </td>
+                                                        </tr>
+                                                    }
+
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ستون راست: آخرین گواهینامه‌ها (جای آمار سرور) -->
+                        <div class="col-lg-6 mb-4">
+
+                            <!-- آخرین گواهینامه‌های صادر شده -->
+                            <div class="form-box dashboard-card">
+                                <div class="form-title-wrap d-flex justify-content-between align-items-center">
+                                    <h3 class="title mb-0">آخرین گواهینامه‌ها</h3>
+                                    <a href="/certs" class="btn-text font-size-14">مشاهده همه <i class="la la-arrow-left mr-1"></i></a>
+                                </div>
+                                <div class="form-content pt-3">
+                                    <div class="table-responsive">
+                                        <table class="table table-hover">
+                                            <tbody>
+                                                <!-- نمونه ردیف -->
+                                                @if (GetLastCertResponse != null)
+                                                {
+                                                    @foreach (var i in GetLastCertResponse.SharedOBJ_Certificates)
+                                                    {
+                                                        <tr>
+                                                            <td>
+                                                                <div class="d-flex align-items-center">
+                                                                    <div class="avatar avatar-sm mr-2">
+                                                                        <img src="https://ui-avatars.com/api/?name=@(i.Parti.Name)&background=4e73df&color=fff&bold=true"
+                                                                             alt="" class="rounded-circle">
+                                                                    </div>
+                                                                    <div>
+                                                                        <strong>@i.Parti.Name</strong><br>
+                                                                        <small class="text-muted">@PersianDateHelper.GetPersianDayName(i.Date)</small>
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                            <td class="text-left">
+                                                                <small class="d-block text-muted">گروه: @i.Room.Name.Replace("گروه","")</small>
+                                                                <strong>@(string.IsNullOrEmpty(i.Meet.Name) ? "گواهی بدون عنوان":i.Meet.Name)</strong><br>
+                                                                <small class="text-success">حضور: ۲ ساعت و ۳۰ دقیقه</small>
+                                                            </td>
+                                                        </tr>
+                                                    }
+                                                }
+
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+
+
 
                     <!-- #endregion -->
                     <div class="row d-flex align-items-stretch">
@@ -678,6 +837,8 @@ else
                         </div>
 
                     </div>
+
+
                     <div class="col-lg-6 responsive-column--m">
                         <div class="form-box dashboard-card">
                             <div class="form-title-wrap">
@@ -791,6 +952,9 @@ else
 
             <!-- end container-fluid -->
         </div>
+
+
+
 
         <!-- end dashboard-main-content -->
     </div>

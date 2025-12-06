@@ -1023,8 +1023,13 @@ namespace Application.Usecase
                 DateTime thisWeekSaturday = today.AddDays(-daysUntilSaturday); // شنبه همین هفته
 
 
-                var data = _db.MeetingTBLs.OrderByDescending(e => e.ID).Skip(message.Count * (message.Page - 1)).Take(message.Count).Include(e => e.Teacher)
-                    .Include(e => e.UserTBLToMeetingTBLs).ThenInclude(e=>e.UserTBLToMeetingTBLLogs).Include(e => e.RoomTBL).Include(e => e.Creator).ToList();
+                var data = _db.MeetingTBLs.Where(e => e.UserTBLToMeetingTBLs.Count > 1 &&
+                    new MainEntity_Types[]
+                    {MainEntity_Types.Normal}
+                    .Contains(e.Type))
+
+                    .OrderByDescending(e => e.ID).Skip(message.Count * (message.Page - 1)).Take(message.Count).Include(e => e.Teacher)
+                    .Include(e => e.UserTBLToMeetingTBLs).ThenInclude(e => e.UserTBLToMeetingTBLLogs).Include(e => e.RoomTBL).Include(e => e.Creator).ToList();
 
                 var count = _db.MeetingTBLs.Count();
 
@@ -1045,7 +1050,7 @@ namespace Application.Usecase
                         {
                             ID = r.ID,
                             Name = r.UserNickName,
-                            Timer=_commonMethods.GetTimerUserLogs(r.UserTBLToMeetingTBLLogs)
+                            Timer = _commonMethods.GetTimerUserLogs(r.UserTBLToMeetingTBLLogs)
                         }).ToList()
                     }).ToList()
                 }));
@@ -1053,6 +1058,85 @@ namespace Application.Usecase
             catch (Exception e)
             {
                 outputPort.Handle(new GenericResponse<GetLastMeetingResponse>(new GetLastMeetingResponse
+                {
+                    Message = e.Message + e.InnerException,
+                    Status = 400,
+
+                }));
+            }
+        }
+
+
+
+    }
+    #endregion
+
+    #region GetLastCert
+    public class GetLastCertUseCase : IGetLastCertUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        public IWordService WordService { get; }
+        private IWebHostEnvironment _env;
+        private IScpUploader scpUploader { get; }
+
+        public GetLastCertUseCase(IDBContext repository,
+            IConfiguration configuration, IWordService wordService,
+            IWebHostEnvironment hosting,
+            IScpUploader scpUploader
+
+            )
+        {
+            _db = repository;
+            _env = hosting;
+            _commonMethods = new CommonMethods(configuration, repository, _env);
+            WordService = wordService;
+            this.scpUploader = scpUploader;
+        }
+
+        public async Task handleAsync(GetLastCertRequest message,
+            IOutPutPort<GenericResponse<GetLastCertResponse>> outputPort)
+        {
+            try
+            {
+
+
+                DateTime today = DateTime.Today;
+                int daysUntilSaturday = ((int)DayOfWeek.Saturday - (int)today.DayOfWeek + 7) % 7;
+                DateTime thisWeekSaturday = today.AddDays(-daysUntilSaturday); // شنبه همین هفته
+
+
+                var data = _db.CertificateTBLs.Where(e => !string.IsNullOrEmpty(e.FilePath) &&
+                    new MainEntity_Types[]
+                    {MainEntity_Types.Normal}
+                    .Contains(e.UserTBLToMeetingTBL.MeetingTBL.RoomTBL.Type))
+                    .OrderByDescending(e => e.ID).Skip(message.Count * (message.Page - 1)).Take(message.Count).Include(e => e.UserTBLToMeetingTBL)
+                    .ThenInclude(e => e.MeetingTBL).ThenInclude(e => e.RoomTBL)
+                    .Include(e => e.UserTBLToMeetingTBL).ThenInclude(e => e.MeetingTBL)
+                    .Include(e => e.UserTBLToMeetingTBL).ThenInclude(e => e.UserTBL)
+                    .Include(e => e.UserTBLToMeetingTBL).ThenInclude(e => e.UserTBLToMeetingTBLLogs)
+                    .ToList();
+
+                var count = _db.MeetingTBLs.Count();
+
+                outputPort.Handle(new GenericResponse<GetLastCertResponse>(new GetLastCertResponse
+                {
+                    Message = "ok",
+                    Status = 200,
+                    CountAll = count,
+                    SharedOBJ_Certificates = data.Select(e => new SharedOBJ_Certificate
+                    {
+                        Date = e.DateInsert,
+                        PresentTimeSeconds = 90*60,
+                        Room = new SharedOBJ_Partis { Name = e.UserTBLToMeetingTBL.MeetingTBL.RoomTBL.Title, ID = e.UserTBLToMeetingTBL.MeetingTBL.RoomTBL.ID },
+                        Parti = new SharedOBJ_Partis { Name = e.UserTBLToMeetingTBL.UserNickName, ID = e.UserTBLToMeetingTBL.ID },
+                        Meet = new SharedOBJ_Partis { Name = e.UserTBLToMeetingTBL.MeetingTBL.Title, ID = e.UserTBLToMeetingTBL.MeetingTBL.ID },
+                    }).ToList()
+                }));
+            }
+            catch (Exception e)
+            {
+                outputPort.Handle(new GenericResponse<GetLastCertResponse>(new GetLastCertResponse
                 {
                     Message = e.Message + e.InnerException,
                     Status = 400,
@@ -1107,7 +1191,7 @@ namespace Application.Usecase
                        .Max(m => m.DateInsert))
                    .Skip(message.Page * message.Count)
                    .Take(message.Count)
-                   .Include(e=>e.UserTBLToMeetingTBLs)
+                   .Include(e => e.UserTBLToMeetingTBLs)
                    .ToList();
 
 

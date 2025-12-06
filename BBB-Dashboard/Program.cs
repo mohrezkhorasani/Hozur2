@@ -1,4 +1,4 @@
-using Application.Interface.IInfrastructure;
+﻿using Application.Interface.IInfrastructure;
 using Application.Interface.IUsecase;
 using Application.Interfaces;
 using Application.Usecase;
@@ -16,6 +16,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+builder.Services.AddRazorPages();
 
 builder.Services.AddDbContext<DBContext>(option =>
 option.UseSqlServer(builder.Configuration.GetConnectionString("DBConnecDBConnectiontionMohrez")));
@@ -38,6 +39,7 @@ builder.Services.AddScoped<IGuarantCertificateUseCase, GuarantCertificateUseCase
 builder.Services.AddScoped<IGetRoomStatsUseCase, GetRoomStatsUseCase>();
 builder.Services.AddScoped<IGetLastMeetingUseCase, GetLastMeetingUseCase>();
 builder.Services.AddScoped<IGetPartisUseCase, GetPartisUseCase>();
+builder.Services.AddScoped<IGetLastCertUseCase, GetLastCertUseCase>();
 builder.Services.AddHttpContextAccessor();
 
 
@@ -74,10 +76,15 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseAntiforgery();
 
+app.MapRazorPages();                    // برای Razor Pages
+app.MapControllerRoute(                 // برای MVC Controllerها
+    name: "default",
+    pattern: "{controller=Home}/{action=Index}/{id?}");
+
+// این خط آخر باشه
 app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode();
-
-
+    .AddInteractiveServerRenderMode()
+    ;
 //MiddleWare
 app.UseMiddleware<UserIpMiddleware>();
 

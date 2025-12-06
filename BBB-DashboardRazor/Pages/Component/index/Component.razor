@@ -1,0 +1,42 @@
+﻿@using Application.DTO
+@using Application.General
+
+<!-- این خط رو دقیقاً بالای فایل بذار (به جای attributeهای قدیمی) -->
+@rendermode InteractiveServer
+
+@code {
+    [Parameter] public GetRoomStatsResponse? GetRoomStatsResponse { get; set; }
+    [Parameter] public GetLivesResponse? GetLivesResponse { get; set; }
+    [Parameter] public List<string> BG { get; set; } = new() { "1", "2", "3", "4" };
+
+    private List<SharedOBJ_RoomStats> VisibleRooms = new();
+    private string MoreRoomTitleButton = "نمایش بیشتر";
+
+    protected override void OnParametersSet()
+    {
+        if (GetRoomStatsResponse?.Rooms != null && VisibleRooms.Count == 0)
+        {
+            VisibleRooms = GetRoomStatsResponse.Rooms.Take(8).ToList();
+        }
+    }
+
+    private void LoadMore()
+    {
+        if (VisibleRooms.Count >= GetRoomStatsResponse!.Rooms.Count)
+        {
+            VisibleRooms = GetRoomStatsResponse.Rooms.Take(8).ToList();
+            MoreRoomTitleButton = "نمایش بیشتر";
+        }
+        else if (VisibleRooms.Count + 8 >= GetRoomStatsResponse.Rooms.Count)
+        {
+            VisibleRooms = GetRoomStatsResponse.Rooms.ToList();
+            MoreRoomTitleButton = "نمایش کمتر";
+        }
+        else
+        {
+            VisibleRooms = GetRoomStatsResponse.Rooms.Take(VisibleRooms.Count + 8).ToList();
+            MoreRoomTitleButton = "نمایش بیشتر";
+        }
+        // StateHasChanged(); رو حذف کن، Blazor خودش مدیریت می‌کنه
+    }
+}

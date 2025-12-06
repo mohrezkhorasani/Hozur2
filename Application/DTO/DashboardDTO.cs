@@ -354,6 +354,29 @@ namespace Application.DTO
     #endregion
 
 
+
+    #region GetLastCert
+    public class GetLastCertRequest : DashboardBaseRequest, IUseCaseRequest<GenericResponse<GetLastCertResponse>>
+    {
+        public int Count { get; set; }
+        public int Page { get; set; }
+    }
+
+    public class GetLastCertResponse : BaseParentResponce
+    {
+        public int CountAll { get; set; }
+        public List<SharedOBJ_Certificate> SharedOBJ_Certificates { get; set; }
+    }
+    public class SharedOBJ_Certificate
+    {
+        public SharedOBJ_Partis Room { get; set; }
+        public SharedOBJ_Partis Parti { get; set; }
+        public SharedOBJ_Partis Meet { get; set; }
+        public int PresentTimeSeconds{ get; set; }
+        public DateTime Date{ get; set; }
+    }
+    #endregion
+
     #region GetPartis
     public class GetPartisRequest : DashboardBaseRequest, IUseCaseRequest<GenericResponse<GetPartisResponse>>
     {

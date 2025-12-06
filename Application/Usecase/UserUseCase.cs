@@ -754,7 +754,7 @@ namespace Application.Usecase
             IBBBGetMeetings.GetMeeting("1bf11043f89ab8d45d782d38610bdafa9f8a6ebb-1762062673683");
             var r =await IBBBGetMeetings.GetRecordingsByMeetingId("1khe4quugbx7ziilyojrvapwebknxbn1jydcjozl");
 
-            var resp = IScpUploader.ExecuteRemoteCommand("ls -lht");
+            //var resp = IScpUploader.ExecuteRemoteCommand("ls -lht");
 
             outputPort.Handle(new GenericResponse<GetLivesResponse>(new GetLivesResponse
             {
