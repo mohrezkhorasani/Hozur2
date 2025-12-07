@@ -10,15 +10,22 @@ namespace Application.Interfaces
 {
     public interface IDBContext
     {
-
+        #region 12/07/2025
+        public DbSet<AccessLevelTBL> AccessLevelTBLs { get; set; }
+        public DbSet<AccessLevelTBLToRoleTBL> AccessLevelTBLToRoleTBLs { get; set; }
+        #endregion
+        #region 12/07/2025  
+        public DbSet<RoleTBL> RoleTBLs { get; set; }
+        public DbSet<UserTBLToRoleTBL> UserTBLToRoleTBLs { get; set; }
         public DbSet<ConfigTBL> ConfigTBLs { get; set; }
         public DbSet<CertificateTBL> CertificateTBLs { get; set; }
         public DbSet<MeetingTBL> MeetingTBLs { get; set; }
         public DbSet<RoomTBL> RoomTBLs { get; set; }
         public DbSet<UserTBL> UserTBLs { get; set; }
+        public DbSet<RoomTBLToUserTBL> RoomTBLToUserTBLs { get; set; }
         public DbSet<UserTBLToMeetingTBL> UserTBLToMeetingTBLs { get; set; }
         public DbSet<UserTBLToMeetingTBLLogs> UserTBLToMeetingTBLLogs { get; set; }
-        public DbSet<RoomTBLToUserTBL> RoomTBLToUserTBLs { get; set; }
+        #endregion
         public int SaveChanges();
         public Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default);
         public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);

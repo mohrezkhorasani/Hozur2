@@ -31,7 +31,7 @@ namespace Application.Usecase
         public async Task handleAsync(ApplicationVersionRequest message,
             IOutPutPort<GenericResponse<ApplicationVersionResponse>> outputPort)
         {
-
+   
             outputPort.Handle(new GenericResponse<ApplicationVersionResponse>
        (new ApplicationVersionResponse
        {

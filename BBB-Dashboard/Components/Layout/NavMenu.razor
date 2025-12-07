@@ -31,15 +31,17 @@
             <li class="@(IsActive("/certs") ? "page-active" : "")">
                 <a href="admin-dashboard-travellers.html"><i class="lala lala-certificate mr-2 @(IsActive("/certs") ? "text-color-white" : "text-color-3")"></i>گواهینامه های صادرشده</a>
             </li>
-          
-            <li ><a href="index.html"><i class="la la-power-off mr-2 text-color-11"></i>خروج</a></li>
+            <li class="@(IsActive("/certs") ? "page-active" : "")">
+                <a href="rooms"><i class="lala lala-certificate mr-2 @(IsActive("/rooms") ? "text-color-white" : "text-color-3")"></i>لیست گروه ها</a>
+            </li>
+            <li><a href="index.html"><i class="la la-power-off mr-2 text-color-11"></i>خروج</a></li>
         </ul>
     </div><!-- end sidebar-menu-wrap -->
 </div>
 <!-- ================================
        END DASHBOARD NAV
 ================================= -->
-@code { 
+@code {
     private bool IsActive(string href)
     {
         var relativePath = Navigation.ToBaseRelativePath(Navigation.Uri);

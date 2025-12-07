@@ -17,7 +17,14 @@ namespace Presistence.Entities
 {
     public class DBContext : DbContext, IDBContext
     {
-          public DbSet<ConfigTBL> ConfigTBLs { get; set; }
+        #region 12/07/2025
+        public DbSet<AccessLevelTBL> AccessLevelTBLs { get; set; }
+        public DbSet<AccessLevelTBLToRoleTBL> AccessLevelTBLToRoleTBLs { get; set; }
+        #endregion
+        #region 12/07/2025  
+        public DbSet<RoleTBL> RoleTBLs { get; set; }
+        public DbSet<UserTBLToRoleTBL> UserTBLToRoleTBLs { get; set; }
+        public DbSet<ConfigTBL> ConfigTBLs { get; set; }
         public DbSet<CertificateTBL> CertificateTBLs { get; set; }
         public DbSet<MeetingTBL> MeetingTBLs { get; set; }
         public DbSet<RoomTBL> RoomTBLs { get; set; }
@@ -25,6 +32,7 @@ namespace Presistence.Entities
         public DbSet<RoomTBLToUserTBL> RoomTBLToUserTBLs { get; set; }
         public DbSet<UserTBLToMeetingTBL> UserTBLToMeetingTBLs { get; set; }
         public DbSet<UserTBLToMeetingTBLLogs> UserTBLToMeetingTBLLogs { get; set; }
+        #endregion
 
         public class BloggingContextfactory : IDesignTimeDbContextFactory<DBContext>
         {
@@ -51,8 +59,14 @@ namespace Presistence.Entities
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            
-            
+
+            #region 12/07/2025
+            modelBuilder.ApplyConfiguration(new RoleTBLConfiguration());
+            modelBuilder.ApplyConfiguration(new UserTBLToRoleTBLConfiguration());
+
+            modelBuilder.ApplyConfiguration(new AccessLevelTBLConfiguration());
+            modelBuilder.ApplyConfiguration(new AccessLevelTBLToRoleTBLConfiguration());
+            #endregion
             #region 8/6/2023
             modelBuilder.ApplyConfiguration(new CertificateTBLConfiguration());
             modelBuilder.ApplyConfiguration(new MeetingTBLConfiguration());

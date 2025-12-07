@@ -18,6 +18,15 @@ namespace Domain.Entity
         public UserTBL OwnerTBL { get; set; }
         public long IDOwnerTBL{ get; set; }
         public string? TTR_URL{ get; set; }
+        public string? ModeratorCode { get; set; }
+        public string? ViewerCode { get; set; }
+        //قبل از پیوستن به جلسه نیاز به تأیید مدیر باشد
+        public bool RequiredAdminAcceptToView { get; set; } = false;
+        //کاربران قبل از ورود به جلسه، نیازمند ورود به سیستم باشند
+        public bool RequiredLoginToView { get; set; } = false;
+        //اجازه دهید اتاق ضبط شود
+        public bool RecordRoom { get; set; } = true;
+        public string? PresentationPath { get; set; }
         public ICollection<MeetingTBL> MeetingTBLs { get; set; }
         public ICollection<UserTBLToMeetingTBL> UserTBLToMeetingTBLs { get; set; }
         public ICollection<RoomTBLToUserTBL> RoomTBLToUserTBLs { get; set; }

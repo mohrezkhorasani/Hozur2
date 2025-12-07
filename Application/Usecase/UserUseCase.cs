@@ -680,12 +680,18 @@ namespace Application.Usecase
             {
                 Message = "ok",
                 Status = 200,
-                Data = _db.RoomTBLs
+                Data = _db.RoomTBLs.Where(e => e.Title.Contains(message.Query))
+                .Include(e => e.MeetingTBLs).ThenInclude(e => e.UserTBLToMeetingTBLs).ThenInclude(e => e.UserTBL)
                 .Select(e => new DTO.Models.MiniRoomJSON
                 {
                     RoomID = e.FriendlyID,
-                    Title = e.Title
-                }).ToList()
+                    Title = e.Title,
+                    Count = e.MeetingTBLs.Count(e=>e.UserTBLToMeetingTBLs.Count()>1),
+                    CountPartis = e.MeetingTBLs.Sum(e => e.UserTBLToMeetingTBLs.Where(r => r.UserTBL.Type != MainEntity_Types.USER_TEACHER).GroupBy(e=>e.UserNickName).Count()),
+                    CountTeacher = e.MeetingTBLs.Sum(e=>e.UserTBLToMeetingTBLs.Count(r=>r.UserTBL.Type==MainEntity_Types.USER_TEACHER)),
+                    Created =e.DateInsert,
+                    LastMeet =e.MeetingTBLs.OrderByDescending(e=>e.ID).First().DateInsert
+                }).OrderByDescending(e=>e.Created).ToList()
             }));
 
         }

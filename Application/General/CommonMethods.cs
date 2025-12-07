@@ -68,7 +68,38 @@ namespace Application.General
             var meet = await GetMeeting(message.GeneralHeaders.JWTMeetingToken);
             return (user, meet);
         }
+        public async Task<(UserTBL, List<AccessLevelTBL>)> GetUser<T>(T message)
+        where T : BaseParentRequest
+        {
+            UserTBL user = null;
+            if (string.IsNullOrEmpty(message.GeneralHeaders.JWTUserToken))
+            {
+                return (null, null);
+            }
+            else
+            {
+                user = await GetUser(message.GeneralHeaders.JWTUserToken);
+                Statics.Log("Initialize", "user is " + (user.UUID));
 
+            }
+            if (user.AddIP(message.GeneralHeaders.RequestedIP))
+            {
+                _db.Update(user);
+                _db.SaveChanges();
+            }
+            Statics.Log("Initialize", "user is " + (message.GeneralHeaders.JWTMeetingToken));
+            var role = await GetRole(user);
+            return (user, role.AccessLevelTBLToRoleTBLs.Select(e=>e.AccessLevelTBL).ToList());
+        }
+        public async Task<RoleTBL> GetRole(UserTBL user)
+        {
+            if (_db.UserTBLToRoleTBLs.Any(e => e.IDUserTBL == user.ID))
+            {
+                return _db.RoleTBLs.Where(e=>e.UserTBLToRoleTBLs.Any(r=>r.IDUserTBL==user.ID))
+                    .Include(e=>e.AccessLevelTBLToRoleTBLs).ThenInclude(e=>e.AccessLevelTBL).First();
+            }
+            return null;
+        }
         public async Task<UserTBL> NewUser(UserTBL user)
         {
             if (await CheckUserExist(user)) return await GetUserWithoutID(user);

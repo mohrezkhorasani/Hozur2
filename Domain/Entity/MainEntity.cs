@@ -42,6 +42,12 @@
         USER_VIEWER = 507,
         USER_TEACHER = 508,
 
+        //Rooms
+        ROOM_IGNORE=99,
+        ROOM_HIDDEN=98,
+        ROOM_DELETED=-98,
+        ROOM_NORMAL=1,
+
         //cert
         CERT_NORMAL = 600
     }
