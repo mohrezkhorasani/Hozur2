@@ -37,6 +37,8 @@ namespace Infrastructure.DTO
 
         [XmlElement("moderatorPW")]
         public string ModeratorPW { get; set; }
+        [XmlElement("internalMeetingID")]
+        public string InternalMeetingID { get; set; }
 
         [XmlElement("running")]
         public string Running { get; set; }

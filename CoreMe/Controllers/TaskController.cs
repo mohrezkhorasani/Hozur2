@@ -1,9 +1,11 @@
 ﻿using Application.DTO;
+using Application.General;
 using Application.Interface.IUsecase;
 using AutoMapper;
 using CoreMe.VM;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
+using Newtonsoft.Json;
 using Presenter;
 
 namespace CoreMe.Controllers
@@ -14,11 +16,22 @@ namespace CoreMe.Controllers
     {
         private readonly ILogger<TaskController> _logger;
         private readonly IWebHostEnvironment _hosting;
+        public ICronJobCheckLiveMeetingTaskUseCase _ICronJobCheckLiveMeetingTaskUseCase { get; }
+        public ApiPresenter<CronJobCheckLiveMeetingTaskResponse> _CronJobCheckLiveMeetingTaskResponse { get; }
 
-        public TaskController(ILogger<TaskController> logger, IWebHostEnvironment hosting)
+        public TaskController(ILogger<TaskController> logger, IWebHostEnvironment hosting, ICronJobCheckLiveMeetingTaskUseCase iCronJobCheckLiveMeetingTaskUseCase, ApiPresenter<CronJobCheckLiveMeetingTaskResponse> cronJobCheckLiveMeetingTaskResponse)
         {
             _logger = logger;
             _hosting = hosting;
+            _ICronJobCheckLiveMeetingTaskUseCase = iCronJobCheckLiveMeetingTaskUseCase;
+            _CronJobCheckLiveMeetingTaskResponse = cronJobCheckLiveMeetingTaskResponse;
+        }
+
+        [HttpPost("/user/CronJobCheckLiveMeetingTask")]
+        public async Task<IActionResult> CronJobCheckLiveMeetingTask()
+        {
+            await _ICronJobCheckLiveMeetingTaskUseCase.handleAsync(new CronJobCheckLiveMeetingTaskRequest(), _CronJobCheckLiveMeetingTaskResponse);
+            return _CronJobCheckLiveMeetingTaskResponse.jsonContentResult;
         }
 
 

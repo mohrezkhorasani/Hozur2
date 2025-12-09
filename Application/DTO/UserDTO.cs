@@ -29,6 +29,8 @@ namespace Application.DTO
     }
     #endregion
 
+
+
     #region NewUserMeetingLog
     public class NewUserMeetingLogRequest : NewUserRequest, IUseCaseRequest<GenericResponse<NewUserMeetingLogResponse>>
     {
@@ -248,7 +250,16 @@ namespace Application.DTO
     }
     #endregion
 
+    #region EndTheMeeting
+    public class EndTheMeetingRequest : NewUserRequest, IUseCaseRequest<GenericResponse<EndTheMeetingResponse>>
+    {
+    }
 
+    public class EndTheMeetingResponse : BaseParentResponce
+    {
+
+    }
+    #endregion
 
 
     //GetMeetings [ by title?,teacher-name?,jalali-date?, room-id? ]

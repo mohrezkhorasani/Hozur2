@@ -20,4 +20,5 @@ namespace Application.Interface.IUsecase
     public interface IGetRoomByFriendlyIDUseCase : IUseCaseRequestHandler<GetRoomByFriendlyIDRequest, GenericResponse<GetRoomByFriendlyIDResponse>> { }
     public interface INewRoomUseCase : IUseCaseRequestHandler<NewRoomRequest, GenericResponse<NewRoomResponse>> { }
     public interface IGenerateCertificateUseCase : IUseCaseRequestHandler<GenerateCertificateRequest, GenericResponse<GenerateCertificateResponse>> { }
+    public interface IEndTheMeetingUseCase : IUseCaseRequestHandler<EndTheMeetingRequest, GenericResponse<EndTheMeetingResponse>> { }
 }

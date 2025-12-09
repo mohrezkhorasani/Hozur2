@@ -205,6 +205,10 @@ namespace CoreMe.VM
         public string NationalCode { get; set; }
 
     }
+    public class EndTheMeetingViewModel : UserMainVM
+    {
+    }
+
     public class NewUserMeetingLogViewModel : UserMainVM
     {
         public string KeyLog { get; set; } //left,join, activity

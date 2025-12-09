@@ -7,6 +7,7 @@ namespace Application.DTO.Generals
         public string Token { get; set; }
         public IGeneralHeaders GeneralHeaders { get; set; }
         public int? Page { get; set; }
+        public int? Count { get; set; }
 
     }
     public class BaseParentResponce

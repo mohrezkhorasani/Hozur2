@@ -36,7 +36,31 @@ namespace Infrastructure.API
             {
                 RoomID = e.MetaDatas[0].RoomID,
                 Title = e.MeetingName,
-                Created=new DateTime(long.Parse(e.CreateTime))
+                Created = new DateTime(long.Parse(e.CreateTime))
+            }).ToList();
+
+        }
+        public async Task<List<MiniRoomJSON>> GetLivesShort(GetLivesRequest req)
+        {
+            string queryString = $"";
+            string apiCall = "getMeetings";
+            string checksumInput = apiCall + queryString + Statics.BBB_SECRET;
+            string checksum = Statics.ComputeSha1(checksumInput);
+            // Full URL with checksum
+            string url = $"{Statics.BBB_BASE_URL}?{queryString}&checksum={checksum}";
+            string fullUrl = $"{Statics.BBB_BASE_URL}{apiCall}?{queryString}&checksum={checksum}";
+            using HttpClient client = new HttpClient();
+            string xmlResponse = await client.GetStringAsync(fullUrl);
+
+            // Deserialize XML → Object
+            XmlSerializer serializer = new XmlSerializer(typeof(BBBResponse));
+            using StringReader reader = new StringReader(xmlResponse);
+            BBBResponse result = (BBBResponse)serializer.Deserialize(reader);
+            return result.Meetings.MeetingList.Select(e => new MiniRoomJSON
+            {
+                RoomID = e.InternalMeetingID,
+                Title = e.MeetingName,
+                Created = new DateTime(long.Parse(e.CreateTime))
             }).ToList();
 
         }
@@ -204,6 +228,7 @@ namespace Infrastructure.API
 
             return recordings;
         }
+     
         public async Task GetMeeting(string meetingId)
         {
             if (string.IsNullOrWhiteSpace(meetingId))
@@ -239,6 +264,45 @@ namespace Infrastructure.API
                 throw new Exception($"BBB API Error: {messageKey} - {message}");
             }
 
+        }
+
+
+
+
+
+        public async Task<bool> EndMeetingAsync(string meetingID,string pass="")
+        {
+            if (string.IsNullOrWhiteSpace(meetingID))
+                return false;
+
+            string apiCall = "end";
+            string queryString = $"meetingID={Uri.EscapeDataString(meetingID)}" +
+                                 $"&password={pass}";
+
+            string checksumInput = apiCall + queryString + Statics.BBB_SECRET;
+            string checksum = Statics.ComputeSha1(checksumInput);
+
+            string url = $"{Statics.BBB_BASE_URL}{apiCall}?{queryString}&checksum={checksum}";
+
+            using HttpClient client = new HttpClient();
+            client.Timeout = TimeSpan.FromSeconds(15);
+
+            try
+            {
+                string xmlResponse = await client.GetStringAsync(url);
+
+                var doc = XDocument.Parse(xmlResponse);
+                var returncode = doc.Root?.Element("returncode")?.Value;
+
+                return returncode?.Equals("SUCCESS", StringComparison.OrdinalIgnoreCase) == true;
+            }
+            catch (Exception ex)
+            {
+                // اگر خطا داد (مثلاً جلسه وجود نداشت، checksum اشتباه بود، سرور قطع بود و ...)
+                // لاگ رو می‌تونی بعداً با Serilog یا هر چیزی بزنی
+                Console.WriteLine($"EndMeetingAsync failed for {meetingID}: {ex.Message}");
+                return false;
+            }
         }
     }
 }

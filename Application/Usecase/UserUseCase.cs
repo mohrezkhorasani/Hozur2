@@ -124,9 +124,9 @@ namespace Application.Usecase
                 {
                     _db.RoomTBLs.Add(new RoomTBL
                     {
-                        FriendlyID= message.RoomID,
-                        IDOwnerTBL=user.ID,
-                        Title=message.RoomName==null?"":message.RoomName,
+                        FriendlyID = message.RoomID,
+                        IDOwnerTBL = user.ID,
+                        Title = message.RoomName == null ? "" : message.RoomName,
                     });
                     _db.SaveChanges();
                 }
@@ -234,9 +234,10 @@ namespace Application.Usecase
 
             Statics.Log("UpdateMeeting", JsonConvert.SerializeObject(message.Teacher));
 
-            foreach (var t in message.Teacher) {
+            foreach (var t in message.Teacher)
+            {
 
-                UserTBL teacher =null;
+                UserTBL teacher = null;
                 if (_db.UserTBLs.Any(
                     e => (e.Firstname + " " + e.LastName).Trim() == t
                         && e.Status == MainEntity_Status.USER_ACTIVE
@@ -285,9 +286,9 @@ namespace Application.Usecase
                     _db.SaveChanges();
                 }
             }
-            
 
-            meet.IDTeacher = teachers[teachers.Count-1].ID;
+
+            meet.IDTeacher = teachers[teachers.Count - 1].ID;
             meet.Teacher = teachers[teachers.Count - 1];
             _db.Update(meet);
             _db.SaveChanges();
@@ -307,7 +308,7 @@ namespace Application.Usecase
                         Fullname = $"{meet.Creator.Firstname} {meet.Creator.LastName}",
                         ID = meet.Creator.ID,
                     },
-                    Teacher = teachers.Select(r=> new DTO.Models.MiniUserJSON
+                    Teacher = teachers.Select(r => new DTO.Models.MiniUserJSON
                     {
                         Fullname = $"{r.Firstname} {r.LastName}",
                         ID = r.ID,
@@ -403,10 +404,10 @@ namespace Application.Usecase
 
             meet = await _db.MeetingTBLs.Include(e => e.Creator)
                 .Include(e => e.Teacher).Include(e => e.RoomTBL)
-                .Include(e=>e.UserTBLToMeetingTBLs).ThenInclude(e=>e.UserTBL)
+                .Include(e => e.UserTBLToMeetingTBLs).ThenInclude(e => e.UserTBL)
                 .FirstOrDefaultAsync(e => e.ID == meet.ID);
             if (meet == null) return;
-            var teachers = meet.UserTBLToMeetingTBLs.Where(e => e.Type == MainEntity_Types.USER_TEACHER).Select(e=>e.UserTBL).ToList();
+            var teachers = meet.UserTBLToMeetingTBLs.Where(e => e.Type == MainEntity_Types.USER_TEACHER).Select(e => e.UserTBL).ToList();
 
             outputPort.Handle(new GenericResponse<NewUserMettingsResponse>(new NewUserMettingsResponse
             {
@@ -673,27 +674,85 @@ namespace Application.Usecase
         }
 
         public async Task handleAsync(GetRoomsRequest message,
-            IOutPutPort<GenericResponse<GetRoomsResponse>> outputPort)
+     IOutPutPort<GenericResponse<GetRoomsResponse>> outputPort)
         {
+            // اول اتاق‌ها رو با اطلاعات پایه می‌گیریم (سبک و سریع)
+            var rooms = await _db.RoomTBLs
+                .Where(e => (string.IsNullOrEmpty(message.Query) || e.Title.Contains(message.Query))&& e.Type==MainEntity_Types.ROOM_NORMAL)
+                .Include(e => e.MeetingTBLs)
+                    .ThenInclude(m => m.UserTBLToMeetingTBLs)
+                        .ThenInclude(um => um.UserTBL)
+                .OrderByDescending(e => e.DateInsert)
+                .Select(e => new
+                {
+                    e.FriendlyID,
+                    e.Title,
+                    e.DateInsert,
+                    Meetings = e.MeetingTBLs.Select(m => new
+                    {
+                        m.ID,
+                        m.DateInsert,
+                        Participants = m.UserTBLToMeetingTBLs.Select(um => new
+                        {
+                            um.UserNickName,
+                            um.UserTBL.UUID,
+                            um.UserTBL.Email,
+                            um.UserTBL.NationalCode,
+                            um.UserTBL.PhoneNumber,
+                            um.UserTBL.Type
+                        })
+                    })
+                })
+                .ToListAsync(); // ← اینجا می‌ریزیم توی حافظه
+
+            // حالا توی حافظه محاسبه می‌کنیم (بدون هیچ مشکلی!)
+            var result = rooms.Select(room => new DTO.Models.MiniRoomJSON
+            {
+                RoomID = room.FriendlyID,
+                Title = room.Title,
+                Created = room.DateInsert,
+
+                // آخرین جلسه
+                LastMeet = room.Meetings
+                    .OrderByDescending(m => m.DateInsert)
+                    .FirstOrDefault()?.DateInsert ?? room.DateInsert,
+
+                // تعداد جلساتی که حداقل ۲ نفر (غیر معلم) داشتن
+                Count = room.Meetings.Count(m => m.Participants
+                    .Count(p => p.Type != MainEntity_Types.USER_TEACHER) > 1),
+
+                // تعداد معلم‌های یکتا
+                CountTeacher = room.Meetings
+                    .SelectMany(m => m.Participants)
+                    .Where(p => p.Type == MainEntity_Types.USER_TEACHER)
+                    .Select(p => p.UUID ?? p.Email ?? p.NationalCode ?? p.PhoneNumber ?? p.UserNickName)
+                    .Where(k => !string.IsNullOrWhiteSpace(k))
+                    .Distinct()
+                    .Count(),
+
+                // تعداد شرکت‌کننده‌های یکتا (دانش‌آموز) با همه شناسه‌ها
+                CountPartis = room.Meetings
+                    .SelectMany(m => m.Participants)
+                    .Where(p => p.Type != MainEntity_Types.USER_TEACHER)
+                    .SelectMany(p => new[]
+                    {
+                p.UUID?.Trim().ToLower(),
+                p.UserNickName?.Trim().ToLower(),
+                p.Email?.Trim().ToLower(),
+                p.NationalCode?.Trim(),
+                p.PhoneNumber?.Trim()
+                    })
+                    .Where(k => !string.IsNullOrWhiteSpace(k))
+                    .Distinct()
+                    .Count()
+            }).ToList();
 
             outputPort.Handle(new GenericResponse<GetRoomsResponse>(new GetRoomsResponse
             {
                 Message = "ok",
                 Status = 200,
-                Data = _db.RoomTBLs.Where(e => e.Title.Contains(message.Query))
-                .Include(e => e.MeetingTBLs).ThenInclude(e => e.UserTBLToMeetingTBLs).ThenInclude(e => e.UserTBL)
-                .Select(e => new DTO.Models.MiniRoomJSON
-                {
-                    RoomID = e.FriendlyID,
-                    Title = e.Title,
-                    Count = e.MeetingTBLs.Count(e=>e.UserTBLToMeetingTBLs.Count()>1),
-                    CountPartis = e.MeetingTBLs.Sum(e => e.UserTBLToMeetingTBLs.Where(r => r.UserTBL.Type != MainEntity_Types.USER_TEACHER).GroupBy(e=>e.UserNickName).Count()),
-                    CountTeacher = e.MeetingTBLs.Sum(e=>e.UserTBLToMeetingTBLs.Count(r=>r.UserTBL.Type==MainEntity_Types.USER_TEACHER)),
-                    Created =e.DateInsert,
-                    LastMeet =e.MeetingTBLs.OrderByDescending(e=>e.ID).First().DateInsert
-                }).OrderByDescending(e=>e.Created).ToList()
+                Data = result
             }));
-
         }
     }
     #endregion
@@ -758,7 +817,7 @@ namespace Application.Usecase
             var meets = await IBBBGetMeetings.Request(message);
 
             IBBBGetMeetings.GetMeeting("1bf11043f89ab8d45d782d38610bdafa9f8a6ebb-1762062673683");
-            var r =await IBBBGetMeetings.GetRecordingsByMeetingId("1khe4quugbx7ziilyojrvapwebknxbn1jydcjozl");
+            var r = await IBBBGetMeetings.GetRecordingsByMeetingId("1khe4quugbx7ziilyojrvapwebknxbn1jydcjozl");
 
             //var resp = IScpUploader.ExecuteRemoteCommand("ls -lht");
 
@@ -897,9 +956,9 @@ namespace Application.Usecase
                 var init = await _commonMethods.Initialize<GuarantCertificateRequest>(message);
                 var user = init.Item1;
                 var meet = init.Item2;
-                Statics.Log("GuarantCertificateUseCase","a");
-                Statics.Log("GuarantCertificateUseCase",meet==null? "null": meet.MeetID);
-                Statics.Log("GuarantCertificateUseCase", user == null? "null": user.UUID);
+                Statics.Log("GuarantCertificateUseCase", "a");
+                Statics.Log("GuarantCertificateUseCase", meet == null ? "null" : meet.MeetID);
+                Statics.Log("GuarantCertificateUseCase", user == null ? "null" : user.UUID);
 
                 var check = await _commonMethods.CheckGuaranteedUser(user, meet);
                 if (!check.Item1)
@@ -914,14 +973,16 @@ namespace Application.Usecase
                     return;
                 }
                 var um = _db.UserTBLToMeetingTBLs.Where(e => e.MeetID == meet.MeetID && e.UUID == user.UUID).First();
+                Statics.Log("GuarantCertificateUseCase", um.ID.ToString());
 
                 CertificateTBL cert = null;
                 if (_db.CertificateTBLs.Any(e => e.IDUserTBLToMeetingTBL == um.ID))
                 {
                     cert = await _db.CertificateTBLs.Where(e => e.IDUserTBLToMeetingTBL == um.ID).FirstAsync();
-                } 
+                }
                 else
                 {
+
                     cert = new CertificateTBL
                     {
                         Status = MainEntity_Status.CERT_FULL,
@@ -931,8 +992,12 @@ namespace Application.Usecase
 
                         Validation = check.Item1
                     };
+                    Statics.Log("GuarantCertificateUseCase", $"cert is {cert.IDUserTBLToMeetingTBL}");
+
                     _db.CertificateTBLs.Add(cert);
                     _db.SaveChanges();
+                    Statics.Log("GuarantCertificateUseCase", $"cert added {cert.IDUserTBLToMeetingTBL}");
+
                 }
 
                 string role = "شرکت‌کننده";
@@ -965,8 +1030,8 @@ namespace Application.Usecase
             }
             catch (Exception e)
             {
-                    
-                Statics.Log("GuarantCertificateUseCase",e.Message);
+
+                Statics.Log("GuarantCertificateUseCase", e.Message);
                 outputPort.Handle(new GenericResponse<GuarantCertificateResponse>(new GuarantCertificateResponse
                 {
                     Message = e.Message + e.InnerException,
@@ -1070,9 +1135,9 @@ namespace Application.Usecase
 
 
 
-                var resultPath = WordService.CreateCertificatePdf(outputPath, fontPath, bgpath, um.UserNickName , message.Sex, message.NationalCode,
-                    meet.RoomTBL.Title, meet.Title,Statics.ConvertPersianMonthToNumber(meet.JalaliDate).Replace("-", "/"),
-                    role, um.ID.ToString()); 
+                var resultPath = WordService.CreateCertificatePdf(outputPath, fontPath, bgpath, um.UserNickName, message.Sex, message.NationalCode,
+                    meet.RoomTBL.Title, meet.Title, Statics.ConvertPersianMonthToNumber(meet.JalaliDate).Replace("-", "/"),
+                    role, um.ID.ToString());
 
                 cert.FileURL = "https://vc.hekmateislami.com/";
 
@@ -1096,7 +1161,7 @@ namespace Application.Usecase
             }
             catch (Exception e)
             {
-                Statics.Log("GenerateCertificateUseCase","exception "+ e.Message + e.InnerException);
+                Statics.Log("GenerateCertificateUseCase", "exception " + e.Message + e.InnerException);
                 outputPort.Handle(new GenericResponse<GenerateCertificateResponse>(new GenerateCertificateResponse
                 {
                     Message = e.Message + e.InnerException,
@@ -1152,27 +1217,27 @@ namespace Application.Usecase
                     CountAllMeetings = _db.MeetingTBLs.Count(),
                     CountAllPartis = _db.UserTBLToMeetingTBLs.Count(),
                     CountWeekActiveTeacher = _db.MeetingTBLs.Where(e => e.DateInsert > thisWeekSaturday).GroupBy(e => e.IDTeacher).Count(),
-                    CountWeekMeeting= _db.MeetingTBLs.Count(e => e.DateInsert > thisWeekSaturday),
+                    CountWeekMeeting = _db.MeetingTBLs.Count(e => e.DateInsert > thisWeekSaturday),
                     SharedOBJ_ServerDetails = new SharedOBJ_ServerDetails
                     {
-                        DatabaseRecords=15,
-                        DatabaseUsage=500,
-                        DiskUsage=18000,
-                        MemoryUsage=12000
+                        DatabaseRecords = 15,
+                        DatabaseUsage = 500,
+                        DiskUsage = 18000,
+                        MemoryUsage = 12000
                     },
-                    SharedOBJ_ViewDetails= new SharedOBJ_ViewDetails
+                    SharedOBJ_ViewDetails = new SharedOBJ_ViewDetails
                     {
-                        All=18000,
-                        Unique=1400,
-                        Chrome=_db.UserTBLToMeetingTBLLogs.Count(e=>e.OS.Contains("Chrome")),
-                        FireFox=_db.UserTBLToMeetingTBLLogs.Count(e=>e.OS.Contains("Firefox")),
-                        IE=_db.UserTBLToMeetingTBLLogs.Count(e=>e.OS.Contains("IE")),
-                        Opera=_db.UserTBLToMeetingTBLLogs.Count(e=>e.OS.Contains("Opera")),
-                        OtherBrowser=_db.UserTBLToMeetingTBLLogs.Count(e=>e.OS.Contains("a")),
-                        Safari = _db.UserTBLToMeetingTBLLogs.Count(e=>e.OS.Contains("safari")),
-                        Today = _db.UserTBLToMeetingTBLs.Count(e=>e.DateInsert>DateTime.Today),
-                        Joint=0,
-                        AverageTimeSpent=TimeSpan.MinValue.TotalMilliseconds,
+                        All = 18000,
+                        Unique = 1400,
+                        Chrome = _db.UserTBLToMeetingTBLLogs.Count(e => e.OS.Contains("Chrome")),
+                        FireFox = _db.UserTBLToMeetingTBLLogs.Count(e => e.OS.Contains("Firefox")),
+                        IE = _db.UserTBLToMeetingTBLLogs.Count(e => e.OS.Contains("IE")),
+                        Opera = _db.UserTBLToMeetingTBLLogs.Count(e => e.OS.Contains("Opera")),
+                        OtherBrowser = _db.UserTBLToMeetingTBLLogs.Count(e => e.OS.Contains("a")),
+                        Safari = _db.UserTBLToMeetingTBLLogs.Count(e => e.OS.Contains("safari")),
+                        Today = _db.UserTBLToMeetingTBLs.Count(e => e.DateInsert > DateTime.Today),
+                        Joint = 0,
+                        AverageTimeSpent = TimeSpan.MinValue.TotalMilliseconds,
                         Desktop = _db.UserTBLToMeetingTBLLogs.Count(e => e.OS.Contains("Windows")),
                         Mobile = _db.UserTBLToMeetingTBLLogs.Count(e => e.OS.ToLower().Contains("android")),
                         Tablet = _db.UserTBLToMeetingTBLLogs.Count(e => e.OS.ToLower().Contains("ios")),
@@ -1192,6 +1257,68 @@ namespace Application.Usecase
 
 
 
+    }
+    #endregion
+
+
+
+    #region EndTheMeeting
+    public class EndTheMeetingUseCase : IEndTheMeetingUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        private IBBBGetMeetings bbb { get; }
+        public EndTheMeetingUseCase(IDBContext repository,
+            IConfiguration configuration,
+            IBBBGetMeetings bbb
+            )
+        {
+            _db = repository;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+            this.bbb = bbb;
+        }
+
+        public async Task handleAsync(EndTheMeetingRequest message,
+            IOutPutPort<GenericResponse<EndTheMeetingResponse>> outputPort)
+        {
+            var init = await _commonMethods.Initialize<EndTheMeetingRequest>(message);
+            var user = init.Item1;
+            var meet = init.Item2;
+            if (!await _commonMethods.CheckUserAccessibilityToMeet(user, meet, "EndTheMeeting"))
+            {
+                outputPort.Handle(new GenericResponse<EndTheMeetingResponse>(new EndTheMeetingResponse
+                {
+                    Message = "forbidden",
+                    Status = 403,
+                }));
+                return;
+            }
+            if (meet == null || user == null)
+            {
+                outputPort.Handle(new GenericResponse<EndTheMeetingResponse>(new EndTheMeetingResponse
+                {
+                    Message = "forbidden",
+                    Status = 403,
+                }));
+                return;
+            }
+            meet.Status = MainEntity_Status.MEETING_END;
+            meet.EndDate = DateTime.Now;
+
+            bool ended = await bbb.EndMeetingAsync(meet.MeetID.Split("-")[0], "mp");
+            if (ended)
+            {
+                _db.Update(meet);
+                _db.SaveChanges();
+            }
+            outputPort.Handle(new GenericResponse<EndTheMeetingResponse>(new EndTheMeetingResponse
+            {
+                Message = "ended",
+                Status = 200,
+            }));
+
+        }
     }
     #endregion
 
