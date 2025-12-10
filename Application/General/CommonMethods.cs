@@ -89,17 +89,18 @@ namespace Application.General
             }
             Statics.Log("Initialize", "user is " + (message.GeneralHeaders.JWTMeetingToken));
             var role = await GetRole(user);
-            return (user, role.AccessLevelTBLToRoleTBLs.Select(e=>e.AccessLevelTBL).ToList());
+            return (user, role.AccessLevelTBLToRoleTBLs.Select(e => e.AccessLevelTBL).ToList());
         }
         public async Task<RoleTBL> GetRole(UserTBL user)
         {
             if (_db.UserTBLToRoleTBLs.Any(e => e.IDUserTBL == user.ID))
             {
-                return _db.RoleTBLs.Where(e=>e.UserTBLToRoleTBLs.Any(r=>r.IDUserTBL==user.ID))
-                    .Include(e=>e.AccessLevelTBLToRoleTBLs).ThenInclude(e=>e.AccessLevelTBL).First();
+                return _db.RoleTBLs.Where(e => e.UserTBLToRoleTBLs.Any(r => r.IDUserTBL == user.ID))
+                    .Include(e => e.AccessLevelTBLToRoleTBLs).ThenInclude(e => e.AccessLevelTBL).First();
             }
             return null;
         }
+
         public async Task<UserTBL> NewUser(UserTBL user)
         {
             if (await CheckUserExist(user)) return await GetUserWithoutID(user);
@@ -108,6 +109,51 @@ namespace Application.General
             _db.UserTBLs.Add(user);
             _db.SaveChanges();
             return user;
+        }
+        public string GetNationalCode(UserTBLToMeetingTBL m)
+        {
+            if (m.CertificateTBL?.NationalCode != null)
+            {
+                return m.CertificateTBL.NationalCode;
+            }
+            if (m.UserTBL?.NationalCode != null)
+                return m.UserTBL?.NationalCode;
+            return null;
+        }
+
+        public long GetTimerStayUserInMeet(UserTBLToMeetingTBL m)
+        {
+            if (m.MeetingTBL.EndDate == null)
+            {
+                m.MeetingTBL.EndDate = DateTime.MaxValue;
+            }
+            long seconds = 0;
+            var logs = m.UserTBLToMeetingTBLLogs.OrderBy(e => e.DateInsert);
+            DateTime? join = null;
+            foreach (var log in logs)
+            {
+                if (!join.HasValue)
+                {
+                    if (log.Key == "JOIN")
+                    {
+                        join = log.DateInsert;
+                    }
+                }
+                else
+                {
+                    if (log.Key == "LEFT")
+                    {
+                        seconds += (long)(log.DateInsert - join.Value).TotalSeconds;
+                        join = null;
+                    }
+                }
+            }
+            if (join.HasValue)
+            {
+                DateTime end = new[] { m.MeetingTBL.EndDate.Value, m.MeetingTBL.DateInsert.AddHours(4) }.Min();
+                seconds += (long)(end - join.Value).TotalSeconds;
+            }
+            return seconds;
         }
 
         public async Task<MeetingTBL> NewMeeting(MeetingTBL tbl)

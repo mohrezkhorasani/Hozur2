@@ -143,6 +143,9 @@ namespace Persistence.Migrations
                     b.Property<long>("IDUserTBLToMeetingTBL")
                         .HasColumnType("bigint");
 
+                    b.Property<bool?>("IsMale")
+                        .HasColumnType("bit");
+
                     b.Property<string>("NationalCode")
                         .HasColumnType("nvarchar(max)");
 

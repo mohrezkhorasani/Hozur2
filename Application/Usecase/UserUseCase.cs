@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Identity.Client.Kerberos;
 using Newtonsoft.Json;
 using QuestPDF.Fluent;
 using QuestPDF.Infrastructure;
@@ -464,15 +465,23 @@ namespace Application.Usecase
         public async Task handleAsync(NewUserMeetingLogRequest message,
             IOutPutPort<GenericResponse<NewUserMeetingLogResponse>> outputPort)
         {
+            outputPort.Handle(new GenericResponse<NewUserMeetingLogResponse>(new NewUserMeetingLogResponse
+            {
+                Message = "ok",
+                Status = 200,
+
+            }));
+
             var init = await _commonMethods.Initialize<NewUserMeetingLogRequest>(message);
             var user = init.Item1;
             var meet = init.Item2;
             var userMeet = _db.UserTBLToMeetingTBLs
+                .Include(e=>e.UserTBLToMeetingTBLLogs)
                 .FirstOrDefault(e => e.MeetID == meet.MeetID && e.UUID == user.UUID);
             UserTBLToMeetingTBLLogs? log = new UserTBLToMeetingTBLLogs
             {
                 Type = UserTBL.MapRoleToType(message.Role),
-                Status = MainEntity_Status.MEETING_STARTED_LATER,
+                Status = MainEntity_Status.LOG_NORMAL,
                 Key = message.KeyLog,
                 Value = message.ValueLog,
                 Explain = message.Role,
@@ -480,12 +489,33 @@ namespace Application.Usecase
                 IDUserTBLToMeetingTBL = userMeet.ID,
                 OS = message.OS + "/$$" + message.GeneralHeaders.Agent + "/$$" + message.GeneralHeaders.RequestedDevice + "/$$" + message.GeneralHeaders.Referer
             };
+            if (userMeet.UserTBLToMeetingTBLLogs.Any(e => e.IDUserTBLToMeetingTBL == userMeet.ID))
+            {
+                var logs = userMeet.UserTBLToMeetingTBLLogs.OrderByDescending(e => e.ID);
+                if (message.KeyLog.ToLower() == "join")
+                {
+                    if(logs.Any(e=>e.Key=="join" && e.Status == MainEntity_Status.LOG_NORMAL))
+                    {
+                        return;
+                    }
+                }
+                if (message.KeyLog.ToLower() == "left")
+                {
+                    _db.UserTBLToMeetingTBLLogs
+                        .Where(e => e.IDUserTBLToMeetingTBL == userMeet.ID && e.Key == "JOIN")
+                        .ExecuteUpdate(e => e.SetProperty(r => r.Status, MainEntity_Status.LOG_KILLED));
+                    _db.UserTBLToMeetingTBLLogs
+                       .Where(e => e.IDUserTBLToMeetingTBL == userMeet.ID && e.Key == "LEFT")
+                       .ExecuteUpdate(e => e.SetProperty(r => r.Status, MainEntity_Status.LOG_KILLED));
+                }
+            }
+
             _db.UserTBLToMeetingTBLLogs.Add(log);
             _db.SaveChanges();
 
             outputPort.Handle(new GenericResponse<NewUserMeetingLogResponse>(new NewUserMeetingLogResponse
             {
-                Message = "ok",
+                Message = "inserted",
                 Status = 200,
 
             }));
@@ -1119,6 +1149,7 @@ namespace Application.Usecase
                 }
                 var cert = await _db.CertificateTBLs.FirstOrDefaultAsync(e => e.IDUserTBLToMeetingTBL == um.ID);
                 cert.NationalCode = message.NationalCode;
+                cert.IsMale = message.Sex;
                 if (!cert.Validation)
                 {
                     outputPort.Handle(new GenericResponse<GenerateCertificateResponse>(new GenerateCertificateResponse
@@ -1311,7 +1342,7 @@ namespace Application.Usecase
             {
                 _db.Update(meet);
                 _db.SaveChanges();
-            }
+             }
             outputPort.Handle(new GenericResponse<EndTheMeetingResponse>(new EndTheMeetingResponse
             {
                 Message = "ended",

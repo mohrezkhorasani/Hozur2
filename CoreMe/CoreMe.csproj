@@ -44,6 +44,7 @@
     <ProjectReference Include="..\OfficeHelpper\OfficeHelpper.csproj" />
     <ProjectReference Include="..\Persistence\Persistence.csproj" />
     <ProjectReference Include="..\SCPHandler\SCPHandler.csproj" />
+    <ProjectReference Include="..\TelegramServiceLog\TelegramServiceLog.csproj" />
   </ItemGroup>
 
   <ItemGroup>

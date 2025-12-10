@@ -14,6 +14,7 @@ using NajmBridge.Cofigurations;
 using NajmBridge.Presenter;
 using Presistence.Entities;
 using SCPHandler;
+using TelegramServiceLog;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -120,12 +121,18 @@ builder.Services.AddScoped<IGetMeetingURLUseCase, GetMeetingURLUseCase>();
 builder.Services.AddScoped<IGetRoomsUseCase, GetRoomsUseCase>();
 builder.Services.AddScoped<IGuarantCertificateUseCase, GuarantCertificateUseCase>();
 builder.Services.AddScoped<IEndTheMeetingUseCase, EndTheMeetingUseCase>();  
+builder.Services.AddScoped<IGetMeetingFromRoomIDUseCase, GetMeetingFromRoomIDUseCase>();  
 builder.Services.AddScoped<ICronJobCheckLiveMeetingTaskUseCase, CronJobCheckLiveMeetingTaskUseCase>();
+builder.Services.AddScoped<IGetMeetInfoUseCase, GetMeetInfoUseCase>();
+builder.Services.AddScoped<IGetMembersOfMeetUseCase, GetMembersOfMeetUseCase>();
+builder.Services.AddScoped<IGetMembersOfMeetOnlyCertificatedUseCase, GetMembersOfMeetOnlyCertificatedUseCase>();
+builder.Services.AddScoped<IGenerateCertificateWithUserMeetIDUseCase, GenerateCertificateWithUserMeetIDUseCase>();
 
 
 
 #region Infrustructure
 builder.Services.AddScoped<IScpUploader, ScpUploader>();
+builder.Services.AddScoped<ITelegramService, TelegramService>();
 builder.Services.AddScoped<IBBBGetMeetings, BBBGetMeeting>();
 builder.Services.AddScoped<IWordService>(sp =>
 {

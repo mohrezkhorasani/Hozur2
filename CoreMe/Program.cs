@@ -1,3 +1,4 @@
+using Application.General;
 using Application.Interface.IInfrastructure;
 using Application.Interface.IUsecase;
 using Application.Interfaces;
@@ -14,6 +15,7 @@ using Presistence.Entities;
 using SCPHandler;
 
 using Serilog;
+using TelegramServiceLog;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -119,6 +121,7 @@ builder.Services.AddScoped<ICronJobCheckLiveMeetingTaskUseCase, CronJobCheckLive
 #region Infrustructure
 builder.Services.AddScoped<IScpUploader, ScpUploader>();
 builder.Services.AddScoped<IBBBGetMeetings, BBBGetMeeting>();
+builder.Services.AddScoped<ITelegramService, TelegramService>();
 builder.Services.AddScoped<IWordService>(sp =>
 {
     var env = sp.GetRequiredService<IWebHostEnvironment>();
@@ -171,5 +174,5 @@ app.MapControllers();
 
 //middlewares
 
-
+TelegramHelper.Initialize(app.Services.GetRequiredService<IServiceScopeFactory>());
 app.Run();

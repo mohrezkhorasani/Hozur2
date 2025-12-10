@@ -143,6 +143,32 @@ namespace Application.General
             }
 
         }
+        public static string GetPrettyDateBySeconds(long seconds)
+        {
+            var dif = seconds;
+            dif = Math.Abs(dif);
+            if (dif > 86400)
+            {
+                var day = (int)(dif / 86400);
+                return day.ToString() + " روز";
+            }
+            else if (dif > 3600)
+            {
+                var h = ((int)(dif / 3600));
+                return h.ToString() + " ساعت";
+            }
+            else if (dif > 60)
+            {
+                var m = ((int)(dif / 60));
+                return m.ToString() + " دقیقه";
+            }
+            else
+            {
+
+                return dif.ToString("#.##") + " ثانیه.";
+            }
+
+        }
         public static string GenerateSecretKey(int size = 32) // default 32 bytes = 256-bit key
         {
             var randomBytes = new byte[size];

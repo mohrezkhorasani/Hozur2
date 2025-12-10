@@ -369,10 +369,12 @@ namespace Application.DTO
     }
     public class SharedOBJ_Certificate
     {
+        public long ID { get; set; }
         public SharedOBJ_Partis Room { get; set; }
         public SharedOBJ_Partis Parti { get; set; }
         public SharedOBJ_Partis Meet { get; set; }
-        public int PresentTimeSeconds{ get; set; }
+        public long PresentTimeSeconds{ get; set; }
+        public string Gender { get; set; }
         public DateTime Date{ get; set; }
     }
     #endregion

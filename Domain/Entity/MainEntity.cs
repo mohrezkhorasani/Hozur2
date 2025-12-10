@@ -8,9 +8,14 @@
         Succedd = 100,
         Enabled = 100
          , Special = 110
+
          , MEETING_STARTED_LATER = 250 // started meeting but not configured[title,teacher]
          , MEETING_LIVE = 251 // started meeting and configured 
          , MEETING_END = 252
+         , MEETING_END_BY_CRON_JOB = 253
+         , MEETING_END_BY_HANDY = 255
+
+
          , Pin = 999
          , Disable = -100
          , Canceled = -101
@@ -18,14 +23,17 @@
          , Forbidden = -403
          , Ban = -403 ,
 
-         //USERS
+        LOG_NORMAL=300,
+        LOG_KILLED =301,// masalan 10 ta join poshte ham nayad
+
+        //USERS
         USER_ACTIVE = 500,
         USER_ACTIVATED_BY_JOINING_MEETING = 501,
         USER_ACTIVATED_BY_CREATING_MEETING = 502,
         USER_DEACTIVE = -500,
         //Certificates
         CERT_FULL = 600,
-        CERT_MEDIUM = 601
+        CERT_MEDIUM = 601,
     }   
     public enum MainEntity_Types
     {

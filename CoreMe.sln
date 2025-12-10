@@ -31,6 +31,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BBB-DashboardRazor", "BBB-D
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NajmBridge", "NajmBridge\NajmBridge.csproj", "{4A7B490F-8C1B-4A53-9F06-61C738D5B461}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TelegramServiceLog", "TelegramServiceLog\TelegramServiceLog.csproj", "{6C7240F2-091F-90E7-EB8E-590620193F59}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -81,6 +83,10 @@ Global
 		{4A7B490F-8C1B-4A53-9F06-61C738D5B461}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4A7B490F-8C1B-4A53-9F06-61C738D5B461}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4A7B490F-8C1B-4A53-9F06-61C738D5B461}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6C7240F2-091F-90E7-EB8E-590620193F59}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6C7240F2-091F-90E7-EB8E-590620193F59}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6C7240F2-091F-90E7-EB8E-590620193F59}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6C7240F2-091F-90E7-EB8E-590620193F59}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -97,6 +103,7 @@ Global
 		{79F5FE29-6B7B-4E02-9A47-CCF4F8E36DFE} = {25993B06-6839-4959-A01A-E8E36B27DD5C}
 		{CA954063-61C1-46C4-8A92-B4EB82B16164} = {25993B06-6839-4959-A01A-E8E36B27DD5C}
 		{4A7B490F-8C1B-4A53-9F06-61C738D5B461} = {25993B06-6839-4959-A01A-E8E36B27DD5C}
+		{6C7240F2-091F-90E7-EB8E-590620193F59} = {967506B0-51A9-4A59-9664-C3AEF0800419}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {A53ABC9D-DAF8-4B86-B792-07B2A7EC4399}
