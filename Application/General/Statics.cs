@@ -4,26 +4,101 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
+using System.IO;
 using System.Linq;
 using System.Reflection.PortableExecutable;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using System.IO;
 
 
 namespace Application.General
 {
     public static class Statics
     {
-        public static string URL = "https://domain.com"; //
+        public static string URL = "https://vc.hekmateislami.com"; //
         public static string BBB_BASE_URL = "https://vc.hekmateislami.com/bigbluebutton/api/";
         public static string BBB_SECRET = "h9P7pqVucziDq2ulofof0q4E2UiubquthWPYedBTXA";
         public static string BBB_MODERATOR_PW = "YRhv1515$j21w";
         public static string BBB_ATTEND_PW = "HGf@tat;ae15190";
 
+        private static readonly Regex ChromeRegex = new Regex(@"Chrome/(\d+)", RegexOptions.Compiled);
+        private static readonly Regex FirefoxRegex = new Regex(@"Firefox/(\d+)", RegexOptions.Compiled);
+        private static readonly Regex SafariRegex = new Regex(@"Safari/(\d+)", RegexOptions.Compiled);
+        public static bool ParseLine(string line, out string device, out string browser, out string os)
+        {
+            device = "";
+            browser = "Unknown";
+            os = "Unknown";
 
+            if (string.IsNullOrWhiteSpace(line))
+                return false;
+
+            // جدا کردن بر اساس /$$
+            var parts = line.Split(new[] { "/$$" }, StringSplitOptions.None);
+
+            if (parts.Length < 2)
+                return false;
+
+            // بخش اول: device id
+            if (!string.IsNullOrEmpty(parts[0].Trim()))
+            {
+                device = parts[0].TrimEnd('/').Trim();
+            }
+
+            // بخش دوم: User-Agent
+            string userAgent = parts[1];
+
+            // تشخیص مرورگر
+            if (userAgent.Contains("Firefox"))
+            {
+                var match = FirefoxRegex.Match(userAgent);
+                browser = match.Success ? $"Firefox {match.Groups[1].Value}" : "Firefox";
+            }
+            else if (userAgent.Contains("Chrome"))
+            {
+                var match = ChromeRegex.Match(userAgent);
+                browser = match.Success ? $"Chrome {match.Groups[1].Value}" : "Chrome";
+            }
+            else if (userAgent.Contains("Safari"))
+            {
+                var match = SafariRegex.Match(userAgent);
+                browser = match.Success ? $"Safari {match.Groups[1].Value}" : "Safari";
+            }
+
+            // تشخیص OS
+            if (userAgent.Contains("Windows NT 10.0"))
+                os = "Windows 10";
+            else if (userAgent.Contains("Windows NT"))
+                os = "Windows";
+            else if (userAgent.Contains("Android"))
+            {
+                var androidMatch = Regex.Match(userAgent, @"Android\s+(\d+)");
+                os = androidMatch.Success ? $"Android {androidMatch.Groups[1].Value}" : "Android";
+            }
+            else if (userAgent.Contains("iPhone") || userAgent.Contains("iPad"))
+                os = "iOS";
+            else if (userAgent.Contains("Macintosh"))
+                os = "macOS";
+            else if (userAgent.Contains("Linux"))
+                os = "Linux";
+
+            // اگر بخش سوم وجود داشت و quoted بود، از اون هم استفاده کن (مثل "Windows")
+            if (parts.Length > 3 && parts[3 - 1] != null) // parts[2] یعنی بخش سوم
+            {
+                string quotedOs = parts[2].Trim();
+                if (quotedOs.StartsWith("\"") && quotedOs.EndsWith("\""))
+                {
+                    quotedOs = quotedOs.Trim('"');
+                    if (!string.IsNullOrEmpty(quotedOs))
+                        os = quotedOs;
+                }
+            }
+
+            return true;
+        }
         #region Accounting
         public static int TYPE_BILL_OF_INCREASE = 1;
         public static int TYPE_BILL_OF_DECREASE = 2;

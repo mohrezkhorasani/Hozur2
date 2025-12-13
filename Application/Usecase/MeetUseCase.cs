@@ -4,6 +4,7 @@ using Application.General;
 using Application.Interface.IInfrastructure;
 using Application.Interface.IUsecase;
 using Application.Interfaces;
+using ClosedXML.Excel;
 using Domain.Entity;
 using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.Hosting;
@@ -12,9 +13,10 @@ using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.ConstrainedExecution;
 using System.Text;
 using System.Threading.Tasks;
-
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 namespace Application.Usecase
 {
     #region NewRoomDashboard
@@ -94,7 +96,7 @@ namespace Application.Usecase
             outputPort.Handle(new GenericResponse<NewRoomDashboardResponse>
        (new NewRoomDashboardResponse
        {
-           Message = "دسترسی ندارید",
+           Message = "ok",
            Status = 403,
 
        }));
@@ -125,9 +127,14 @@ namespace Application.Usecase
                 message.Count = 50;
             if (!message.Page.HasValue)
                 message.Page = 0;
-            if (_db.MeetingTBLs.Any(e => e.RoomFriendlyID == message.ID))
+            long id = 0;
+            if (long.TryParse(message.ID, out id))
             {
-                var room = _db.RoomTBLs.First(e => e.FriendlyID == message.ID);
+
+            }
+            if (_db.MeetingTBLs.Any(e => e.RoomFriendlyID == message.ID || e.ID == id))
+            {
+                var room = _db.RoomTBLs.First(e => e.FriendlyID == message.ID || e.ID == id);
                 var meets = _db.MeetingTBLs
                     .Where(e => e.RoomFriendlyID == message.ID &&
                         e.Type == MainEntity_Types.ROOM_NORMAL &&
@@ -191,7 +198,7 @@ namespace Application.Usecase
             outputPort.Handle(new GenericResponse<GetMeetingFromRoomIDResponse>
        (new GetMeetingFromRoomIDResponse
        {
-           Message = "دسترسی ندارید",
+           Message = "ok",
            Status = 403,
 
        }));
@@ -221,10 +228,15 @@ namespace Application.Usecase
                 message.Count = 50;
             if (!message.Page.HasValue)
                 message.Page = 0;
-            if (_db.MeetingTBLs.Any(e => e.MeetID == message.ID))
+            long meetid = 0;
+            if (long.TryParse(message.ID, out meetid))
+            {
+
+            }
+            if (_db.MeetingTBLs.Any(e => e.MeetID == message.ID || e.ID == meetid))
             {
                 var m = _db.MeetingTBLs
-                    .Where(e => e.MeetID == message.ID)
+                    .Where(e => e.MeetID == message.ID || e.ID == meetid)
                     .Include(e => e.RoomTBL)
                     .Include(e => e.UserTBLToMeetingTBLs).ThenInclude(e => e.UserTBL)
                     .Include(e => e.UserTBLToMeetingTBLs).ThenInclude(e => e.CertificateTBL)
@@ -243,7 +255,7 @@ namespace Application.Usecase
                             CountCertificateds = m.UserTBLToMeetingTBLs.Count(r => r.CertificateTBL?.FilePath != null),
                             CountPartis = m.UserTBLToMeetingTBLs.Count(e => e.Type != MainEntity_Types.USER_TEACHER),
                             StartDate = Statics.GetPersianDate(m.DateInsert),
-                            EndDate = m.EndDate.HasValue ? Statics.GetPersianDate(m.EndDate.Value) : "در حال پخش",
+                            EndDate = m.EndDate.HasValue ? Statics.GetPersianDate(m.EndDate.Value) : m.Status == MainEntity_Status.MEETING_LIVE || m.Status == MainEntity_Status.MEETING_STARTED_LATER ? "در حال پخش" : "خاتمه یافته",
                             Teachers = m.UserTBLToMeetingTBLs?
                                 .Where(x => x.Type == MainEntity_Types.USER_TEACHER && x.UserTBL != null)
                                 .Select(r => new SharedOBJ_Partis
@@ -271,7 +283,7 @@ namespace Application.Usecase
             outputPort.Handle(new GenericResponse<GetMeetInfoResponse>
        (new GetMeetInfoResponse
        {
-           Message = "دسترسی ندارید",
+           Message = "ok",
            Status = 403,
 
        }));
@@ -303,10 +315,16 @@ namespace Application.Usecase
                 message.Count = 50;
             if (!message.Page.HasValue)
                 message.Page = 0;
-            if (_db.MeetingTBLs.Any(e => e.MeetID == message.ID))
+            long id = 0;
+            if (long.TryParse(message.ID, out id))
+            {
+
+            }
+
+            if (_db.MeetingTBLs.Any(e => e.MeetID == message.ID || e.ID == id))
             {
                 var m = _db.UserTBLToMeetingTBLs
-                    .Where(e => e.MeetID == message.ID)
+                    .Where(e => e.MeetID == message.ID || e.ID == id)
                     .Include(e => e.UserTBL)
                     .Include(e => e.CertificateTBL)
                     .Include(e => e.UserTBLToMeetingTBLLogs)
@@ -318,18 +336,50 @@ namespace Application.Usecase
                     {
                         Message = "ok",
                         Status = 200,
-                        Members = m.Select(e => new SharedOBJ_PartisBiggest
+                        Members = m.Select(e =>
                         {
-                            ID = e.ID,
-                            Name = e.UserNickName,
-                            Timer = Statics.GetPrettyDateBySeconds(_commonMethods.GetTimerStayUserInMeet(e)),
-                            CanTakeCertificate = e.CertificateTBL != null && e.CertificateTBL.Status == MainEntity_Status.CERT_FULL && e.CertificateTBL.Validation,
-                            HasTakenCertificate = e.CertificateTBL?.FilePath != null,
-                            NationalCode = _commonMethods.GetNationalCode(e),
-                            Email = e.UserTBL.Email,
-                            Phone = e.UserTBL.PhoneNumber,
-                            Gender=e.CertificateTBL==null || !e.CertificateTBL.IsMale.HasValue? "تعیین نشده":e.CertificateTBL.IsMale.Value?"آقا":"خانم"
+                            // پیش‌فرض مقادیر
+                            string device = "";
+                            string browser = "نامشخص";
+                            string os = "نامشخص";
 
+                            // استخراج از IPList (یا هر فیلد دیگه‌ای که لاگ‌ها رو داره)
+                            if (e.UserTBLToMeetingTBLLogs.Count > 0 && string.IsNullOrEmpty(e.UserTBLToMeetingTBLLogs.First().OS))
+                            {
+                                var lines = e.UserTBLToMeetingTBLLogs.First().OS
+                                    .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                                    .Select(l => l.Trim())
+                                    .Where(l => l.Contains("/$$"));
+
+                                var firstValidLine = lines.FirstOrDefault(); // یا LastOrDefault() برای آخرین دستگاه
+
+                                if (!string.IsNullOrEmpty(firstValidLine))
+                                {
+                                    Statics.ParseLine(firstValidLine, out device, out browser, out os);
+                                }
+                            }
+
+                            return new SharedOBJ_PartisBiggest
+                            {
+                                ID = e.ID,
+                                Name = e.UserNickName ?? "نامشخص",
+                                Timer = Statics.GetPrettyDateBySeconds(_commonMethods.GetTimerStayUserInMeet(e)),
+                                CanTakeCertificate = e.CertificateTBL != null &&
+                                                    e.CertificateTBL.Status == MainEntity_Status.CERT_FULL &&
+                                                    e.CertificateTBL.Validation,
+                                HasTakenCertificate = e.CertificateTBL?.FilePath != null,
+                                NationalCode = _commonMethods.GetNationalCode(e),
+                                Email = e.UserTBL?.Email ?? "",
+                                Phone = e.UserTBL?.PhoneNumber ?? "",
+                                Gender = e.CertificateTBL == null || !e.CertificateTBL.IsMale.HasValue
+                                         ? "تعیین نشده"
+                                         : e.CertificateTBL.IsMale.Value ? "آقا" : "خانم",
+
+                                // <<< اطلاعات دستگاه و مرورگر اضافه شده >>>
+                                Device = device,                    // مثلاً gl-006ad8b2-...
+                                Browser = browser,                  // مثلاً Firefox 146
+                                OS = os                             // مثلاً Windows 10 یا Android 15
+                            };
                         }).ToList()
                     }));
                 return;
@@ -338,7 +388,7 @@ namespace Application.Usecase
             outputPort.Handle(new GenericResponse<GetMembersOfMeetResponse>
        (new GetMembersOfMeetResponse
        {
-           Message = "دسترسی ندارید",
+           Message = "ok",
            Status = 403,
 
        }));
@@ -369,10 +419,15 @@ namespace Application.Usecase
                 message.Count = 50;
             if (!message.Page.HasValue)
                 message.Page = 0;
-            if (_db.MeetingTBLs.Any(e => e.MeetID == message.ID))
+            long id = 0;
+            if (long.TryParse(message.ID, out id))
+            {
+
+            }
+            if (_db.MeetingTBLs.Any(e => e.MeetID == message.ID || e.ID == id))
             {
                 var m = await _db.CertificateTBLs
-                    .Where(c => c.UserTBLToMeetingTBL.MeetID == message.ID)
+                    .Where(c => c.UserTBLToMeetingTBL.MeetID == message.ID || c.UserTBLToMeetingTBL.ID == id)
                     .Include(c => c.UserTBLToMeetingTBL)
                         .ThenInclude(j => j.UserTBL)
                     .Include(c => c.UserTBLToMeetingTBL)
@@ -390,7 +445,7 @@ namespace Application.Usecase
                         Certificates = m.Select(e => new SharedOBJ_Certificate
                         {
                             ID = e.ID,
-                            Gender=e.IsMale.HasValue? "تعیین نشده":e.IsMale.Value?"آقا":"خانم",
+                            Gender = e.IsMale.HasValue ? "تعیین نشده" : e.IsMale.Value ? "آقا" : "خانم",
                             Date = e.DateInsert,
                             Meet = new SharedOBJ_Partis
                             {
@@ -421,7 +476,7 @@ namespace Application.Usecase
             outputPort.Handle(new GenericResponse<GetMembersOfMeetOnlyCertificatedResponse>
        (new GetMembersOfMeetOnlyCertificatedResponse
        {
-           Message = "دسترسی ندارید",
+           Message = "ok",
            Status = 403,
 
        }));
@@ -466,7 +521,7 @@ namespace Application.Usecase
             {
                 var um = _db.UserTBLToMeetingTBLs.Where(e => e.ID == message.ID)
                     .Include(e => e.UserTBL)
-                    .Include(e=>e.MeetingTBL).ThenInclude(e=>e.RoomTBL)
+                    .Include(e => e.MeetingTBL).ThenInclude(e => e.RoomTBL)
                     .First();
                 string role = "شرکت‌کننده";
                 if (um.Role == "MODERATOR")
@@ -493,7 +548,7 @@ namespace Application.Usecase
                 cert.NationalCode = message.NationalCode;
                 cert.IsMale = message.IsMale;
                 cert.Validation = true;
-                
+
                 var wwwroot = hosting.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
                 var fontPath = "IranNastaliq";
                 var bgpath = Path.Combine(wwwroot, "bg.png");
@@ -519,7 +574,7 @@ namespace Application.Usecase
                 outputPort.Handle(new GenericResponse<GenerateCertificateWithUserMeetIDResponse>
      (new GenerateCertificateWithUserMeetIDResponse
      {
-         Message = "دسترسی ندارید",
+         Message = "ok",
          Status = 403,
          Link = Path.Join(cert.FileURL, cert.FilePath)
 
@@ -530,9 +585,624 @@ namespace Application.Usecase
             outputPort.Handle(new GenericResponse<GenerateCertificateWithUserMeetIDResponse>
        (new GenerateCertificateWithUserMeetIDResponse
        {
-           Message = "دسترسی ندارید",
+           Message = "ok",
            Status = 403,
 
+       }));
+
+        }
+    }
+    #endregion
+
+    #region SearchUser
+    public class SearchUserUseCase : ISearchUserUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        public IWordService WordService { get; }
+        private IScpUploader scpUploader { get; }
+
+        public SearchUserUseCase(IDBContext repository,
+            IConfiguration configuration, IWordService wordService,
+            IWebHostEnvironment hosting,
+            IScpUploader scpUploader
+
+
+            )
+        {
+            _db = repository;
+            this.WordService = wordService;
+            this.scpUploader = scpUploader;
+            this.hosting = hosting;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+        }
+
+        public async Task handleAsync(SearchUserRequest message,
+            IOutPutPort<GenericResponse<SearchUserResponse>> outputPort)
+        {
+            string q = message.Query;
+
+            long id = 0;
+            List<SharedOBJ_SearchResultModel> r = new List<SharedOBJ_SearchResultModel>();
+
+            if (long.TryParse(q, out id))
+            {
+                r.AddRange(_db.CertificateTBLs.Where(e => e.IDUserTBLToMeetingTBL.ToString().Contains(q))
+                    .Include(e => e.UserTBLToMeetingTBL).ThenInclude(e => e.MeetingTBL).ThenInclude(e => e.RoomTBL).Select(e => new SharedOBJ_SearchResultModel
+                    {
+                        ID = e.IDUserTBLToMeetingTBL,
+                        MeetDate = e.UserTBLToMeetingTBL.MeetingTBL.JalaliDate,
+                        MeetGroup = e.UserTBLToMeetingTBL.MeetingTBL.RoomTBL.Title,
+                        MeetTitle = e.UserTBLToMeetingTBL.MeetingTBL.Title + "",
+                        Name = e.UserTBLToMeetingTBL.UserNickName,
+                    }).ToList());
+                r.AddRange(_db.UserTBLToMeetingTBLs.Where(e => e.ID.ToString().Contains(q))
+                                    .Include(e => e.MeetingTBL).ThenInclude(e => e.RoomTBL).ThenInclude(e => e.OwnerTBL).Select(e => new SharedOBJ_SearchResultModel
+                                    {
+                                        ID = e.ID,
+                                        MeetDate = e.MeetingTBL.JalaliDate,
+                                        MeetGroup = e.MeetingTBL.RoomTBL.Title,
+                                        MeetTitle = e.MeetingTBL.Title + "",
+                                        Name = e.UserNickName,
+                                    }).ToList());
+
+            }
+            else
+            {
+                //search in meets
+                if (_db.UserTBLToMeetingTBLs.Any(e => e.MeetingTBL.Title.Contains(q) && e.MeetingTBL.RoomTBL.Type == MainEntity_Types.ROOM_NORMAL))
+                {
+                    r.AddRange(_db.UserTBLToMeetingTBLs.Where(e => e.MeetingTBL.Title.Contains(q) && e.MeetingTBL.RoomTBL.Type == MainEntity_Types.ROOM_NORMAL)
+                        .Include(e => e.MeetingTBL).ThenInclude(e => e.RoomTBL).ThenInclude(e => e.OwnerTBL).Select(e => new SharedOBJ_SearchResultModel
+                        {
+                            ID = e.ID,
+                            MeetDate = e.MeetingTBL.JalaliDate,
+                            MeetGroup = e.MeetingTBL.RoomTBL.Title,
+                            MeetTitle = e.MeetingTBL.Title + "",
+                            Name = e.UserNickName,
+                        })
+                        .ToList());
+                }
+
+                //search in nicknames
+                r.AddRange(_db.UserTBLToMeetingTBLs.Where(e => e.UserNickName.Contains(q) && e.MeetingTBL.RoomTBL.Type == MainEntity_Types.ROOM_NORMAL)
+                      .Include(e => e.MeetingTBL).ThenInclude(e => e.RoomTBL).ThenInclude(e => e.OwnerTBL).Select(e => new SharedOBJ_SearchResultModel
+                      {
+                          ID = e.ID,
+                          MeetDate = e.MeetingTBL.JalaliDate,
+                          MeetGroup = e.MeetingTBL.RoomTBL.Title,
+                          MeetTitle = e.MeetingTBL.Title + "",
+                          Name = e.UserNickName,
+                      })
+                      .ToList());
+                //search in date
+                r.AddRange(_db.UserTBLToMeetingTBLs.Where(e => e.MeetingTBL.JalaliDate.Contains(q) && e.MeetingTBL.RoomTBL.Type == MainEntity_Types.ROOM_NORMAL)
+                     .Include(e => e.MeetingTBL).ThenInclude(e => e.RoomTBL).ThenInclude(e => e.OwnerTBL).Select(e => new SharedOBJ_SearchResultModel
+                     {
+                         ID = e.ID,
+                         MeetDate = e.MeetingTBL.JalaliDate,
+                         MeetGroup = e.MeetingTBL.RoomTBL.Title,
+                         MeetTitle = e.MeetingTBL.Title + "",
+                         Name = e.UserNickName,
+                     })
+                     .ToList());
+
+                if (message.Day.HasValue && message.Year.HasValue && !string.IsNullOrEmpty(message.Month))
+                {
+                    r = r.Where(e => e.MeetDate.Contains(message.Day.Value.ToString()) &&
+                                    e.MeetDate.Contains(message.Month.ToString()) &&
+                                    e.MeetDate.Contains(message.Year.Value.ToString())
+                    ).ToList();
+                }
+            }
+            outputPort.Handle(new GenericResponse<SearchUserResponse>
+       (new SearchUserResponse
+       {
+           Message = "ok",
+           Status = 200,
+           Results = r.DistinctBy(e => e.ID).OrderByDescending(e => e.ID).ToList()
+
+       }));
+
+        }
+    }
+    #endregion
+
+    #region GetExcellMembers
+    public class GetExcellMembersUseCase : IGetExcellMembersUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        public IWordService WordService { get; }
+        private IScpUploader scpUploader { get; }
+
+        public GetExcellMembersUseCase(IDBContext repository,
+            IConfiguration configuration, IWordService wordService,
+            IWebHostEnvironment hosting,
+            IScpUploader scpUploader
+
+
+            )
+        {
+            _db = repository;
+            this.WordService = wordService;
+            this.scpUploader = scpUploader;
+            this.hosting = hosting;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+        }
+
+        public async Task handleAsync(GetExcellMembersRequest message,
+            IOutPutPort<GenericResponse<GetExcellMembersResponse>> outputPort)
+        {
+            var users = _db.UserTBLToMeetingTBLs.Where(e => e.MeetID == message.MeetID)
+                                       .Include(e => e.UserTBL)
+                    .Include(e => e.CertificateTBL)
+                    .Include(e => e.UserTBLToMeetingTBLLogs)
+                    .Include(e => e.MeetingTBL).ThenInclude(e => e.RoomTBL)
+                    .Include(e => e.MeetingTBL).ThenInclude(e => e.UserTBLToMeetingTBLs)
+                    .Include(e => e.MeetingTBL).ThenInclude(e => e.Creator)
+                    .Include(e => e.MeetingTBL).ThenInclude(e => e.Teacher)
+                .ToList();
+            var workbook = new XLWorkbook();
+            var worksheet = workbook.Worksheets.Add("اعضا");
+            worksheet.Cell(1, 1).Value = "نام شرکت کننده";
+            worksheet.Cell(1, 2).Value = "عنوان جلسه";
+            worksheet.Cell(1, 3).Value = "تاریخ";
+            int row = 2;
+            foreach (var u in users)
+            {
+                worksheet.Cell(row, 1).Value = u.UserNickName;
+                worksheet.Cell(row, 2).Value = string.IsNullOrEmpty(u.MeetingTBL.Title) ? " " : u.MeetingTBL.Title;
+                worksheet.Cell(row, 3).Value = u.MeetingTBL.JalaliDate;
+                row++;
+            }
+            worksheet.Columns().AdjustToContents();
+            var wwwroot = hosting.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+            var fontPath = "IranNastaliq";
+            var bgpath = Path.Combine(wwwroot, "bg.png");
+            var outputPath = Path.Combine(wwwroot, "pdf", "certificates", $@"{users.First().ID}-{users.First().MeetingTBL.JalaliDate}.xlsx");
+
+            workbook.SaveAs( outputPath);
+            scpUploader.UploadFile(outputPath);
+
+            outputPort.Handle(new GenericResponse<GetExcellMembersResponse>
+       (new GetExcellMembersResponse
+       {
+           Message = "ok",
+           Status = 200,
+           Link = Path.Join(Statics.URL, Path.Combine("cert", $@"{users.First().ID}-{users.First().MeetingTBL.JalaliDate}.xlsx"))
+
+       }));
+
+        }
+    }
+    #endregion
+
+
+    #region GetMemberByID
+    public class GetMemberByIDUseCase : IGetMemberByIDUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        public IWordService WordService { get; }
+        private IScpUploader scpUploader { get; }
+
+        public GetMemberByIDUseCase(IDBContext repository,
+            IConfiguration configuration, IWordService wordService,
+            IWebHostEnvironment hosting,
+            IScpUploader scpUploader
+
+
+            )
+        {
+            _db = repository;
+            this.WordService = wordService;
+            this.scpUploader = scpUploader;
+            this.hosting = hosting;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+        }
+
+        public async Task handleAsync(GetMemberByIDRequest message,
+            IOutPutPort<GenericResponse<GetMemberByIDResponse>> outputPort)
+        {
+
+            if (!_db.UserTBLToMeetingTBLs.Any(e => e.ID == message.ID))
+            {
+
+                outputPort.Handle(new GenericResponse<GetMemberByIDResponse>
+           (new GetMemberByIDResponse
+           {
+               Message = "شناسه وارد شده اشتباه است",
+               Status = 404,
+
+           }));
+                return;
+            }
+            var m = _db.UserTBLToMeetingTBLs.Where(e => e.ID == message.ID)
+                       .Include(e => e.UserTBL)
+                    .Include(e => e.CertificateTBL)
+                    .Include(e => e.UserTBLToMeetingTBLLogs)
+                    .Include(e => e.MeetingTBL).ThenInclude(e => e.RoomTBL)
+                .First();
+            var logs = m.UserTBLToMeetingTBLLogs.OrderByDescending(e => e.ID).Select(e => new SharedOBJ_Log
+            {
+                ID = e.ID,
+                Time = e.DateInsert.ToString("HH:mm"),
+                Title = e.Key,
+                Value = UserTBLToMeetingTBLLogs.KEYS_TO_PERSION[e.Key]
+            }).ToList();
+
+
+            outputPort.Handle(new GenericResponse<GetMemberByIDResponse>
+       (new GetMemberByIDResponse
+       {
+           Message = "ok",
+           Status = 200,
+           Certificate = new SharedOBJ_Certificate
+           {
+               ID = m.ID,
+               Date = m.DateInsert,
+               PresentTimeSeconds = _commonMethods.GetTimerStayUserInMeet(m),
+               Gender = m.CertificateTBL == null || !m.CertificateTBL.IsMale.HasValue ? "تعیین نشده" : m.CertificateTBL.IsMale.Value ? "آقا" : "خانم",
+               Meet = new SharedOBJ_Partis
+               {
+                   ID = m.MeetingTBL.ID,
+                   Name = m.MeetingTBL.Title,
+                   Timer = Statics.GetPrettyDateBySeconds(
+                                    (long)(new[] { m.MeetingTBL.EndDate.Value, m.MeetingTBL.DateInsert.AddHours(4) }.Min() -
+                                        m.MeetingTBL.DateInsert).TotalSeconds)
+
+               },
+               Parti = new SharedOBJ_Partis
+               {
+                   ID = m.UserTBL.ID,
+                   Timer = Statics.GetPrettyDateBySeconds(_commonMethods.GetTimerStayUserInMeet(m)),
+                   Name = m.UserNickName,
+               },
+               Room = new SharedOBJ_Partis
+               {
+                   Name = m.MeetingTBL.RoomTBL.Title,
+                   ID = m.MeetingTBL.RoomTBL.ID
+               },
+           },
+           Logs = logs
+       }));
+
+        }
+    }
+    #endregion
+
+    #region GetAllMeetingMember
+    public class GetAllMeetingMemberUseCase : IGetAllMeetingMemberUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        public IWordService WordService { get; }
+        private IScpUploader scpUploader { get; }
+
+        public GetAllMeetingMemberUseCase(IDBContext repository,
+            IConfiguration configuration, IWordService wordService,
+            IWebHostEnvironment hosting,
+            IScpUploader scpUploader
+
+
+            )
+        {
+            _db = repository;
+            this.WordService = wordService;
+            this.scpUploader = scpUploader;
+            this.hosting = hosting;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+        }
+
+        public async Task handleAsync(GetAllMeetingMemberRequest message,
+            IOutPutPort<GenericResponse<GetAllMeetingMemberResponse>> outputPort)
+        {
+            long id = 0;
+            long.TryParse(message.ID, out id);
+            if (!message.Count.HasValue)
+                message.Count = 50;
+            if (!message.Page.HasValue)
+                message.Page = 0;
+
+            if (!_db.UserTBLToMeetingTBLs.Any(e => e.ID == id) && !_db.UserTBLs.Any(e => e.UUID == message.ID) && !_db.UserTBLs.Any(e => e.ID == id) && !_db.CertificateTBLs.Any(e => e.ID == id))
+            {
+
+                outputPort.Handle(new GenericResponse<GetAllMeetingMemberResponse>
+           (new GetAllMeetingMemberResponse
+           {
+               Message = "شناسه وارد شده اشتباه است",
+               Status = 404,
+
+           }));
+                return;
+            }
+            string uuid = "";
+            if (_db.UserTBLs.Any(e => e.ID == id))
+            {
+                uuid = _db.UserTBLs.Where(e => e.ID == id).First().UUID;
+            }
+            else if (_db.UserTBLs.Any(e => e.UUID == message.ID))
+            {
+                uuid = _db.UserTBLs.Where(e => e.UUID == message.ID).First().UUID;
+            }
+
+            else if (_db.UserTBLToMeetingTBLs.Any(e => e.ID == id))
+            {
+                uuid = _db.UserTBLToMeetingTBLs.Where(e => e.ID == id).First().UUID;
+            }
+            var meetings = _db.UserTBLToMeetingTBLs.Where(e => e.UUID == uuid)
+                       .Include(e => e.UserTBL)
+                    .Include(e => e.CertificateTBL)
+                    .Include(e => e.UserTBLToMeetingTBLLogs)
+                    .Include(e => e.MeetingTBL).ThenInclude(e => e.RoomTBL)
+                    .Include(e => e.MeetingTBL).ThenInclude(e => e.UserTBLToMeetingTBLs)
+                    .Include(e => e.MeetingTBL).ThenInclude(e => e.Creator)
+                    .Include(e => e.MeetingTBL).ThenInclude(e => e.Teacher)
+                    .OrderByDescending(e => e.ID)
+                    .Skip(message.Count.Value * message.Page.Value).Take(message.Count.Value)
+                    .ToList();
+            var nicknames = new List<string>();
+            nicknames = meetings.Select(e => e.UserNickName).ToList();
+            nicknames.DistinctBy(e => e.ToLower().Trim().Replace(" ", ""));
+            var uniqueNicknames = nicknames
+    .Select(n => n?.Trim()) // اول Trim کن (null-safe)
+    .Where(n => !string.IsNullOrEmpty(n)) // خالی‌ها رو حذف کن
+    .DistinctBy(n => n.Replace(" ", "").ToLower()) // کلید مقایسه: بدون فاصله + کوچک
+    .ToList();
+            nicknames = uniqueNicknames;
+            var m = meetings.Select(e => new SharedOBJ_Meeting
+            {
+                CountPartis = e.MeetingTBL.UserTBLToMeetingTBLs.Count(),
+                ID = e.MeetID,
+                EndDate = Statics.GetPersianDate(
+                                e.MeetingTBL.EndDate.HasValue
+                                    ? e.MeetingTBL.EndDate.Value
+                                    : e.MeetingTBL.DateInsert.AddHours(2)
+                            ),
+
+                StartDate = Statics.GetPersianDate(e.DateInsert),
+
+                //Starter = new SharedOBJ_Partis
+                //{
+                //    ID = e.MeetingTBL.Creator.ID ,
+                //    // اگر سازنده در لیست شرکت‌کننده‌ها نبود یا لیست خالی بود
+                //    Name = e.MeetingTBL.UserTBLToMeetingTBLs
+                //               .FirstOrDefault(r => r.UserTBL.ID == e.MeetingTBL.Creator.ID).UserNickName
+                //               ?? e.MeetingTBL.Creator.Username,
+
+                //    Timer = "0"
+                //},
+                ShortLink = e.MeetingTBL.RoomTBL.TTR_URL,
+                Teachers = e.MeetingTBL.UserTBLToMeetingTBLs
+                                .Where(x => x.Type == MainEntity_Types.USER_TEACHER && x.UserTBL != null)
+                                .Select(r => new SharedOBJ_Partis
+                                {
+                                    ID = r.ID,
+                                    Name = $"{r.UserTBL.Firstname ?? ""} {r.UserTBL.LastName ?? ""}".Trim(),
+                                    Timer = "0"
+                                })
+                                .ToList() ?? new List<SharedOBJ_Partis>() // اگر null بود، لیست خالی برگردون
+            })
+                .ToList();
+            foreach (var n in nicknames)
+            {
+                var mm = _db.UserTBLToMeetingTBLs.Where(e => e.UserNickName == n && e.MeetingTBL.UserTBLToMeetingTBLs.Count > 1).Include(e => e.UserTBL)
+                    .Include(e => e.CertificateTBL)
+                    .Include(e => e.UserTBLToMeetingTBLLogs)
+                    .Include(e => e.MeetingTBL).ThenInclude(e => e.RoomTBL)
+                    .Include(e => e.MeetingTBL).ThenInclude(e => e.UserTBLToMeetingTBLs)
+                    .Include(e => e.MeetingTBL).ThenInclude(e => e.Creator)
+                    .Include(e => e.MeetingTBL).ThenInclude(e => e.Teacher)
+                                        .OrderByDescending(e => e.ID)
+                    .Skip(message.Count.Value * message.Page.Value).Take(message.Count.Value)
+                    .ToList();
+
+                m.AddRange(mm.Select(e => new SharedOBJ_Meeting
+                {
+                    CountPartis = e.MeetingTBL.UserTBLToMeetingTBLs.Count(),
+                    ID = e.MeetID,
+                    EndDate = Statics.GetPersianDate(
+                                e.MeetingTBL.EndDate.HasValue
+                                    ? e.MeetingTBL.EndDate.Value
+                                    : e.MeetingTBL.DateInsert.AddHours(2)
+                            ),
+
+                    StartDate = Statics.GetPersianDate(e.DateInsert),
+
+                    //Starter = new SharedOBJ_Partis
+                    //{
+                    //    ID = e.MeetingTBL.Creator.ID,
+                    //    // اگر سازنده در لیست شرکت‌کننده‌ها نبود یا لیست خالی بود
+                    //    Name = e.MeetingTBL.UserTBLToMeetingTBLs
+                    //                   .FirstOrDefault(r => r.UserTBL.ID == e.MeetingTBL.Creator.ID).UserNickName
+                    //                   ?? e.MeetingTBL.Creator.Username,
+
+                    //    Timer = "0"
+                    //},
+                    ShortLink = e.MeetingTBL.RoomTBL.TTR_URL,
+                    Teachers = e.MeetingTBL.UserTBLToMeetingTBLs
+                                .Where(x => x.Type == MainEntity_Types.USER_TEACHER && x.UserTBL != null)
+                                .Select(r => new SharedOBJ_Partis
+                                {
+                                    ID = r.ID,
+                                    Name = $"{r.UserTBL.Firstname ?? ""} {r.UserTBL.LastName ?? ""}".Trim(),
+                                    Timer = "0"
+                                })
+                                .ToList() ?? new List<SharedOBJ_Partis>()
+                }));
+            }
+            outputPort.Handle(new GenericResponse<GetAllMeetingMemberResponse>
+       (new GetAllMeetingMemberResponse
+       {
+           Message = "ok",
+           Status = 200,
+           Meetings = m.DistinctBy(e => e.ID).Skip(message.Count.Value * message.Page.Value).Take(message.Count.Value).ToList()
+       }));
+
+        }
+    }
+    #endregion
+
+    #region GetAllCertificateOfMember
+    public class GetAllCertificateOfMemberUseCase : IGetAllCertificateOfMemberUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        public IWordService WordService { get; }
+        private IScpUploader scpUploader { get; }
+
+        public GetAllCertificateOfMemberUseCase(IDBContext repository,
+            IConfiguration configuration, IWordService wordService,
+            IWebHostEnvironment hosting,
+            IScpUploader scpUploader
+
+
+            )
+        {
+            _db = repository;
+            this.WordService = wordService;
+            this.scpUploader = scpUploader;
+            this.hosting = hosting;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+        }
+
+        public async Task handleAsync(GetAllCertificateOfMemberRequest message,
+            IOutPutPort<GenericResponse<GetAllCertificateOfMemberResponse>> outputPort)
+        {
+            long id = 0;
+            long.TryParse(message.ID, out id);
+            if (!message.Count.HasValue)
+                message.Count = 50;
+            if (!message.Page.HasValue)
+                message.Page = 0;
+
+            if (!_db.UserTBLToMeetingTBLs.Any(e => e.ID == id) && !_db.UserTBLs.Any(e => e.UUID == message.ID) && !_db.UserTBLs.Any(e => e.ID == id) && !_db.CertificateTBLs.Any(e => e.ID == id))
+            {
+
+                outputPort.Handle(new GenericResponse<GetAllCertificateOfMemberResponse>
+           (new GetAllCertificateOfMemberResponse
+           {
+               Message = "شناسه وارد شده اشتباه است",
+               Status = 404,
+
+           }));
+                return;
+            }
+            string uuid = "";
+            if (_db.UserTBLs.Any(e => e.ID == id))
+            {
+                uuid = _db.UserTBLs.Where(e => e.ID == id).First().UUID;
+            }
+            else if (_db.UserTBLs.Any(e => e.UUID == message.ID))
+            {
+                uuid = _db.UserTBLs.Where(e => e.UUID == message.ID).First().UUID;
+            }
+
+            else if (_db.UserTBLToMeetingTBLs.Any(e => e.ID == id))
+            {
+                uuid = _db.UserTBLToMeetingTBLs.Where(e => e.ID == id).First().UUID;
+            }
+            var meetings = _db.UserTBLToMeetingTBLs.Where(e => e.UUID == uuid && e.CertificateTBL != null)
+                       .Include(e => e.UserTBL)
+                    .Include(e => e.CertificateTBL)
+                    .Include(e => e.UserTBLToMeetingTBLLogs)
+                    .Include(e => e.MeetingTBL).ThenInclude(e => e.RoomTBL)
+                    .Include(e => e.MeetingTBL).ThenInclude(e => e.UserTBLToMeetingTBLs)
+                    .Include(e => e.MeetingTBL).ThenInclude(e => e.Creator)
+                    .Include(e => e.MeetingTBL).ThenInclude(e => e.Teacher)
+                    .OrderByDescending(e => e.ID)
+                    .Skip(message.Count.Value * message.Page.Value).Take(message.Count.Value)
+                    .ToList();
+            var nicknames = new List<string>();
+            nicknames = meetings.Select(e => e.UserNickName).ToList();
+            nicknames.DistinctBy(e => e.ToLower().Trim().Replace(" ", ""));
+            var uniqueNicknames = nicknames
+    .Select(n => n?.Trim()) // اول Trim کن (null-safe)
+    .Where(n => !string.IsNullOrEmpty(n)) // خالی‌ها رو حذف کن
+    .DistinctBy(n => n.Replace(" ", "").ToLower()) // کلید مقایسه: بدون فاصله + کوچک
+    .ToList();
+            nicknames = uniqueNicknames;
+            var m = meetings.Select(e => new SharedOBJ_Certificate
+            {
+                ID = e.ID,
+                Gender = !e.CertificateTBL.IsMale.HasValue ? "تعیین نشده" : e.CertificateTBL.IsMale.Value ? "آقا" : "خانم",
+                Date = e.DateInsert,
+                Meet = new SharedOBJ_Partis
+                {
+                    ID = e.MeetingTBL.ID,
+                    Name = e.MeetingTBL.Title,
+                    Timer = !e.MeetingTBL.EndDate.HasValue ? "" : Statics.GetPrettyDateBySeconds(
+                                    (long)(new[] { e.MeetingTBL.EndDate.Value, e.MeetingTBL.DateInsert.AddHours(4) }.Min() -
+                                        e.MeetingTBL.DateInsert).TotalSeconds)
+                },
+                Parti = new SharedOBJ_Partis
+                {
+                    ID = e.ID,
+                    Name = e.UserNickName,
+                    Timer = Statics.GetPrettyDateBySeconds(_commonMethods.GetTimerStayUserInMeet(e))
+                },
+                PresentTimeSeconds = _commonMethods.GetTimerStayUserInMeet(e),
+                Room = new SharedOBJ_Partis
+                {
+                    ID = e.MeetingTBL.RoomTBL.ID,
+                    Name = e.MeetingTBL.RoomTBL.Title,
+                    Timer = ""
+                }
+            })
+                .ToList();
+            foreach (var n in nicknames)
+            {
+                var mm = _db.UserTBLToMeetingTBLs.Where(e => e.UserNickName == n && e.MeetingTBL.UserTBLToMeetingTBLs.Count > 1 && e.CertificateTBL != null).Include(e => e.UserTBL)
+                    .Include(e => e.CertificateTBL)
+                    .Include(e => e.UserTBLToMeetingTBLLogs)
+                    .Include(e => e.MeetingTBL).ThenInclude(e => e.RoomTBL)
+                    .Include(e => e.MeetingTBL).ThenInclude(e => e.UserTBLToMeetingTBLs)
+                    .Include(e => e.MeetingTBL).ThenInclude(e => e.Creator)
+                    .Include(e => e.MeetingTBL).ThenInclude(e => e.Teacher)
+                                        .OrderByDescending(e => e.ID)
+                    .Skip(message.Count.Value * message.Page.Value).Take(message.Count.Value)
+                    .ToList();
+
+                m.AddRange(mm.Select(e => new SharedOBJ_Certificate
+                {
+                    ID = e.ID,
+                    Gender = !e.CertificateTBL.IsMale.HasValue ? "تعیین نشده" : e.CertificateTBL.IsMale.Value ? "آقا" : "خانم",
+                    Date = e.DateInsert,
+                    Meet = new SharedOBJ_Partis
+                    {
+                        ID = e.MeetingTBL.ID,
+                        Name = e.MeetingTBL.Title,
+                        Timer = !e.MeetingTBL.EndDate.HasValue ? "" : Statics.GetPrettyDateBySeconds(
+                                    (long)(new[] { e.MeetingTBL.EndDate.Value, e.MeetingTBL.DateInsert.AddHours(4) }.Min() -
+                                        e.MeetingTBL.DateInsert).TotalSeconds)
+                    },
+                    Parti = new SharedOBJ_Partis
+                    {
+                        ID = e.ID,
+                        Name = e.UserNickName,
+                        Timer = Statics.GetPrettyDateBySeconds(_commonMethods.GetTimerStayUserInMeet(e))
+                    },
+                    PresentTimeSeconds = _commonMethods.GetTimerStayUserInMeet(e),
+                    Room = new SharedOBJ_Partis
+                    {
+                        ID = e.MeetingTBL.RoomTBL.ID,
+                        Name = e.MeetingTBL.RoomTBL.Title,
+                        Timer = ""
+                    }
+                }));
+            }
+            outputPort.Handle(new GenericResponse<GetAllCertificateOfMemberResponse>
+       (new GetAllCertificateOfMemberResponse
+       {
+           Message = "ok",
+           Status = 200,
+           Certificates = m.DistinctBy(e => e.ID).Skip(message.Count.Value * message.Page.Value).Take(message.Count.Value).ToList()
        }));
 
         }

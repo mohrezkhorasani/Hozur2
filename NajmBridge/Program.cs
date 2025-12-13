@@ -14,6 +14,7 @@ using NajmBridge.Cofigurations;
 using NajmBridge.Presenter;
 using Presistence.Entities;
 using SCPHandler;
+using System.Reflection;
 using TelegramServiceLog;
 
 
@@ -126,7 +127,12 @@ builder.Services.AddScoped<ICronJobCheckLiveMeetingTaskUseCase, CronJobCheckLive
 builder.Services.AddScoped<IGetMeetInfoUseCase, GetMeetInfoUseCase>();
 builder.Services.AddScoped<IGetMembersOfMeetUseCase, GetMembersOfMeetUseCase>();
 builder.Services.AddScoped<IGetMembersOfMeetOnlyCertificatedUseCase, GetMembersOfMeetOnlyCertificatedUseCase>();
+builder.Services.AddScoped<ISearchUserUseCase, SearchUserUseCase>();
+builder.Services.AddScoped<IGetExcellMembersUseCase, GetExcellMembersUseCase>();
 builder.Services.AddScoped<IGenerateCertificateWithUserMeetIDUseCase, GenerateCertificateWithUserMeetIDUseCase>();
+builder.Services.AddScoped<IGetMemberByIDUseCase, GetMemberByIDUseCase>();
+builder.Services.AddScoped<IGetAllMeetingMemberUseCase, GetAllMeetingMemberUseCase>();
+builder.Services.AddScoped<IGetAllCertificateOfMemberUseCase, GetAllCertificateOfMemberUseCase>();
 
 
 
@@ -150,14 +156,19 @@ File.AppendAllText($"logs/std-{DateTime.Today:yyyy-MM-dd}.log",
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "NajmBridge API", Version = "v1" });
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "NajmBridge API",
+        Version = "v1",
+        Description = "API مدیریت گروه‌ها و جلسات مجمع عالی حکمت اسلامی - نجم"
+    });
 
     c.AddSecurityDefinition("ApiToken", new OpenApiSecurityScheme
     {
         Type = SecuritySchemeType.ApiKey,
         Name = "api-token",
         In = ParameterLocation.Header,
-        Description = "توکن: X7kP9mN2vL8qW3eR5tY6uI4oP9aS2dF1gH3jK5lM7nQ8rT9vU0wX2yZ4"
+        Description = "توکن: X7kP9mN2vL8qW3eR5tY6uI4oP9aS2dF1gH3jK5lM7nQ8rT9vU0wX2yZ4",
     });
     c.AddSecurityRequirement(document =>
     {
@@ -168,10 +179,18 @@ builder.Services.AddSwaggerGen(c =>
         return requirement;
     });
 
+    var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
 
+    if (File.Exists(xmlPath))
+    {
+        c.IncludeXmlComments(xmlPath);
+    }
     c.AddServer(new Microsoft.OpenApi.OpenApiServer { Url = "/" });
 
 });
+
+
 
 var app = builder.Build();
 // if (app.Environment.IsDevelopment())
@@ -184,6 +203,8 @@ app.UseSwaggerUI(c =>
     // Relative URL points to your swagger.json
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "NajmBridge API");
     c.RoutePrefix = string.Empty; // optional: serve Swagger UI at root /
+    var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
 });
 
 

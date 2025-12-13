@@ -75,7 +75,7 @@ namespace Application.DTO
         public List<SharedOBJ_Partis> Teachers { get; set; }
         public int CountPartis { get; set; }
         public int CountCertificateds { get; set; }
-        public SharedOBJ_Partis Room { get; set;  }
+        public SharedOBJ_Partis Room { get; set; }
     }
     #endregion
 
@@ -95,7 +95,7 @@ namespace Application.DTO
         public long ID { get; set; }
         public string Name { get; set; }
         public string Timer { get; set; }
-        public string Phone{ get; set; }
+        public string Phone { get; set; }
         public string NationalCode { get; set; }
         public string Email { get; set; }
         public string Device { get; set; }
@@ -127,16 +127,101 @@ namespace Application.DTO
     {
         public long ID { get; set; }
         public string NationalCode { get; set; }
-        public bool IsMale{ get; set; }
+        public bool IsMale { get; set; }
 
     }
 
     public class GenerateCertificateWithUserMeetIDResponse : BaseParentResponce
     {
-        public string Link{ get; set; }
+        public string Link { get; set; }
     }
 
     #endregion
+
+
+
+    #region SearchUser
+    public class SearchUserRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<SearchUserResponse>>
+    {
+        public string Query { get; set; }
+        public string? Month { get; set; }
+        public int? Day { get; set; }
+        public int? Year { get; set; }
+    }
+
+    public class SearchUserResponse : BaseParentResponce
+    {
+
+
+        public List<SharedOBJ_SearchResultModel> Results { get; set; }
+    }
+    public class SharedOBJ_SearchResultModel
+    {
+        public string Name { get; set; }
+        public long ID { get; set; }
+        public string MeetTitle { get; set; }
+        public string MeetDate { get; set; }
+        public string MeetGroup { get; set; }
+    }
+    #endregion
+
+
+    #region GetExcellMembers
+    public class GetExcellMembersRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<GetExcellMembersResponse>>
+    {
+        public string MeetID{ get; set; }
+    }
+
+    public class GetExcellMembersResponse : BaseParentResponce
+    {
+        public string Link { get; set; }
+    }
+    #endregion
+
+
+    #region GetMemberByID
+    public class GetMemberByIDRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<GetMemberByIDResponse>>
+    {
+        public long ID { get; set; }
+    }
+
+    public class GetMemberByIDResponse : BaseParentResponce
+    {
+        public SharedOBJ_Certificate Certificate { get; set; }
+        public List<SharedOBJ_Log> Logs { get; set; }
+    }
+    public class SharedOBJ_Log
+    {
+        public long ID{ get; set; }
+        public string Title { get; set; }
+        public string Value { get; set; }
+        public string Time { get; set; }
+    }
+    #endregion
+    #region GetAllMeetingMember
+    public class GetAllMeetingMemberRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<GetAllMeetingMemberResponse>>
+    {
+        public string ID { get; set; }
+    }
+
+    public class GetAllMeetingMemberResponse : BaseParentResponce
+    {
+        public List<SharedOBJ_Meeting> Meetings { get; set; }
+    }
+    #endregion
+
+    #region GetAllCertificateOfMember
+    public class GetAllCertificateOfMemberRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<GetAllCertificateOfMemberResponse>>
+    {
+        public string ID { get; set; }
+    }
+
+    public class GetAllCertificateOfMemberResponse : BaseParentResponce
+    {
+        public List<SharedOBJ_Certificate> Certificates { get; set; }
+    }
+    #endregion
+
 
 
 }

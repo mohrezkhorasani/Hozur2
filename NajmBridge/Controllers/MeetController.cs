@@ -1,6 +1,7 @@
 ﻿using Application.DTO;
 using Application.Interface.IUsecase;
 using DocumentFormat.OpenXml.Drawing.Spreadsheet;
+using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.AspNetCore.Mvc;
 using NajmBridge.Cofigurations;
 using NajmBridge.Presenter;
@@ -25,8 +26,15 @@ namespace NajmBridge.Controllers
         public ApiPresenter<GetMembersOfMeetOnlyCertificatedResponse> _GetMembersOfMeetOnlyCertificatedResponse { get; }
        public IGenerateCertificateWithUserMeetIDUseCase _IGenerateCertificateWithUserMeetIDUseCase { get; }
         public ApiPresenter<GenerateCertificateWithUserMeetIDResponse> _GenerateCertificateWithUserMeetIDResponse { get; }
+       public ISearchUserUseCase _ISearchUserUseCase { get; }
+        public ApiPresenter<SearchUserResponse> _SearchUserResponse { get; }
+       public IGetExcellMembersUseCase _IGetExcellMembersUseCase { get; }
+        public ApiPresenter<GetExcellMembersResponse> _GetExcellMembersResponse { get; }
 
-        public MeetController(IGetRoomsUseCase iGetRoomsUseCase, ApiPresenter<GetRoomsResponse> getRoomsResponse, IGetMeetingFromRoomIDUseCase iGetMeetingFromRoomIDUseCase, ApiPresenter<GetMeetingFromRoomIDResponse> getMeetingFromRoomIDResponse, IGetMeetInfoUseCase iGetMeetInfoUseCase, ApiPresenter<GetMeetInfoResponse> getMeetInfoResponse, IGetMembersOfMeetUseCase iGetMembersOfMeetUseCase, ApiPresenter<GetMembersOfMeetResponse> getMembersOfMeetResponse, IGetMembersOfMeetOnlyCertificatedUseCase iGetMembersOfMeetOnlyCertificatedUseCase, ApiPresenter<GetMembersOfMeetOnlyCertificatedResponse> getMembersOfMeetOnlyCertificatedResponse, IGenerateCertificateWithUserMeetIDUseCase iGenerateCertificateWithUserMeetIDUseCase, ApiPresenter<GenerateCertificateWithUserMeetIDResponse> generateCertificateWithUserMeetIDResponse)
+         public IGetMemberByIDUseCase _IGetMemberByIDUseCase { get; }
+        public ApiPresenter<GetMemberByIDResponse> _GetMemberByIDResponse { get; }
+
+        public MeetController(IGetRoomsUseCase iGetRoomsUseCase, ApiPresenter<GetRoomsResponse> getRoomsResponse, IGetMeetingFromRoomIDUseCase iGetMeetingFromRoomIDUseCase, ApiPresenter<GetMeetingFromRoomIDResponse> getMeetingFromRoomIDResponse, IGetMeetInfoUseCase iGetMeetInfoUseCase, ApiPresenter<GetMeetInfoResponse> getMeetInfoResponse, IGetMembersOfMeetUseCase iGetMembersOfMeetUseCase, ApiPresenter<GetMembersOfMeetResponse> getMembersOfMeetResponse, IGetMembersOfMeetOnlyCertificatedUseCase iGetMembersOfMeetOnlyCertificatedUseCase, ApiPresenter<GetMembersOfMeetOnlyCertificatedResponse> getMembersOfMeetOnlyCertificatedResponse, IGenerateCertificateWithUserMeetIDUseCase iGenerateCertificateWithUserMeetIDUseCase, ApiPresenter<GenerateCertificateWithUserMeetIDResponse> generateCertificateWithUserMeetIDResponse, ISearchUserUseCase iSearchUserUseCase, ApiPresenter<SearchUserResponse> searchUserResponse, IGetExcellMembersUseCase iGetExcellMembersUseCase, ApiPresenter<GetExcellMembersResponse> getExcellMembersResponse, IGetMemberByIDUseCase iGetMemberByIDUseCase, ApiPresenter<GetMemberByIDResponse> getMemberByIDResponse)
         {
             _IGetRoomsUseCase = iGetRoomsUseCase;
             _GetRoomsResponse = getRoomsResponse;
@@ -40,8 +48,22 @@ namespace NajmBridge.Controllers
             _GetMembersOfMeetOnlyCertificatedResponse = getMembersOfMeetOnlyCertificatedResponse;
             _IGenerateCertificateWithUserMeetIDUseCase = iGenerateCertificateWithUserMeetIDUseCase;
             _GenerateCertificateWithUserMeetIDResponse = generateCertificateWithUserMeetIDResponse;
+            _ISearchUserUseCase = iSearchUserUseCase;
+            _SearchUserResponse = searchUserResponse;
+            _IGetExcellMembersUseCase = iGetExcellMembersUseCase;
+            _GetExcellMembersResponse = getExcellMembersResponse;
+            _IGetMemberByIDUseCase = iGetMemberByIDUseCase;
+            _GetMemberByIDResponse = getMemberByIDResponse;
         }
 
+
+        /// <summary>
+        /// دریافت گروه ها
+        /// </summary>
+        /// <param name="q">کوئری برای جستجوی گروه در صورت نیاز</param>
+        /// <returns>
+        /// خروجی یک لیستی از گروه هاست
+        /// </returns>
         [HttpGet("/GetRooms")]
         public async Task<IActionResult> GetRooms([FromQuery] string? q="")
         {
@@ -55,7 +77,13 @@ namespace NajmBridge.Controllers
             await _IGetRoomsUseCase.handleAsync(req, _GetRoomsResponse);
             return _GetRoomsResponse.jsonContentResult;
         }
-
+        /// <summary>
+        /// دریافت لیست جلسات
+        /// </summary>
+        /// <param name="roomid">شناسه گروه از ای پی آی بالا</param>
+        /// <param name="countPerPage">تعداد بازگشتی به ازای هر صفحه</param>
+        /// <param name="page">شماره صفحه (شروع از صفر )</param>
+        /// <returns></returns>
         [HttpGet("{roomid}/GetMeetings/{page}")]
         public async Task<IActionResult> GetMeetings([FromRoute(Name ="roomid")] string roomid= "r75-spv-fwr-g2t", [FromQuery] int countPerPage=20, [FromRoute(Name = "page")] int page=0) 
         {
@@ -69,7 +97,11 @@ namespace NajmBridge.Controllers
             await _IGetMeetingFromRoomIDUseCase.handleAsync(req, _GetMeetingFromRoomIDResponse);
             return _GetMeetingFromRoomIDResponse.jsonContentResult;
         }
-
+        /// <summary>
+        /// دریافت اطلاعات یک جلسه
+        /// </summary>
+        /// <param name="meetid">شناسه جلسه (2 نوع شناسه داریم یکی عددیست یکی رشته است، فرق ندارد کدام ارسال شود</param>
+        /// <returns></returns>
         [HttpGet("{meetid}/GetMeetingsInfo")]
         public async Task<IActionResult> GetMeetingsInfo([FromRoute] string meetid= "e19fd1c396774ff96556be2302421e58291acea0-1764603132359")
         {
@@ -82,6 +114,11 @@ namespace NajmBridge.Controllers
             return _GetMeetInfoResponse.jsonContentResult;
         }
 
+        /// <summary>
+        /// دریافت لیست شرکت کنندگان در یک جلسه
+        /// </summary>
+        /// <param name="meetid">شناسه جلسه</param>
+        /// <returns></returns>
         [HttpGet("{meetid}/GetMeetingsInfo/Members")]
         public async Task<IActionResult> GetMeetingsInfoMembers([FromRoute] string meetid= "e19fd1c396774ff96556be2302421e58291acea0-1764603132359")
         {
@@ -93,7 +130,11 @@ namespace NajmBridge.Controllers
             await _IGetMembersOfMeetUseCase.handleAsync(req, _GetMembersOfMeetResponse);
             return _GetMembersOfMeetResponse.jsonContentResult;
         }
-
+        /// <summary>
+        /// دریافت لیست شرکت کنندگانی که گواهینامه دریافت کرده اند
+        /// </summary>
+        /// <param name="meetid">شناسه جلسه</param>
+        /// <returns></returns>
         [HttpGet("{meetid}/GetMeetingsInfo/Members/Certificate/GetOnlyCertificateds")]
         public async Task<IActionResult> GetMeetingsInfoMembersGetOnlyCertificated([FromRoute] string meetid= "e19fd1c396774ff96556be2302421e58291acea0-1764603132359")
         {
@@ -105,9 +146,15 @@ namespace NajmBridge.Controllers
             await _IGetMembersOfMeetOnlyCertificatedUseCase.handleAsync(req, _GetMembersOfMeetOnlyCertificatedResponse);
             return _GetMembersOfMeetOnlyCertificatedResponse.jsonContentResult;
         }
-
+        /// <summary>
+        /// تولید گواهینامه برای یک فرد در جلسه
+        /// </summary>
+        /// <param name="userid">شناسه فرد در جلسه</param>
+        /// <param name="nationalcode">کد ملی</param>
+        /// <param name="isMale">جنسیت: در صورت مقدار True مرد در نظر گرفته میشود</param>
+        /// <returns></returns>
         [HttpGet("/Certificate/GenerateCertificate")]
-        public async Task<IActionResult> GetMeetingsInfoMembersGenerateCertificate([FromQuery] long userid,  [FromQuery] string nationalcode, [FromQuery] bool isMale)
+        public async Task<IActionResult> GetMeetingsInfoMembersGenerateCertificate([FromQuery] long userid= 18649883,  [FromQuery] string nationalcode= "0000001104", [FromQuery] bool isMale=true)
         {
             GenerateCertificateWithUserMeetIDRequest req = new GenerateCertificateWithUserMeetIDRequest
             {
@@ -119,29 +166,63 @@ namespace NajmBridge.Controllers
             await _IGenerateCertificateWithUserMeetIDUseCase.handleAsync(req, _GenerateCertificateWithUserMeetIDResponse);
             return _GenerateCertificateWithUserMeetIDResponse.jsonContentResult;
         }
-
-        [HttpPost("{meetid}/GetMeetingsInfo/Members/Certificate/SearchUser")]
-        public async Task<IActionResult> GetMeetingsInfoMembersSearch([FromRoute] string meetid, [FromQuery] string q)
+        /// <summary>
+        /// جستجوی یک شرکت کننده در یک جلسه
+        /// </summary>
+        /// <param name="meetid">شناسه جلسه</param>
+        /// <param name="q">کوئری جستجو که میتواند نام کاربر باشد</param>
+        /// <param name="day">روز تاریخ جلسه که میتواند نال باشد</param>
+        /// <param name="year">سال تاریخ جلسه هم میتوان نال باشد</param>
+        /// <param name="month">ماه تاریخ جلسه به صورت رشته مثل آبان، خرداد، مهر و.. که میتواند نال باشد</param>
+        /// <returns></returns>
+        [HttpGet("{meetid}/GetMeetingsInfo/Members/Certificate/SearchUser")]
+        public async Task<IActionResult> GetMeetingsInfoMembersSearch([FromRoute] string meetid, [FromQuery] string? q, [FromQuery] int? day=10 ,[FromQuery] int? year =1404,[FromQuery]string? month="آذر")
         {
-            throw new NotImplementedException();
-            //can be anything- name, userToMeetID, email, phone,...
+            SearchUserRequest req = new SearchUserRequest
+            {
+                Query = string.IsNullOrEmpty(q)?"":q
+            };
+            req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
+            await _ISearchUserUseCase.handleAsync(req, _SearchUserResponse);
+            return _SearchUserResponse.jsonContentResult;
+        }
+        /// <summary>
+        /// جستجوی یک شرکت کننده به صورت کلی. اینجا کوئری متفاوت با بالاست
+        /// </summary>
+        /// <param name="q">کوئری جستجو که در اینجا میتواند نام کاربر، نام جلسه، عنوان جلسه، عنوان گروه و یا نقش کاربر باشد</param>
+        /// <param name="day">روز تاریخ جلسه که میتواند نال باشد</param>
+        /// <param name="year">سال تاریخ جلسه هم میتوان نال باشد</param>
+        /// <param name="month">ماه تاریخ جلسه به صورت رشته مثل آبان، خرداد، مهر و.. که میتواند نال باشد</param>
+        /// <returns></returns>
+        [HttpGet("/Members/Certificate/SearchUser")]
+        public async Task<IActionResult> GetMembersSearch([FromQuery] string? q, [FromQuery] int? day=10, [FromQuery] int? year = 1404, [FromQuery] string? month = "آذر")
+        {
+            SearchUserRequest req = new SearchUserRequest
+            {
+                Query = string.IsNullOrEmpty(q) ? "" : q
+            };
+            req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
+            await _ISearchUserUseCase.handleAsync(req, _SearchUserResponse);
+            return _SearchUserResponse.jsonContentResult;
         }
 
-        [HttpGet("{meetid}/GetMeetingsInfo/Members/{idMember}")]
-        public async Task<IActionResult> GetMeetingsInfoMemberByID([FromRoute] string meetid, [FromRoute] long idMember)
-        {
-            throw new NotImplementedException();
-            //info of user
-        }
-     
 
-
-        
+        /// <summary>
+        /// خروجی اکسل لیست شرکت کنندگان در یک جلسه
+        /// </summary>
+        /// <param name="meetid">شناسه جلسه</param>
+        /// <returns></returns>
+        /// <exception cref="NotImplementedException"></exception>
         [HttpGet("{meetid}/GetMeetingsInfo/Members/ExportExcell")]
         public async Task<IActionResult> GetMeetingsInfoMembersExportExcell([FromRoute] string meetid)
         {
-            throw new NotImplementedException();
-            //Excell Link To download
+            GetExcellMembersRequest req = new GetExcellMembersRequest
+            {
+                MeetID=meetid
+            };
+            req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
+            await _IGetExcellMembersUseCase.handleAsync(req, _GetExcellMembersResponse);
+            return _GetExcellMembersResponse.jsonContentResult;
         }
 
 

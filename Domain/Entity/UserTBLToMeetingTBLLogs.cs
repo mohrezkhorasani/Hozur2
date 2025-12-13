@@ -20,7 +20,10 @@ namespace Domain.Entity
             "OpenedScreenShare",
             "ClosedScreenShare",
             "CloseSharedFile",
-            "Question"
+            "Question",
+            "Chat",
+            "Review",
+            "React",
         };
         [NotMapped]
         public List<string> Keys = new List<string>
@@ -28,6 +31,26 @@ namespace Domain.Entity
             "JOIN",
             "LEFT",
             "ACTIVITY"
+        };
+        [NotMapped]
+        public static Dictionary<string, string> KEYS_TO_PERSION = new Dictionary<string, string>
+        {
+            { "JOIN","وارد جلسه شد"},
+            { "LEFT","از جلسه خارج شد"},
+            { "ACTIVITY","فعالیت خود را آغاز کرد"},
+            { "RaisedHand","دست خود را بالا برد"},
+            { "OpenedMicrophone","میکروفون خود را باز کرد"},
+            { "ClosedMicrophone","میکروفون خود را بست"},
+            { "OpenSharedFile","یک فایل به اشتراک گذاشت"},
+            { "OpenedScreenShare","صفحه نمایش خود را به اشتراک گذاشت"},
+            { "ClosedScreenShare","اشتراک گذاری صفحه نمایش خود را غیر فعال کرد"},
+            { "CloseSharedFile","اشتراک گذاری فایل را غیر فعال کرد"},
+            { "Question","یک سوال جدید پرسید"},
+            { "Chat","یک پیام جدید ارسال کرد"},
+            { "Review","یک باز خورد جدید ثبت کرد"},
+            { "React","یک ریکشن جدید ارسال کرد"},
+
+            { "key",""},
         };
 
         public long ID { get; set; }
