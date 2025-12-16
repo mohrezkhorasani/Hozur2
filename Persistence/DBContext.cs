@@ -20,6 +20,9 @@ namespace Presistence.Entities
         #region 12/07/2025
         public DbSet<AccessLevelTBL> AccessLevelTBLs { get; set; }
         public DbSet<AccessLevelTBLToRoleTBL> AccessLevelTBLToRoleTBLs { get; set; }
+        public DbSet<MeetCommentTBL> MeetCommentTBLs { get; set; }
+        public DbSet<MeetQuestionTBL> MeetQuestionTBLs { get; set; }
+
         #endregion
         #region 12/07/2025  
         public DbSet<RoleTBL> RoleTBLs { get; set; }
@@ -36,6 +39,7 @@ namespace Presistence.Entities
 
         public class BloggingContextfactory : IDesignTimeDbContextFactory<DBContext>
         {
+            
             public DBContext CreateDbContext(string[] args)
             {
                 var optioonbuilder = new DbContextOptionsBuilder<DBContext>();
@@ -53,7 +57,6 @@ namespace Presistence.Entities
 
         public DBContext(DbContextOptions<DBContext> options) : base(options)
         {
-
         }
 
 
@@ -69,6 +72,8 @@ namespace Presistence.Entities
             #endregion
             #region 8/6/2023
             modelBuilder.ApplyConfiguration(new CertificateTBLConfiguration());
+            modelBuilder.ApplyConfiguration(new MeetQuestionTBLConfiguration());
+            modelBuilder.ApplyConfiguration(new MeetCommentTBLConfiguration());
             modelBuilder.ApplyConfiguration(new MeetingTBLConfiguration());
             modelBuilder.ApplyConfiguration(new RoomTBLConfiguration());
             modelBuilder.ApplyConfiguration(new UserTBLConfiguration());

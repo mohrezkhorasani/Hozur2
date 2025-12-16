@@ -115,6 +115,7 @@ builder.Services.AddScoped<IGetRoomsUseCase, GetRoomsUseCase>();
 builder.Services.AddScoped<IGuarantCertificateUseCase, GuarantCertificateUseCase>();
 builder.Services.AddScoped<IEndTheMeetingUseCase, EndTheMeetingUseCase>();
 builder.Services.AddScoped<ICronJobCheckLiveMeetingTaskUseCase, CronJobCheckLiveMeetingTaskUseCase>();
+builder.Services.AddScoped<IBackupDBUseCase, BackupDBUseCase>();
 
 
 

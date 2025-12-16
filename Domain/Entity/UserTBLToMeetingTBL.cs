@@ -32,5 +32,7 @@ namespace Domain.Entity
         public string? Role{ get; set; }
         public List<string> IPList { get; set; } = new List<string>();
         public ICollection<UserTBLToMeetingTBLLogs> UserTBLToMeetingTBLLogs { get; set; }
+        public ICollection<MeetQuestionTBL> MeetQuestionTBLs { get; set; }
+        public ICollection<MeetCommentTBL> MeetCommentTBLs { get; set; }
     }
 }

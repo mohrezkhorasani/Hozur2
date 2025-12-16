@@ -18,13 +18,17 @@ namespace CoreMe.Controllers
         private readonly IWebHostEnvironment _hosting;
         public ICronJobCheckLiveMeetingTaskUseCase _ICronJobCheckLiveMeetingTaskUseCase { get; }
         public ApiPresenter<CronJobCheckLiveMeetingTaskResponse> _CronJobCheckLiveMeetingTaskResponse { get; }
+        public IBackupDBUseCase _IBackupDBUseCase { get; }
+        public ApiPresenter<BackupDBResponse> _BackupDBResponse { get; }
 
-        public TaskController(ILogger<TaskController> logger, IWebHostEnvironment hosting, ICronJobCheckLiveMeetingTaskUseCase iCronJobCheckLiveMeetingTaskUseCase, ApiPresenter<CronJobCheckLiveMeetingTaskResponse> cronJobCheckLiveMeetingTaskResponse)
+        public TaskController(ILogger<TaskController> logger, IWebHostEnvironment hosting, ICronJobCheckLiveMeetingTaskUseCase iCronJobCheckLiveMeetingTaskUseCase, ApiPresenter<CronJobCheckLiveMeetingTaskResponse> cronJobCheckLiveMeetingTaskResponse, IBackupDBUseCase iBackupDBUseCase, ApiPresenter<BackupDBResponse> backupDBResponse)
         {
             _logger = logger;
             _hosting = hosting;
             _ICronJobCheckLiveMeetingTaskUseCase = iCronJobCheckLiveMeetingTaskUseCase;
             _CronJobCheckLiveMeetingTaskResponse = cronJobCheckLiveMeetingTaskResponse;
+            _IBackupDBUseCase = iBackupDBUseCase;
+            _BackupDBResponse = backupDBResponse;
         }
 
         [HttpPost("/user/CronJobCheckLiveMeetingTask")]
@@ -32,6 +36,12 @@ namespace CoreMe.Controllers
         {
             await _ICronJobCheckLiveMeetingTaskUseCase.handleAsync(new CronJobCheckLiveMeetingTaskRequest(), _CronJobCheckLiveMeetingTaskResponse);
             return _CronJobCheckLiveMeetingTaskResponse.jsonContentResult;
+        }
+        [HttpPost("/user/BackupDB")]
+        public async Task<IActionResult> BackupDB()
+        {
+            await _IBackupDBUseCase.handleAsync(new BackupDBRequest(), _BackupDBResponse);
+            return _BackupDBResponse.jsonContentResult;
         }
 
 

@@ -465,61 +465,79 @@ namespace Application.Usecase
         public async Task handleAsync(NewUserMeetingLogRequest message,
             IOutPutPort<GenericResponse<NewUserMeetingLogResponse>> outputPort)
         {
-            outputPort.Handle(new GenericResponse<NewUserMeetingLogResponse>(new NewUserMeetingLogResponse
+            try
             {
-                Message = "ok",
-                Status = 200,
 
-            }));
-
-            var init = await _commonMethods.Initialize<NewUserMeetingLogRequest>(message);
-            var user = init.Item1;
-            var meet = init.Item2;
-            var userMeet = _db.UserTBLToMeetingTBLs
-                .Include(e=>e.UserTBLToMeetingTBLLogs)
-                .FirstOrDefault(e => e.MeetID == meet.MeetID && e.UUID == user.UUID);
-            UserTBLToMeetingTBLLogs? log = new UserTBLToMeetingTBLLogs
-            {
-                Type = UserTBL.MapRoleToType(message.Role),
-                Status = MainEntity_Status.LOG_NORMAL,
-                Key = message.KeyLog,
-                Value = message.ValueLog,
-                Explain = message.Role,
-                UserMeetID = message.MeetUserID,
-                IDUserTBLToMeetingTBL = userMeet.ID,
-                OS = message.OS + "/$$" + message.GeneralHeaders.Agent + "/$$" + message.GeneralHeaders.RequestedDevice + "/$$" + message.GeneralHeaders.Referer
-            };
-            if (userMeet.UserTBLToMeetingTBLLogs.Any(e => e.IDUserTBLToMeetingTBL == userMeet.ID))
-            {
-                var logs = userMeet.UserTBLToMeetingTBLLogs.OrderByDescending(e => e.ID);
-                if (message.KeyLog.ToLower() == "join")
+                outputPort.Handle(new GenericResponse<NewUserMeetingLogResponse>(new NewUserMeetingLogResponse
                 {
-                    if(logs.Any(e=>e.Key=="join" && e.Status == MainEntity_Status.LOG_NORMAL))
+                    Message = "ok",
+                    Status = 200,
+
+                }));
+                Statics.Log("NewUserMeetingLogRequest", JsonConvert.SerializeObject(message));
+
+                var init = await _commonMethods.Initialize<NewUserMeetingLogRequest>(message);
+                var user = init.Item1;
+                var meet = init.Item2;
+                var userMeet = _db.UserTBLToMeetingTBLs
+                    .Include(e => e.UserTBLToMeetingTBLLogs)
+                    .FirstOrDefault(e => e.MeetID == meet.MeetID && e.UUID == user.UUID);
+                Statics.Log("NewUserMeetingLogRequest", userMeet.ID.ToString());
+                UserTBLToMeetingTBLLogs? log = new UserTBLToMeetingTBLLogs
+                {
+                    Type = UserTBL.MapRoleToType(message.Role),
+                    Status = MainEntity_Status.LOG_NORMAL,
+                    Key = message.KeyLog,
+                    Value = message.ValueLog,
+                    Explain = message.Role,
+                    UserMeetID = message.MeetUserID,
+                    IDUserTBLToMeetingTBL = userMeet.ID,
+                    OS = message.OS + "/$$" + message.GeneralHeaders.Agent + "/$$" + message.GeneralHeaders.RequestedDevice + "/$$" + message.GeneralHeaders.Referer
+                };
+                if (userMeet.UserTBLToMeetingTBLLogs.Any(e => e.UserMeetID == message.MeetUserID))
+                {
+                    Statics.Log("NewUserMeetingLogRequest", $"Has meeting logs with that {message.KeyLog}");
+                    var logs = userMeet.UserTBLToMeetingTBLLogs.OrderByDescending(e => e.ID);
+                    if (message.KeyLog.ToLower() == "join")
                     {
-                        return;
+                        Statics.Log("NewUserMeetingLogRequest", $"message is join {message.KeyLog}");
+                        if (logs.Any(e => e.Key == "join" && e.Status == MainEntity_Status.LOG_NORMAL))
+                        {
+                            Statics.Log("NewUserMeetingLogRequest", $"return shod chon {message.KeyLog}");
+                            return;
+                        }
+                    }
+                    if (message.KeyLog.ToLower() == "left")
+                    {
+                        Statics.Log("NewUserMeetingLogRequest", $"Left omad to {message.KeyLog}");
+                        _db.UserTBLToMeetingTBLLogs
+                            .Where(e => e.IDUserTBLToMeetingTBL == userMeet.ID && e.Key == "JOIN")
+                            .ExecuteUpdate(e => e.SetProperty(r => r.Status, MainEntity_Status.LOG_KILLED));
+                        _db.UserTBLToMeetingTBLLogs
+                           .Where(e => e.IDUserTBLToMeetingTBL == userMeet.ID && e.Key == "LEFT")
+                           .ExecuteUpdate(e => e.SetProperty(r => r.Status, MainEntity_Status.LOG_KILLED));
+                        Statics.Log("NewUserMeetingLogRequest", $"Left Tamomshod {message.KeyLog}");
                     }
                 }
-                if (message.KeyLog.ToLower() == "left")
+
+
+                _db.UserTBLToMeetingTBLLogs.Add(log);
+                _db.SaveChanges();
+                Statics.Log("NewUserMeetingLogRequest", $"Add shod--> {message.KeyLog}");
+
+                outputPort.Handle(new GenericResponse<NewUserMeetingLogResponse>(new NewUserMeetingLogResponse
                 {
-                    _db.UserTBLToMeetingTBLLogs
-                        .Where(e => e.IDUserTBLToMeetingTBL == userMeet.ID && e.Key == "JOIN")
-                        .ExecuteUpdate(e => e.SetProperty(r => r.Status, MainEntity_Status.LOG_KILLED));
-                    _db.UserTBLToMeetingTBLLogs
-                       .Where(e => e.IDUserTBLToMeetingTBL == userMeet.ID && e.Key == "LEFT")
-                       .ExecuteUpdate(e => e.SetProperty(r => r.Status, MainEntity_Status.LOG_KILLED));
-                }
+                    Message = "inserted",
+                    Status = 200,
+
+                }));
+
             }
-
-            _db.UserTBLToMeetingTBLLogs.Add(log);
-            _db.SaveChanges();
-
-            outputPort.Handle(new GenericResponse<NewUserMeetingLogResponse>(new NewUserMeetingLogResponse
+            catch (Exception e)
             {
-                Message = "inserted",
-                Status = 200,
+                Statics.Log("NewUserMeetingLogRequest FAILED", e.Message);
 
-            }));
-
+            }
         }
     }
     #endregion
@@ -541,38 +559,91 @@ namespace Application.Usecase
         public async Task handleAsync(NewUserMeetingLogFromModeratorRequest message,
             IOutPutPort<GenericResponse<NewUserMeetingLogFromModeratorResponse>> outputPort)
         {
-            var init = await _commonMethods.Initialize<NewUserMeetingLogFromModeratorRequest>(message);
-            var user = init.Item1;
-            var meet = init.Item2;
-
-            if (!UserTBL.TYPE_ALLOWED_LOG_FOR_OTHERS.Contains(user.Type))
+            try
             {
+
+                var init = await _commonMethods.Initialize<NewUserMeetingLogFromModeratorRequest>(message);
+                var user = init.Item1;
+                var meet = init.Item2;
+                Statics.Log("NewUserMeetingLogFromModeratorUseCase", JsonConvert.SerializeObject(message));
+
+                if (!UserTBL.TYPE_ALLOWED_LOG_FOR_OTHERS.Contains(user.Type))
+                {
+                    outputPort.Handle(new GenericResponse<NewUserMeetingLogFromModeratorResponse>(new NewUserMeetingLogFromModeratorResponse
+                    {
+                        Message = "ok",
+                        Status = 403,
+                    }));
+                    return;
+                }
+                if (_db.UserTBLToMeetingTBLs.Any(e => e.MeetID == meet.MeetID))
+                {
+                    Statics.Log("NewUserMeetingLogFromModeratorUseCase", $"any meet.MeetID {meet.MeetID}");
+
+
+                    var userMeet = _db.UserTBLToMeetingTBLs
+                        .Include(e=>e.UserTBLToMeetingTBLLogs)
+                        .FirstOrDefault(e => e.MeetID == meet.MeetID);
+
+                    Statics.Log("NewUserMeetingLogFromModeratorUseCase", $"any userMeet {userMeet.ID}");
+                    Statics.Log("NewUserMeetingLogFromModeratorUseCase", $"log creatingggg {JsonConvert.SerializeObject(message.GeneralHeaders)}");
+
+                    UserTBLToMeetingTBLLogs? log = new UserTBLToMeetingTBLLogs
+                    {
+                        Type = UserTBL.MapRoleToType(message.Role),
+                        Status = MainEntity_Status.MEETING_STARTED_LATER,
+                        Key = message.KeyLog,
+                        Value = message.ValueLog,
+                        Explain = message.Role,
+                        UserMeetID = message.MeetUserID,
+                        IDUserTBLToMeetingTBL = userMeet.ID,
+                        OS = message.ExtId + "/$$" + message.GeneralHeaders.Agent + "/$$" + message.GeneralHeaders.RequestedDevice + "/$$" + message.GeneralHeaders.Referer,
+                        
+                    };
+                    Statics.Log("NewUserMeetingLogFromModeratorUseCase", $"log created");
+
+                    if (userMeet.UserTBLToMeetingTBLLogs.Any(e => e.UserMeetID == message.MeetUserID))
+                    {
+                        Statics.Log("NewUserMeetingLogFromModeractorUseCase", $"Has meeting logs with that {message.KeyLog}");
+                        var logs = userMeet.UserTBLToMeetingTBLLogs.OrderByDescending(e => e.ID);
+                        if (message.KeyLog.ToLower() == "join")
+                        {
+                            Statics.Log("NewUserMeetingLogFromModeratorUseCase", $"message is join {message.KeyLog}");
+                            if (logs.Any(e => e.Key == "join" && e.Status == MainEntity_Status.LOG_NORMAL))
+                            {
+                                Statics.Log("NewUserMeetingLogFromModeratorUseCase", $"return shod chon {message.KeyLog}");
+                                return;
+                            }
+                        }
+                        if (message.KeyLog.ToLower() == "left")
+                        {
+                            Statics.Log("NewUserMeetingLogFromModeratorUseCase", $"Left omad to {message.KeyLog}");
+                            _db.UserTBLToMeetingTBLLogs
+                                .Where(e => e.IDUserTBLToMeetingTBL == userMeet.ID && e.Key == "JOIN")
+                                .ExecuteUpdate(e => e.SetProperty(r => r.Status, MainEntity_Status.LOG_KILLED));
+                            _db.UserTBLToMeetingTBLLogs
+                               .Where(e => e.IDUserTBLToMeetingTBL == userMeet.ID && e.Key == "LEFT")
+                               .ExecuteUpdate(e => e.SetProperty(r => r.Status, MainEntity_Status.LOG_KILLED));
+                            Statics.Log("NewUserMeetingLogFromModeratorUseCase", $"Left Tamomshod {message.KeyLog}");
+                        }
+                    }
+                    _db.UserTBLToMeetingTBLLogs.Add(log);
+                    Statics.Log("NewUserMeetingLogFromModeratorUseCase", $"SavingDB");
+
+                    _db.SaveChanges();
+                }
+
+            }
+            catch (Exception e)
+            {
+                Statics.Log("NewUserMeetingLogFromModeratorUseCase FAILED", $"{e.Message} {e.StackTrace} {e.Source} {e.HelpLink} ");
                 outputPort.Handle(new GenericResponse<NewUserMeetingLogFromModeratorResponse>(new NewUserMeetingLogFromModeratorResponse
                 {
-                    Message = "ok",
+                    Message = "ERRROR",
                     Status = 403,
+
                 }));
                 return;
-            }
-            if (_db.UserTBLToMeetingTBLs.Any(e => e.UserMeetID == message.MeetUserID && e.MeetID == meet.MeetID))
-            {
-
-
-                var userMeet = _db.UserTBLToMeetingTBLs
-                    .FirstOrDefault(e => e.MeetID == meet.MeetID && e.UserMeetID == message.MeetUserID);
-                UserTBLToMeetingTBLLogs? log = new UserTBLToMeetingTBLLogs
-                {
-                    Type = UserTBL.MapRoleToType(message.Role),
-                    Status = MainEntity_Status.MEETING_STARTED_LATER,
-                    Key = message.KeyLog,
-                    Value = message.ValueLog,
-                    Explain = message.Role,
-                    UserMeetID = message.MeetUserID,
-                    IDUserTBLToMeetingTBL = userMeet.ID,
-                    OS = message.ExtId + "/$$" + message.GeneralHeaders.Agent + "/$$" + message.GeneralHeaders.RequestedDevice + "/$$" + message.GeneralHeaders.Referer
-                };
-                _db.UserTBLToMeetingTBLLogs.Add(log);
-                _db.SaveChanges();
             }
             outputPort.Handle(new GenericResponse<NewUserMeetingLogFromModeratorResponse>(new NewUserMeetingLogFromModeratorResponse
             {
@@ -708,7 +779,7 @@ namespace Application.Usecase
         {
             // اول اتاق‌ها رو با اطلاعات پایه می‌گیریم (سبک و سریع)
             var rooms = await _db.RoomTBLs
-                .Where(e => (string.IsNullOrEmpty(message.Query) || e.Title.Contains(message.Query))&& e.Type==MainEntity_Types.ROOM_NORMAL)
+                .Where(e => (string.IsNullOrEmpty(message.Query) || e.Title.Contains(message.Query)) && e.Type == MainEntity_Types.ROOM_NORMAL)
                 .Include(e => e.MeetingTBLs)
                     .ThenInclude(m => m.UserTBLToMeetingTBLs)
                         .ThenInclude(um => um.UserTBL)
@@ -1342,7 +1413,7 @@ namespace Application.Usecase
             {
                 _db.Update(meet);
                 _db.SaveChanges();
-             }
+            }
             outputPort.Handle(new GenericResponse<EndTheMeetingResponse>(new EndTheMeetingResponse
             {
                 Message = "ended",

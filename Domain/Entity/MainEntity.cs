@@ -34,6 +34,9 @@
         //Certificates
         CERT_FULL = 600,
         CERT_MEDIUM = 601,
+        
+        QUESTION_ANSWERED=610,
+        QUESTION_NOT_ANSWERED=611,
     }   
     public enum MainEntity_Types
     {
@@ -57,7 +60,10 @@
         ROOM_NORMAL=1,
 
         //cert
-        CERT_NORMAL = 600
+        CERT_NORMAL = 600,
+
+        COMMENT_ANONYMOUS = 610,
+        COMMENT_NORMAL=609
     }
     public interface MainEntity
     {

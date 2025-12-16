@@ -214,6 +214,120 @@ namespace Persistence.Migrations
                     b.ToTable("ConfigTBL", "Ticket");
                 });
 
+            modelBuilder.Entity("Domain.Entity.MeetCommentTBL", b =>
+                {
+                    b.Property<long>("ID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("ID"), 525L, 7);
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("DateInsert")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSDATETIME()");
+
+                    b.Property<string>("Explain")
+                        .HasMaxLength(3000)
+                        .HasColumnType("nvarchar(3000)");
+
+                    b.Property<long>("IDUserTBLToMeeting")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("MeetID")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Score")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(101);
+
+                    b.Property<int>("Type")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(609);
+
+                    b.HasKey("ID");
+
+                    b.HasIndex("IDUserTBLToMeeting");
+
+                    b.ToTable("MeetCommentTBL", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entity.MeetQuestionTBL", b =>
+                {
+                    b.Property<long>("ID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("ID"), 525L, 7);
+
+                    b.Property<string>("Answer")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("AnswerAgent")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("DateInsert")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSDATETIME()");
+
+                    b.Property<string>("EitaUsername")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Explain")
+                        .HasMaxLength(3000)
+                        .HasColumnType("nvarchar(3000)");
+
+                    b.Property<long>("IDUserTBLToMeeting")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("MeetID")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PhoneNumber")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Question")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Status")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(611);
+
+                    b.Property<string>("TelegramUserName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Type")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
+
+                    b.HasKey("ID");
+
+                    b.HasIndex("IDUserTBLToMeeting");
+
+                    b.HasIndex("PhoneNumber")
+                        .IsUnique()
+                        .HasFilter("[PhoneNumber] IS NOT NULL");
+
+                    b.ToTable("MeetQuestionTBL", (string)null);
+                });
+
             modelBuilder.Entity("Domain.Entity.MeetingTBL", b =>
                 {
                     b.Property<long>("ID")
@@ -749,6 +863,28 @@ namespace Persistence.Migrations
                     b.Navigation("UserTBLToMeetingTBL");
                 });
 
+            modelBuilder.Entity("Domain.Entity.MeetCommentTBL", b =>
+                {
+                    b.HasOne("Domain.Entity.UserTBLToMeetingTBL", "UserTBLToMeeting")
+                        .WithMany("MeetCommentTBLs")
+                        .HasForeignKey("IDUserTBLToMeeting")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("UserTBLToMeeting");
+                });
+
+            modelBuilder.Entity("Domain.Entity.MeetQuestionTBL", b =>
+                {
+                    b.HasOne("Domain.Entity.UserTBLToMeetingTBL", "UserTBLToMeeting")
+                        .WithMany("MeetQuestionTBLs")
+                        .HasForeignKey("IDUserTBLToMeeting")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("UserTBLToMeeting");
+                });
+
             modelBuilder.Entity("Domain.Entity.MeetingTBL", b =>
                 {
                     b.HasOne("Domain.Entity.UserTBL", "Creator")
@@ -906,6 +1042,10 @@ namespace Persistence.Migrations
                 {
                     b.Navigation("CertificateTBL")
                         .IsRequired();
+
+                    b.Navigation("MeetCommentTBLs");
+
+                    b.Navigation("MeetQuestionTBLs");
 
                     b.Navigation("UserTBLToMeetingTBLLogs");
                 });

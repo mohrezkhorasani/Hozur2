@@ -1,6 +1,7 @@
 ﻿using Domain.Entity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -22,6 +23,8 @@ namespace Application.Interfaces
         public DbSet<MeetingTBL> MeetingTBLs { get; set; }
         public DbSet<RoomTBL> RoomTBLs { get; set; }
         public DbSet<UserTBL> UserTBLs { get; set; }
+        public DbSet<MeetCommentTBL> MeetCommentTBLs { get; set; }
+        public DbSet<MeetQuestionTBL> MeetQuestionTBLs { get; set; }
         public DbSet<RoomTBLToUserTBL> RoomTBLToUserTBLs { get; set; }
         public DbSet<UserTBLToMeetingTBL> UserTBLToMeetingTBLs { get; set; }
         public DbSet<UserTBLToMeetingTBLLogs> UserTBLToMeetingTBLLogs { get; set; }
@@ -43,6 +46,6 @@ namespace Application.Interfaces
         public EntityEntry Entry(object entity);
         public void Dispose();
         public ValueTask DisposeAsync();
-
+        public DatabaseFacade Database { get; }
     }
 }

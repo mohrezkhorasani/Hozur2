@@ -23,7 +23,16 @@ namespace Application.DTO
     #endregion
 
 
+    #region BackupDB
+    public class BackupDBRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<BackupDBResponse>>
+    {
+    }
 
+    public class BackupDBResponse : BaseParentResponce
+    {
+
+    }
+    #endregion
 
 
 

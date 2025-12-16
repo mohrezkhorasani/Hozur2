@@ -85,5 +85,50 @@ namespace Application.Usecase
 
     }
     #endregion
+    #region BackupDB
+    public class BackupDBUseCase : IBackupDBUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IBBBGetMeetings bbb { get; }
+        private ITelegramService telegramService { get; }
+        private IWebHostEnvironment hosting;
+
+        public BackupDBUseCase(IDBContext repository,
+            IConfiguration configuration,
+            IBBBGetMeetings bbb,
+            ITelegramService telegramService
+            )
+        {
+            _db = repository;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+            this.bbb = bbb;
+            this.telegramService = telegramService;
+        }
+
+        public async Task handleAsync(BackupDBRequest message,
+            IOutPutPort<GenericResponse<BackupDBResponse>> outputPort)
+        {
+            int rows = 0;
+            _ = TelegramHelper.SendMessage($"بکاپ دیتابیس آغاز شد⌛");
+
+            await _db.Database.ExecuteSqlRawAsync("EXEC Hekmat.Backup_AllUserDatabases");
+
+
+
+            _ = TelegramHelper.SendMessage($"🛑اتمام بکاپ دیتابیس");
+
+            outputPort.Handle(new GenericResponse<BackupDBResponse>
+(new BackupDBResponse
+{
+    Message = "خوبستو خوبستو خیلی خوبست",
+    Status = 200,
+
+}));
+                return;
+            }
+
+    }
+    #endregion
 
 }
