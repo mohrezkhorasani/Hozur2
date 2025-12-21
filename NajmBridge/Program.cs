@@ -133,6 +133,7 @@ builder.Services.AddScoped<IGenerateCertificateWithUserMeetIDUseCase, GenerateCe
 builder.Services.AddScoped<IGetMemberByIDUseCase, GetMemberByIDUseCase>();
 builder.Services.AddScoped<IGetAllMeetingMemberUseCase, GetAllMeetingMemberUseCase>();
 builder.Services.AddScoped<IGetAllCertificateOfMemberUseCase, GetAllCertificateOfMemberUseCase>();
+builder.Services.AddScoped<IStartNewMeetUseCase, StartNewMeetUseCase>();
 
 
 

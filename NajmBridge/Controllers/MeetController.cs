@@ -1,10 +1,12 @@
 ﻿using Application.DTO;
 using Application.Interface.IUsecase;
+using AutoMapper;
 using DocumentFormat.OpenXml.Drawing.Spreadsheet;
 using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.AspNetCore.Mvc;
 using NajmBridge.Cofigurations;
 using NajmBridge.Presenter;
+using NajmBridge.vm;
 
 namespace NajmBridge.Controllers
 {
@@ -13,6 +15,7 @@ namespace NajmBridge.Controllers
     [Route("[controller]")]
     public class MeetController : ControllerBase
     {
+        private readonly IMapper _mapper;
         public IGetRoomsUseCase _IGetRoomsUseCase { get; }
         public ApiPresenter<GetRoomsResponse> _GetRoomsResponse { get; }
         public IGetMeetingFromRoomIDUseCase _IGetMeetingFromRoomIDUseCase { get; }
@@ -30,12 +33,15 @@ namespace NajmBridge.Controllers
         public ApiPresenter<SearchUserResponse> _SearchUserResponse { get; }
        public IGetExcellMembersUseCase _IGetExcellMembersUseCase { get; }
         public ApiPresenter<GetExcellMembersResponse> _GetExcellMembersResponse { get; }
+       public IStartNewMeetUseCase _IStartNewMeetUseCase { get; }
+        public ApiPresenter<StartNewMeetResponse> _StartNewMeetResponse { get; }
 
          public IGetMemberByIDUseCase _IGetMemberByIDUseCase { get; }
         public ApiPresenter<GetMemberByIDResponse> _GetMemberByIDResponse { get; }
 
-        public MeetController(IGetRoomsUseCase iGetRoomsUseCase, ApiPresenter<GetRoomsResponse> getRoomsResponse, IGetMeetingFromRoomIDUseCase iGetMeetingFromRoomIDUseCase, ApiPresenter<GetMeetingFromRoomIDResponse> getMeetingFromRoomIDResponse, IGetMeetInfoUseCase iGetMeetInfoUseCase, ApiPresenter<GetMeetInfoResponse> getMeetInfoResponse, IGetMembersOfMeetUseCase iGetMembersOfMeetUseCase, ApiPresenter<GetMembersOfMeetResponse> getMembersOfMeetResponse, IGetMembersOfMeetOnlyCertificatedUseCase iGetMembersOfMeetOnlyCertificatedUseCase, ApiPresenter<GetMembersOfMeetOnlyCertificatedResponse> getMembersOfMeetOnlyCertificatedResponse, IGenerateCertificateWithUserMeetIDUseCase iGenerateCertificateWithUserMeetIDUseCase, ApiPresenter<GenerateCertificateWithUserMeetIDResponse> generateCertificateWithUserMeetIDResponse, ISearchUserUseCase iSearchUserUseCase, ApiPresenter<SearchUserResponse> searchUserResponse, IGetExcellMembersUseCase iGetExcellMembersUseCase, ApiPresenter<GetExcellMembersResponse> getExcellMembersResponse, IGetMemberByIDUseCase iGetMemberByIDUseCase, ApiPresenter<GetMemberByIDResponse> getMemberByIDResponse)
+        public MeetController(IMapper mapper, IGetRoomsUseCase iGetRoomsUseCase, ApiPresenter<GetRoomsResponse> getRoomsResponse, IGetMeetingFromRoomIDUseCase iGetMeetingFromRoomIDUseCase, ApiPresenter<GetMeetingFromRoomIDResponse> getMeetingFromRoomIDResponse, IGetMeetInfoUseCase iGetMeetInfoUseCase, ApiPresenter<GetMeetInfoResponse> getMeetInfoResponse, IGetMembersOfMeetUseCase iGetMembersOfMeetUseCase, ApiPresenter<GetMembersOfMeetResponse> getMembersOfMeetResponse, IGetMembersOfMeetOnlyCertificatedUseCase iGetMembersOfMeetOnlyCertificatedUseCase, ApiPresenter<GetMembersOfMeetOnlyCertificatedResponse> getMembersOfMeetOnlyCertificatedResponse, IGenerateCertificateWithUserMeetIDUseCase iGenerateCertificateWithUserMeetIDUseCase, ApiPresenter<GenerateCertificateWithUserMeetIDResponse> generateCertificateWithUserMeetIDResponse, ISearchUserUseCase iSearchUserUseCase, ApiPresenter<SearchUserResponse> searchUserResponse, IGetExcellMembersUseCase iGetExcellMembersUseCase, ApiPresenter<GetExcellMembersResponse> getExcellMembersResponse, IStartNewMeetUseCase iStartNewMeetUseCase, ApiPresenter<StartNewMeetResponse> startNewMeetResponse, IGetMemberByIDUseCase iGetMemberByIDUseCase, ApiPresenter<GetMemberByIDResponse> getMemberByIDResponse)
         {
+            _mapper = mapper;
             _IGetRoomsUseCase = iGetRoomsUseCase;
             _GetRoomsResponse = getRoomsResponse;
             _IGetMeetingFromRoomIDUseCase = iGetMeetingFromRoomIDUseCase;
@@ -52,6 +58,8 @@ namespace NajmBridge.Controllers
             _SearchUserResponse = searchUserResponse;
             _IGetExcellMembersUseCase = iGetExcellMembersUseCase;
             _GetExcellMembersResponse = getExcellMembersResponse;
+            _IStartNewMeetUseCase = iStartNewMeetUseCase;
+            _StartNewMeetResponse = startNewMeetResponse;
             _IGetMemberByIDUseCase = iGetMemberByIDUseCase;
             _GetMemberByIDResponse = getMemberByIDResponse;
         }
@@ -223,6 +231,21 @@ namespace NajmBridge.Controllers
             req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
             await _IGetExcellMembersUseCase.handleAsync(req, _GetExcellMembersResponse);
             return _GetExcellMembersResponse.jsonContentResult;
+        }
+
+        /// <summary>
+        /// خروجی اکسل لیست شرکت کنندگان در یک جلسه
+        /// </summary>
+        /// <param name="meetid">شناسه جلسه</param>
+        /// <returns></returns>
+        /// <exception cref="NotImplementedException"></exception>
+        [HttpPost("{IDRoom}/Meet")]
+        public async Task<IActionResult> StartNewMeeting(StartMeetingViewModel vm)
+        {
+            StartNewMeetRequest req = _mapper.Map<StartNewMeetRequest>(vm);
+            req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
+            await _IStartNewMeetUseCase.handleAsync(req, _StartNewMeetResponse);
+            return _StartNewMeetResponse.jsonContentResult;
         }
 
 

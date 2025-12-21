@@ -76,6 +76,8 @@ namespace Infrastructure.DTO
         [XmlElement("messageKey")]
         public string MessageKey { get; set; }
 
+        [XmlElement("internalMeetingID")]
+        public string InternalMeetingID { get; set; }
         [XmlElement("message")]
         public string Message { get; set; }
     }

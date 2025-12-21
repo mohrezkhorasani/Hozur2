@@ -42,6 +42,17 @@
     {
         Normal = 1,
 
+        //Rooms
+        ROOM_IGNORE = 99,
+        ROOM_HIDDEN = 98,
+        ROOM_DELETED = -98,
+        ROOM_NORMAL = 1,
+
+        //Meetings
+        MEET_GREEN_LIGHT = 100,
+        MEET_API = 101,
+
+
         // user from 500 
         USER_UNKNOWN = 599,
         USER_GUEST = 501,
@@ -52,13 +63,7 @@
         USER_CREATOR = 506,
         USER_VIEWER = 507,
         USER_TEACHER = 508,
-
-        //Rooms
-        ROOM_IGNORE=99,
-        ROOM_HIDDEN=98,
-        ROOM_DELETED=-98,
-        ROOM_NORMAL=1,
-
+   
         //cert
         CERT_NORMAL = 600,
 

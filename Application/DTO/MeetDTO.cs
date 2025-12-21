@@ -178,6 +178,23 @@ namespace Application.DTO
     }
     #endregion
 
+    #region StartNewMeet
+    public class StartNewMeetRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<StartNewMeetResponse>>
+    {
+        public string? MeetTitle { get; set; }
+        public string IDRoom { get; set; }
+        public bool RequiredToEnterName { get; set; }
+        public List<string> Teachers { get; set; }
+    }
+
+    public class StartNewMeetResponse : BaseParentResponce
+    {
+        public SharedOBJ_Meeting Meeting{ get; set; }
+        public string RedirectURL { get; set; }
+    }
+    #endregion
+
+
 
     #region GetMemberByID
     public class GetMemberByIDRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<GetMemberByIDResponse>>

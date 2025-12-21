@@ -18,6 +18,7 @@ namespace Domain.Entity
         public UserTBL OwnerTBL { get; set; }
         public long IDOwnerTBL{ get; set; }
         public string? TTR_URL{ get; set; }
+        public string? BBB_MeetID{ get; set; }
         public string? ModeratorCode { get; set; }
         public string? ViewerCode { get; set; }
         //قبل از پیوستن به جلسه نیاز به تأیید مدیر باشد

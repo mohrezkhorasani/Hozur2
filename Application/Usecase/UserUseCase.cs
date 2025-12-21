@@ -128,6 +128,7 @@ namespace Application.Usecase
                         FriendlyID = message.RoomID,
                         IDOwnerTBL = user.ID,
                         Title = message.RoomName == null ? "" : message.RoomName,
+                        BBB_MeetID = message.MeetID.Split("-")[0]
                     });
                     _db.SaveChanges();
                 }
@@ -135,7 +136,7 @@ namespace Application.Usecase
                 {
                     RoomFriendlyID = message.RoomID,
                     MeetID = message.MeetID,
-                    Type = MainEntity_Types.Normal,
+                    Type = MainEntity_Types.MEET_GREEN_LIGHT,
                     Status = MainEntity_Status.MEETING_STARTED_LATER,
                     JalaliDate = Statics.ToJalaliDate(DateTime.Now),
                     IDCreator = user.ID
@@ -228,104 +229,147 @@ namespace Application.Usecase
                 }));
                 return;
             }
-            meet.Title = message.Title;
-            meet.JalaliDate = message.JalaliDate;
-            meet.Status = MainEntity_Status.MEETING_LIVE;
-            List<UserTBL> teachers = new List<UserTBL>();
-
-            Statics.Log("UpdateMeeting", JsonConvert.SerializeObject(message.Teacher));
-
-            foreach (var t in message.Teacher)
+            if (string.IsNullOrEmpty(message.Title))
             {
+                List<UserTBL> teachers = _db.UserTBLToMeetingTBLs.Where(e => e.MeetingTBL.IDTeacher != null && e.Type == MainEntity_Types.USER_TEACHER && e.MeetID == meet.MeetID).Select(e => e.UserTBL).ToList();
 
-                UserTBL teacher = null;
-                if (_db.UserTBLs.Any(
-                    e => (e.Firstname + " " + e.LastName).Trim() == t
-                        && e.Status == MainEntity_Status.USER_ACTIVE
-                        && e.Type == MainEntity_Types.USER_TEACHER
-                ))
+                outputPort.Handle(new GenericResponse<UpdateMeetingResponse>(new UpdateMeetingResponse
                 {
-                    Statics.Log("UpdateMeeting", $"{t} existed user!");
-
-                    teacher = _db.UserTBLs.FirstOrDefault(
-                        e => (e.Firstname + " " + e.LastName).Trim() == t
-                        && e.Status == MainEntity_Status.USER_ACTIVE
-                        && e.Type == MainEntity_Types.USER_TEACHER
-                    );
-                    teachers.Add(teacher);
-                }
-                else
-                {
-                    teacher = new UserTBL
+                    Message = "ok",
+                    Status = 200,
+                    Data = new DTO.Models.MeetJSON
                     {
-                        Firstname = t,
-                        Type = MainEntity_Types.USER_TEACHER,
-                        Status = MainEntity_Status.USER_ACTIVE,
-                        Username = t,
-                        UUID = new Random().NextInt64(-999999999999999999, -99999999999999999).ToString()
-                    };
-                    teachers.Add(teacher);
-                    _db.UserTBLs.Add(teacher);
-                    _db.SaveChanges();
-                }
-                if (!_db.UserTBLToMeetingTBLs.Any(e => e.UUID == teacher.UUID && e.MeetID == meet.MeetID))
-                {
-                    _db.UserTBLToMeetingTBLs.Add(new UserTBLToMeetingTBL
-                    {
+                        JWT = new DTO.Models.JWTTokenJSON
+                        {
+                            Token = meet.JWT
+                        },
+                        Creator = new DTO.Models.MiniUserJSON
+                        {
+                            Fullname = $"{meet.Creator.Firstname} {meet.Creator.LastName}",
+                            ID = meet.Creator.ID,
+                        },
+                        Teacher = teachers.Select(r => new DTO.Models.MiniUserJSON
+                        {
+                            Fullname = $"{r.Firstname} {r.LastName}",
+                            ID = r.ID,
+                        }).ToList(),
+                        Room = new DTO.Models.MiniRoomJSON
+                        {
+                            RoomID = meet.RoomFriendlyID,
+                            Title = meet.RoomTBL.Title
+                        },
+                        JalaliDate = meet.JalaliDate,
                         MeetID = meet.MeetID,
-                        Type = MainEntity_Types.USER_TEACHER,
-                        Status = MainEntity_Status.MEETING_STARTED_LATER,
-                        UUID = teacher.UUID,
-                        UserMeetID = "TEACHER",
-                        Role = "Teacher",
-                        UserNickName = "Teacher",
-                        IsCertificated = false,
-                        TokenJWT = "nope",
-                        TimeSpendSeconds = 0,
-
-                    });
-                    _db.SaveChanges();
-                }
+                        StartedTime = meet.DateInsert.TimeOfDay.ToString(),
+                        Status = MeetingTBL.GetStatusString(meet.Status),
+                        Title = meet.Title
+                    }
+                }));
+                return;
             }
-
-
-            meet.IDTeacher = teachers[teachers.Count - 1].ID;
-            meet.Teacher = teachers[teachers.Count - 1];
-            _db.Update(meet);
-            _db.SaveChanges();
-
-            outputPort.Handle(new GenericResponse<UpdateMeetingResponse>(new UpdateMeetingResponse
+            else
             {
-                Message = "ok",
-                Status = 200,
-                Data = new DTO.Models.MeetJSON
+
+                meet.Title = message.Title;
+                meet.JalaliDate = message.JalaliDate;
+                meet.Status = MainEntity_Status.MEETING_LIVE;
+                List<UserTBL> teachers = new List<UserTBL>();
+
+                Statics.Log("UpdateMeeting", JsonConvert.SerializeObject(message.Teacher));
+
+                foreach (var t in message.Teacher)
                 {
-                    JWT = new DTO.Models.JWTTokenJSON
+
+                    UserTBL teacher = null;
+                    if (_db.UserTBLs.Any(
+                        e => (e.Firstname + " " + e.LastName).Trim() == t
+                            && e.Status == MainEntity_Status.USER_ACTIVE
+                            && e.Type == MainEntity_Types.USER_TEACHER
+                    ))
                     {
-                        Token = meet.JWT
-                    },
-                    Creator = new DTO.Models.MiniUserJSON
+                        Statics.Log("UpdateMeeting", $"{t} existed user!");
+
+                        teacher = _db.UserTBLs.FirstOrDefault(
+                            e => (e.Firstname + " " + e.LastName).Trim() == t
+                            && e.Status == MainEntity_Status.USER_ACTIVE
+                            && e.Type == MainEntity_Types.USER_TEACHER
+                        );
+                        teachers.Add(teacher);
+                    }
+                    else
                     {
-                        Fullname = $"{meet.Creator.Firstname} {meet.Creator.LastName}",
-                        ID = meet.Creator.ID,
-                    },
-                    Teacher = teachers.Select(r => new DTO.Models.MiniUserJSON
+                        teacher = new UserTBL
+                        {
+                            Firstname = t,
+                            Type = MainEntity_Types.USER_TEACHER,
+                            Status = MainEntity_Status.USER_ACTIVE,
+                            Username = t,
+                            UUID = new Random().NextInt64(-999999999999999999, -99999999999999999).ToString()
+                        };
+                        teachers.Add(teacher);
+                        _db.UserTBLs.Add(teacher);
+                        _db.SaveChanges();
+                    }
+                    if (!_db.UserTBLToMeetingTBLs.Any(e => e.UUID == teacher.UUID && e.MeetID == meet.MeetID))
                     {
-                        Fullname = $"{r.Firstname} {r.LastName}",
-                        ID = r.ID,
-                    }).ToList(),
-                    Room = new DTO.Models.MiniRoomJSON
-                    {
-                        RoomID = meet.RoomFriendlyID,
-                        Title = meet.RoomTBL.Title
-                    },
-                    JalaliDate = meet.JalaliDate,
-                    MeetID = meet.MeetID,
-                    StartedTime = meet.DateInsert.TimeOfDay.ToString(),
-                    Status = MeetingTBL.GetStatusString(meet.Status),
-                    Title = meet.Title
+                        _db.UserTBLToMeetingTBLs.Add(new UserTBLToMeetingTBL
+                        {
+                            MeetID = meet.MeetID,
+                            Type = MainEntity_Types.USER_TEACHER,
+                            Status = MainEntity_Status.MEETING_STARTED_LATER,
+                            UUID = teacher.UUID,
+                            UserMeetID = "TEACHER",
+                            Role = "Teacher",
+                            UserNickName = "Teacher",
+                            IsCertificated = false,
+                            TokenJWT = "nope",
+                            TimeSpendSeconds = 0,
+
+                        });
+                        _db.SaveChanges();
+                    }
+
                 }
-            }));
+
+
+                meet.IDTeacher = teachers[teachers.Count - 1].ID;
+                meet.Teacher = teachers[teachers.Count - 1];
+                _db.Update(meet);
+                _db.SaveChanges();
+
+                outputPort.Handle(new GenericResponse<UpdateMeetingResponse>(new UpdateMeetingResponse
+                {
+                    Message = "ok",
+                    Status = 200,
+                    Data = new DTO.Models.MeetJSON
+                    {
+                        JWT = new DTO.Models.JWTTokenJSON
+                        {
+                            Token = meet.JWT
+                        },
+                        Creator = new DTO.Models.MiniUserJSON
+                        {
+                            Fullname = $"{meet.Creator.Firstname} {meet.Creator.LastName}",
+                            ID = meet.Creator.ID,
+                        },
+                        Teacher = teachers.Select(r => new DTO.Models.MiniUserJSON
+                        {
+                            Fullname = $"{r.Firstname} {r.LastName}",
+                            ID = r.ID,
+                        }).ToList(),
+                        Room = new DTO.Models.MiniRoomJSON
+                        {
+                            RoomID = meet.RoomFriendlyID,
+                            Title = meet.RoomTBL.Title
+                        },
+                        JalaliDate = meet.JalaliDate,
+                        MeetID = meet.MeetID,
+                        StartedTime = meet.DateInsert.TimeOfDay.ToString(),
+                        Status = MeetingTBL.GetStatusString(meet.Status),
+                        Title = meet.Title
+                    }
+                }));
+            }
 
         }
     }
@@ -582,7 +626,7 @@ namespace Application.Usecase
 
 
                     var userMeet = _db.UserTBLToMeetingTBLs
-                        .Include(e=>e.UserTBLToMeetingTBLLogs)
+                        .Include(e => e.UserTBLToMeetingTBLLogs)
                         .FirstOrDefault(e => e.MeetID == meet.MeetID);
 
                     Statics.Log("NewUserMeetingLogFromModeratorUseCase", $"any userMeet {userMeet.ID}");
@@ -598,7 +642,7 @@ namespace Application.Usecase
                         UserMeetID = message.MeetUserID,
                         IDUserTBLToMeetingTBL = userMeet.ID,
                         OS = message.ExtId + "/$$" + message.GeneralHeaders.Agent + "/$$" + message.GeneralHeaders.RequestedDevice + "/$$" + message.GeneralHeaders.Referer,
-                        
+
                     };
                     Statics.Log("NewUserMeetingLogFromModeratorUseCase", $"log created");
 
@@ -846,7 +890,7 @@ namespace Application.Usecase
                     .Where(k => !string.IsNullOrWhiteSpace(k))
                     .Distinct()
                     .Count()
-            }).ToList();
+            }).OrderByDescending(e => e.LastMeet).ToList();
 
             outputPort.Handle(new GenericResponse<GetRoomsResponse>(new GetRoomsResponse
             {
@@ -917,8 +961,7 @@ namespace Application.Usecase
         {
             var meets = await IBBBGetMeetings.Request(message);
 
-            IBBBGetMeetings.GetMeeting("1bf11043f89ab8d45d782d38610bdafa9f8a6ebb-1762062673683");
-            var r = await IBBBGetMeetings.GetRecordingsByMeetingId("1khe4quugbx7ziilyojrvapwebknxbn1jydcjozl");
+            //var r = await IBBBGetMeetings.GetRecordingsByMeetingId("1khe4quugbx7ziilyojrvapwebknxbn1jydcjozl");
 
             //var resp = IScpUploader.ExecuteRemoteCommand("ls -lht");
 
@@ -930,7 +973,9 @@ namespace Application.Usecase
                 {
                     RoomID = e.RoomID,
                     Title = e.Title,
-                    Created = e.Created
+                    Created = e.Created,
+                    BBB_MeetID = e.BBB_MeetID,
+
                 }).ToList()
             }));
 
@@ -958,7 +1003,7 @@ namespace Application.Usecase
         public async Task handleAsync(StartMeetingRequest message,
             IOutPutPort<GenericResponse<StartMeetingResponse>> outputPort)
         {
-            var meet = await IBBBGetMeetings.CreateMeetingAsync(message.MeetiID, message.MeetName);
+            var meet = await IBBBGetMeetings.CreateMeetingAsync(message.MeetiID, message.MeetName, "ff");
 
             var meetTBL = _commonMethods.NewMeeting(new MeetingTBL
             {
@@ -970,10 +1015,12 @@ namespace Application.Usecase
                 IDCreator = -6000
             });
 
+            var joinURL = await IBBBGetMeetings.GetJoinUrlAsync(meet.MeetID, "مجمع عالی حکمت اسلامی", true, Statics.BBB_MODERATOR_PW);
             outputPort.Handle(new GenericResponse<StartMeetingResponse>(new StartMeetingResponse
             {
                 Message = "ok",
                 Status = 200,
+                Join = joinURL
             }));
 
         }
@@ -1362,8 +1409,6 @@ namespace Application.Usecase
     }
     #endregion
 
-
-
     #region EndTheMeeting
     public class EndTheMeetingUseCase : IEndTheMeetingUseCase
     {
@@ -1418,6 +1463,117 @@ namespace Application.Usecase
             {
                 Message = "ended",
                 Status = 200,
+            }));
+
+        }
+    }
+    #endregion
+
+    #region NewQuestion
+    public class NewQuestionUseCase : INewQuestionUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        private IBBBGetMeetings bbb { get; }
+        public NewQuestionUseCase(IDBContext repository,
+            IConfiguration configuration,
+            IBBBGetMeetings bbb
+            )
+        {
+            _db = repository;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+            this.bbb = bbb;
+        }
+
+        public async Task handleAsync(NewQuestionRequest message,
+            IOutPutPort<GenericResponse<NewQuestionResponse>> outputPort)
+        {
+            try
+            {
+                var init = await _commonMethods.Initialize<NewQuestionRequest>(message);
+                var user = init.Item1;
+                var meet = init.Item2;
+                if (meet == null || user == null)
+                {
+                    outputPort.Handle(new GenericResponse<NewQuestionResponse>(new NewQuestionResponse
+                    {
+                        Message = "forbidden",
+                        Status = 403,
+                    }));
+                    return;
+                }
+                var usermeet = _db.UserTBLToMeetingTBLs.Where(e => e.UUID == user.UUID && e.MeetID == meet.MeetID).First();
+                _db.MeetQuestionTBLs.Add(new MeetQuestionTBL
+                {
+                    Question = message.Content,
+                    Answer = "",
+                    AnswerAgent = "",
+                    IDUserTBLToMeeting = usermeet.ID,
+                    MeetID = meet.MeetID,
+                });
+                _db.SaveChanges();
+
+                outputPort.Handle(new GenericResponse<NewQuestionResponse>(new NewQuestionResponse
+                {
+                    Message = "ended",
+                    Status = 200,
+                }));
+
+            }
+            catch (Exception e)
+            {
+                Statics.Log("NewQuestionUseCase", e.Message);
+            }
+          
+        }
+    }
+    #endregion
+
+    #region GetQuestionOfMeet
+    public class GetQuestionOfMeetUseCase : IGetQuestionOfMeetUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        private IBBBGetMeetings bbb { get; }
+        public GetQuestionOfMeetUseCase(IDBContext repository,
+            IConfiguration configuration,
+            IBBBGetMeetings bbb
+            )
+        {
+            _db = repository;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+            this.bbb = bbb;
+        }
+
+        public async Task handleAsync(GetQuestionOfMeetRequest message,
+            IOutPutPort<GenericResponse<GetQuestionOfMeetResponse>> outputPort)
+        {
+            var init = await _commonMethods.Initialize<GetQuestionOfMeetRequest>(message);
+            var user = init.Item1;
+            var meet = init.Item2;
+            if (meet == null || user == null)
+            {
+                outputPort.Handle(new GenericResponse<GetQuestionOfMeetResponse>(new GetQuestionOfMeetResponse
+                {
+                    Message = "forbidden",
+                    Status = 403,
+                }));
+                return;
+            }
+
+            outputPort.Handle(new GenericResponse<GetQuestionOfMeetResponse>(new GetQuestionOfMeetResponse
+            {
+                Message = "ended",
+                Status = 200,
+                Questions= _db.MeetQuestionTBLs.Where(e=>e.UserTBLToMeeting.UUID==user.UUID && e.UserTBLToMeeting.MeetID == meet.MeetID)
+                .Include(e=>e.UserTBLToMeeting).Select(e=>new SharedOBJ_Question
+                {
+                    ID=e.ID,
+                    NickName=e.UserTBLToMeeting.UserNickName,
+                    Question=e.Question
+                }).ToList(),
             }));
 
         }

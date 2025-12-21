@@ -35,7 +35,9 @@ namespace Infrastructure.API
             return result.Meetings.MeetingList.Select(e => new MiniRoomJSON
             {
                 RoomID = e.MetaDatas[0].RoomID,
+                //RoomID = e.InternalMeetingID,
                 Title = e.MeetingName,
+                BBB_MeetID = e.MeetingID,
                 Created = new DateTime(long.Parse(e.CreateTime))
             }).ToList();
 
@@ -58,50 +60,94 @@ namespace Infrastructure.API
             BBBResponse result = (BBBResponse)serializer.Deserialize(reader);
             return result.Meetings.MeetingList.Select(e => new MiniRoomJSON
             {
+                BBB_MeetID = e.MeetingID,
                 RoomID = e.InternalMeetingID,
                 Title = e.MeetingName,
                 Created = new DateTime(long.Parse(e.CreateTime))
             }).ToList();
-
         }
-        public async Task<MeetJSON> CreateMeetingAsync(string meetingID, string meetingName)
+        public async Task<MeetJSON> CreateMeetingAsync(string meetingID, string meetingName, string roomid)
         {
             string apiCall = "create";
+            string joinUrl = $"https://vc.hekmateislami.com/rooms/{roomid}/join";
 
-            // Parameters (can be customized)
-            string queryString = $"meetingID={Uri.EscapeDataString(meetingID)}" + 
+            string metadataXml = @"
+<metadata>
+  <bbb-context-name>اتاق جدید</bbb-context-name>
+  <bbb-context-id>y3x-nhd-imk-7wu</bbb-context-id>
+  <bbb-origin-version>release-3.6.3</bbb-origin-version>
+  <bbb-origin-server-name>vc.hekmateislami.com</bbb-origin-server-name>
+  <bbb-recording-ready-url>https://vc.hekmateislami.com/recording_ready</bbb-recording-ready-url>
+  <bbb-origin>my-panel</bbb-origin>
+  <endcallbackurl>https://vc.hekmateislami.com/meeting_ended</endcallbackurl>
+</metadata>";
+
+            // پارامترهای محدودکننده به انتهای queryString اضافه شدند
+            string queryString = $"meetingID={Uri.EscapeDataString(meetingID)}" +
                                  $"&name={Uri.EscapeDataString(meetingName)}" +
                                  $"&attendeePW={Statics.BBB_ATTEND_PW}" +
                                  $"&moderatorPW={Statics.BBB_MODERATOR_PW}" +
-                                 $"&loginUrl=https://vc.hekmateislami.com/rooms/{meetingID}/join" +
+                                 $"&loginURL={Uri.EscapeDataString(joinUrl)}" +
                                  $"&allowStartStopRecording=true" +
-                                 $"&autoStartRecording=false";
+                                 $"&autoStartRecording=false" +
+                                 $"&muteOnStart=true" +                 // همه هنگام ورود میوت باشند
+                                 $"&lockSettingsDisableMic=true" +      // بستن میکروفون کاربران عادی
+                                 $"&lockSettingsDisableCam=true" +      // بستن دوربین کاربران عادی
+                                 $"&lockSettingsLockOnJoin=true" +      // اعمال محدودیت از لحظه ورود
+                                 $"&lockSettingsLockOnJoinConfigurable=true" +
+                                 $"&logo={Uri.EscapeDataString("https://vc.hekmateislami.com/images/logo.png")}" +
+                                 $"&metadata={Uri.EscapeDataString(metadataXml)}";
 
-            // Compute checksum
+            // چون queryString تغییر کرد، کد زیر به صورت خودکار Checksum جدید و معتبر را می‌سازد
             string checksumInput = apiCall + queryString + Statics.BBB_SECRET;
             string checksum = Statics.ComputeSha1(checksumInput);
 
             string url = $"{Statics.BBB_BASE_URL}{apiCall}?{queryString}&checksum={checksum}";
 
             using HttpClient client = new HttpClient();
+
             try
             {
                 string xmlResponse = await client.GetStringAsync(url);
-
-                // Deserialize XML
                 XmlSerializer serializer = new XmlSerializer(typeof(BBBCreateResponse));
                 using StringReader reader = new StringReader(xmlResponse);
                 BBBCreateResponse result = (BBBCreateResponse)serializer.Deserialize(reader);
+
+                if (string.IsNullOrEmpty(result.MeetingID))
+                {
+                    return new MeetJSON { MeetID = meetingID, Status = "failed", JoinUrl = joinUrl };
+                }
+
                 return new MeetJSON
                 {
-                    MeetID = result.MeetingID,
+                    MeetID = result.InternalMeetingID,
+                    Status = "created",
+                    Title = meetingName,
+                    JalaliDate = Statics.GetPersianDate(DateTime.UtcNow),
+                    StartedTime = DateTime.UtcNow.ToString("HH:mm"),
+                    JoinUrl = joinUrl,
+                    Room = new MiniRoomJSON
+                    {
+                        RoomID = result.MeetingID,
+                        Title = meetingName,
+                        Created = DateTime.UtcNow,
+                        LastMeet = DateTime.UtcNow,
+                        Count = 0,
+                        CountTeacher = 0,
+                        CountPartis = 0
+                    },
+                    Teacher = new List<MiniUserJSON>(),
+                    Creator = null,
+                    JWT = null
                 };
             }
-            catch (Exception e)
+            catch (Exception)
             {
-                return null;
+                return new MeetJSON { MeetID = meetingID, Status = "failed", JoinUrl = joinUrl };
             }
         }
+
+
         public async Task<string> GetJoinUrlAsync(string meetingID, string fullName, bool asModerator = false, string moderatorPassowrd = "")
         {
             if (moderatorPassowrd != Statics.BBB_MODERATOR_PW)
@@ -115,9 +161,14 @@ namespace Infrastructure.API
             // Parameters
             string queryString =
                 $"fullName={Uri.EscapeDataString(fullName)}" +
+                                 //$"&bot=true" +
+                                 //$"&guest=true" +
+                                 //$"&logoutURL={Uri.EscapeDataString("")}"+
                 $"&meetingID={Uri.EscapeDataString(meetingID)}" +
                 $"&password={Uri.EscapeDataString(password)}" +
-                $"&redirect=true";
+                
+                //$"&avatarURL={Uri.EscapeDataString("https://vc.hekmateislami.com/images/avatar/ma2.jpg")}" +
+            $"&redirect=true";
 
             // Compute checksum
             string checksumInput = apiCall + queryString + Statics.BBB_SECRET;
@@ -134,7 +185,7 @@ namespace Infrastructure.API
             /*
 
             */
-        }   
+        }
         public async Task<bool> IsMeetingRunningAsync(string meetingID)
         {
             string apiCall = "isMeetingRunning";
@@ -228,7 +279,7 @@ namespace Infrastructure.API
 
             return recordings;
         }
-     
+
         public async Task GetMeeting(string meetingId)
         {
             if (string.IsNullOrWhiteSpace(meetingId))
@@ -255,7 +306,7 @@ namespace Infrastructure.API
             // Parse BBB XML response
             var doc = XDocument.Parse(xmlResponse);
 
-           var ns = doc.Root.GetDefaultNamespace();
+            var ns = doc.Root.GetDefaultNamespace();
 
             if (doc.Root.Element("returncode")?.Value != "SUCCESS")
             {
@@ -270,7 +321,7 @@ namespace Infrastructure.API
 
 
 
-        public async Task<bool> EndMeetingAsync(string meetingID,string pass="")
+        public async Task<bool> EndMeetingAsync(string meetingID, string pass = "")
         {
             if (string.IsNullOrWhiteSpace(meetingID))
                 return false;

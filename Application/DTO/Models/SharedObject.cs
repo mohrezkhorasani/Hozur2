@@ -12,12 +12,13 @@ namespace Application.DTO.Models
     }
     public class MeetJSON
     {
-        public string MeetID{ get; set; }
+        public string MeetID { get; set; }
         public JWTTokenJSON JWT { get; set; }
         public string Title { get; set; }
         public string JalaliDate { get; set; }
-        public string StartedTime{ get; set; }
+        public string StartedTime { get; set; }
         public string Status { get; set; } //live - end
+        public string JoinUrl { get; set; } // لینک ورود
         public MiniRoomJSON Room { get; set; }
         public List<MiniUserJSON> Teacher { get; set; }
         public MiniUserJSON Creator { get; set; }
@@ -33,9 +34,11 @@ namespace Application.DTO.Models
     {
         public string RoomID { get; set; }
         public string Title { get; set; }
-        public DateTime Created{ get; set; }
-        public DateTime LastMeet{ get; set; }
-        public int Count{ get; set; }
+
+        public string BBB_MeetID { get; set; }
+        public DateTime Created { get; set; }
+        public DateTime LastMeet { get; set; }
+        public int Count { get; set; }
         public int CountTeacher { get; set; }
         public int CountPartis { get; set; }
     }

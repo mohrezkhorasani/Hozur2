@@ -24,6 +24,7 @@ namespace Domain.Entity
         public UserTBL Creator { get; set; }
         public long IDCreator { get; set; }
         public string? JWT { get; set; }
+        public bool RequiredToEnterName { get; set; } = false;
         public ICollection<UserTBLToMeetingTBL> UserTBLToMeetingTBLs { get; set; }
 
         public static string GetStatusString(MainEntity_Status status)

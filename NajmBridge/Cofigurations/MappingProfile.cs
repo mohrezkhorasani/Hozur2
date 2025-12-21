@@ -39,5 +39,7 @@ public class MappingProfile : Profile
         CreateMap<EndTheMeetingViewModel, EndTheMeetingRequest>()
           .ForMember(dest => dest.GeneralHeaders, opt => opt.Ignore());
 
+        CreateMap<StartMeetingViewModel, StartNewMeetRequest>()
+          .ForMember(dest => dest.GeneralHeaders, opt => opt.Ignore());
     }
 }

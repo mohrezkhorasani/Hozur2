@@ -217,6 +217,35 @@ namespace Application.DTO
     public class StartMeetingResponse : BaseParentResponce
     {
         public List<MiniRoomJSON> Data = new List<MiniRoomJSON>();
+        public string Join { get; set; }  
+    }
+    #endregion
+
+
+    #region NewQuestion
+    public class NewQuestionRequest : NewUserRequest, IUseCaseRequest<GenericResponse<NewQuestionResponse>>
+    {
+        public string Content { get; set; }
+    }
+
+    public class NewQuestionResponse : BaseParentResponce
+    {
+    }
+    #endregion
+    #region GetQuestionOfMeet
+    public class GetQuestionOfMeetRequest : NewUserRequest, IUseCaseRequest<GenericResponse<GetQuestionOfMeetResponse>>
+    {
+    }
+
+    public class GetQuestionOfMeetResponse : BaseParentResponce
+    {
+        public List<SharedOBJ_Question> Questions { get; set; }
+    }
+    public class SharedOBJ_Question
+    {
+        public long ID { get; set; }
+        public string Question { get; set; }
+        public string NickName { get; set; }
     }
     #endregion
 

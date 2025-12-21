@@ -38,6 +38,10 @@ public class MappingProfile : Profile
           .ForMember(dest => dest.GeneralHeaders, opt => opt.Ignore());
         CreateMap<EndTheMeetingViewModel, EndTheMeetingRequest>()
           .ForMember(dest => dest.GeneralHeaders, opt => opt.Ignore());
+        CreateMap<StartMeetingViewModel, StartNewMeetRequest>()
+          .ForMember(dest => dest.GeneralHeaders, opt => opt.Ignore());
+        CreateMap<NewQuestionViewModel, NewQuestionRequest>()
+          .ForMember(dest => dest.GeneralHeaders, opt => opt.Ignore());
 
     }
 }

@@ -51,6 +51,7 @@ namespace Presistence.Entities
             builder.Property(e => e.Type).HasDefaultValue(MainEntity_Types.Normal);
             builder.HasIndex(e => e.FriendlyID).IsUnique();
             builder.HasIndex(e => e.Title).IsUnique();
+            builder.HasIndex(e => e.BBB_MeetID).IsUnique();
 
 
 

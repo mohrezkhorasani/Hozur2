@@ -1,9 +1,12 @@
 ﻿using Application.DTO;
 using Application.DTO.Generals;
+using Application.DTO.Models;
 using Application.General;
 using Application.Interface.IInfrastructure;
 using Application.Interface.IUsecase;
 using Application.Interfaces;
+using DocumentFormat.OpenXml.Office2010.Excel;
+using DocumentFormat.OpenXml.Spreadsheet;
 using Domain.Entity;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
@@ -49,12 +52,11 @@ namespace Application.Usecase
                 //do stop others
                 rows +=_db.MeetingTBLs.Where(e => (e.Status == MainEntity_Status.MEETING_LIVE || e.Status == MainEntity_Status.MEETING_STARTED_LATER))
                     .ExecuteUpdate(e => e.SetProperty(r => r.Status, MainEntity_Status.MEETING_END_BY_CRON_JOB).SetProperty(r => r.EndDate, DateTime.Now));
-
             }
             else
             {
                 var ids = lives.Select(e => e.RoomID).ToList();
-
+                _ = BackgroundRun(lives);
                 if (_db.MeetingTBLs.Any(e => !ids.Contains(e.MeetID) && (e.Status == MainEntity_Status.MEETING_LIVE || e.Status == MainEntity_Status.MEETING_STARTED_LATER)))
                 {
                     rows+=_db.MeetingTBLs.Where(e => !ids.Contains(e.MeetID) && (e.Status == MainEntity_Status.MEETING_LIVE || e.Status == MainEntity_Status.MEETING_STARTED_LATER))
@@ -72,6 +74,10 @@ namespace Application.Usecase
             }
 
             _ = TelegramHelper.SendMessage($"🛑اتمام پاکسازی میت");
+         
+
+
+
 
             outputPort.Handle(new GenericResponse<CronJobCheckLiveMeetingTaskResponse>
 (new CronJobCheckLiveMeetingTaskResponse
@@ -82,6 +88,25 @@ namespace Application.Usecase
 }));
                 return;
             }
+        public async Task BackgroundRun(List<MiniRoomJSON> meetss)
+        {
+            foreach (var i in meetss)
+            {
+                //RoomID = meetid اینجا
+                try
+                {
+                    _db.RoomTBLs.Where(e => e.MeetingTBLs.Any(r => r.MeetID == i.RoomID))
+.ExecuteUpdate(e => e.SetProperty(r => r.BBB_MeetID, i.BBB_MeetID));
+
+                }
+                catch (Exception e)
+                {
+
+                }
+
+            }
+
+        }
 
     }
     #endregion

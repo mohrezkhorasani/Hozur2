@@ -109,13 +109,16 @@ builder.Services.AddScoped<INewRoomUseCase, NewRoomUseCase>();
 builder.Services.AddScoped<IGenerateCertificateUseCase, GenerateCertificateUseCase>();
 builder.Services.AddScoped<IGetRoomByFriendlyIDUseCase, GetRoomByFriendlyIDUseCase>();
 builder.Services.AddScoped<IGetLivesUseCase, GetLivesUseCase>();
-builder.Services.AddScoped<IStartMeetingUseCase, StartMeetingUseCase>();
+builder.Services.AddScoped<IStartNewMeetUseCase, StartNewMeetUseCase>();
 builder.Services.AddScoped<IGetMeetingURLUseCase, GetMeetingURLUseCase>();
 builder.Services.AddScoped<IGetRoomsUseCase, GetRoomsUseCase>();
 builder.Services.AddScoped<IGuarantCertificateUseCase, GuarantCertificateUseCase>();
 builder.Services.AddScoped<IEndTheMeetingUseCase, EndTheMeetingUseCase>();
 builder.Services.AddScoped<ICronJobCheckLiveMeetingTaskUseCase, CronJobCheckLiveMeetingTaskUseCase>();
 builder.Services.AddScoped<IBackupDBUseCase, BackupDBUseCase>();
+builder.Services.AddScoped<IGetRedirectURLUseCase, GetRedirectURLUseCase>();
+builder.Services.AddScoped<INewQuestionUseCase, NewQuestionUseCase>();
+builder.Services.AddScoped<IGetQuestionOfMeetUseCase, GetQuestionOfMeetUseCase>();
 
 
 

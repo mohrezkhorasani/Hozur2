@@ -764,7 +764,7 @@ namespace Application.Usecase
             var bgpath = Path.Combine(wwwroot, "bg.png");
             var outputPath = Path.Combine(wwwroot, "pdf", "certificates", $@"{users.First().ID}-{users.First().MeetingTBL.JalaliDate}.xlsx");
 
-            workbook.SaveAs( outputPath);
+            workbook.SaveAs(outputPath);
             scpUploader.UploadFile(outputPath);
 
             outputPort.Handle(new GenericResponse<GetExcellMembersResponse>
@@ -775,6 +775,173 @@ namespace Application.Usecase
            Link = Path.Join(Statics.URL, Path.Combine("cert", $@"{users.First().ID}-{users.First().MeetingTBL.JalaliDate}.xlsx"))
 
        }));
+
+        }
+    }
+    #endregion
+    #region StartNewMeet
+    public class StartNewMeetUseCase : IStartNewMeetUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        public IWordService WordService { get; }
+        private IScpUploader scpUploader { get; }
+        private IBBBGetMeetings bbb { get; }
+
+        public StartNewMeetUseCase(IDBContext repository,
+            IConfiguration configuration, IWordService wordService,
+            IWebHostEnvironment hosting,
+            IScpUploader scpUploader,
+            IBBBGetMeetings bbb
+
+
+            )
+        {
+            this.bbb = bbb;
+            _db = repository;
+            this.WordService = wordService;
+            this.scpUploader = scpUploader;
+            this.hosting = hosting;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+        }
+
+        public async Task handleAsync(StartNewMeetRequest message,
+            IOutPutPort<GenericResponse<StartNewMeetResponse>> outputPort)
+        {
+            long idRoom = 0;
+            long.TryParse(message.IDRoom, out idRoom);
+            if (!_db.RoomTBLs.Any(e => e.FriendlyID == message.IDRoom || e.ID == idRoom))
+            {
+                outputPort.Handle(new GenericResponse<StartNewMeetResponse>
+           (new StartNewMeetResponse
+           {
+               Message = "آی دی گروه یافت نشد",
+               Status = 404,
+
+           }));
+                return;
+            }
+            var room = _db.RoomTBLs.Where(e => e.FriendlyID == message.IDRoom || e.ID == idRoom).First();
+            if (string.IsNullOrEmpty(room.BBB_MeetID))
+            {
+                if (_db.MeetingTBLs.Any(e => e.RoomFriendlyID == room.FriendlyID))
+                {
+                    room.BBB_MeetID = _db.MeetingTBLs.First(e => e.RoomFriendlyID == room.FriendlyID).MeetID.Split("-")[0];
+                }
+                else
+                {
+                    while (true)
+                    {
+                        room.BBB_MeetID = Statics.GenerateRoomMeetID();
+                        if (_db.RoomTBLs.Any(e => e.BBB_MeetID == room.BBB_MeetID))
+                        {
+                            continue;
+                        }
+                        break;
+                    }
+                    _db.Update(room);
+                    _db.SaveChanges();
+                }
+            }
+            var meet = await this.bbb.CreateMeetingAsync(room.BBB_MeetID, room.Title,room.FriendlyID);
+            if (meet.Status == "created")
+            {
+                string meetid = $"{meet.MeetID}";
+
+
+                List<UserTBL> teachers = new List<UserTBL>();
+
+                var meetTBL = await _commonMethods.NewMeeting(new MeetingTBL
+                {
+                    RoomFriendlyID = message.IDRoom,
+                    MeetID = meetid,
+                    Type = MainEntity_Types.MEET_API,
+                    Status = MainEntity_Status.MEETING_STARTED_LATER,
+                    JalaliDate = Statics.ToJalaliDate(DateTime.Now),
+                    Title = message.MeetTitle,
+                    RequiredToEnterName = message.RequiredToEnterName,
+                    IDCreator = -6000,
+                });
+                var link = await bbb.GetJoinUrlAsync(meetid, "مدیر", true, Statics.BBB_MODERATOR_PW);
+                foreach (var t in message.Teachers)
+                {
+
+                    UserTBL teacher = null;
+                    if (_db.UserTBLs.Any(
+                        e => (e.Firstname + " " + e.LastName).Trim() == t
+                            && e.Status == MainEntity_Status.USER_ACTIVE
+                            && e.Type == MainEntity_Types.USER_TEACHER
+                    ))
+                    {
+                        Statics.Log("UpdateMeeting", $"{t} existed user!");
+
+                        teacher = _db.UserTBLs.FirstOrDefault(
+                            e => (e.Firstname + " " + e.LastName).Trim() == t
+                            && e.Status == MainEntity_Status.USER_ACTIVE
+                            && e.Type == MainEntity_Types.USER_TEACHER
+                        );
+                        teachers.Add(teacher);
+                    }
+                    else
+                    {
+                        teacher = new UserTBL
+                        {
+                            Firstname = t,
+                            Type = MainEntity_Types.USER_TEACHER,
+                            Status = MainEntity_Status.USER_ACTIVE,
+                            Username = t,
+                            UUID = new Random().NextInt64(-999999999999999999, -99999999999999999).ToString()
+                        };
+                        teachers.Add(teacher);
+                        _db.UserTBLs.Add(teacher);
+                        _db.SaveChanges();
+                    }
+                    if (!_db.UserTBLToMeetingTBLs.Any(e => e.UUID == teacher.UUID && e.MeetID == meetid))
+                    {
+                        _db.UserTBLToMeetingTBLs.Add(new UserTBLToMeetingTBL
+                        {
+                            MeetID = meetid,
+                            Type = MainEntity_Types.USER_TEACHER,
+                            Status = MainEntity_Status.MEETING_STARTED_LATER,
+                            UUID = teacher.UUID,
+                            UserMeetID = "TEACHER",
+                            Role = "Teacher",
+                            UserNickName = "Teacher",
+                            IsCertificated = false,
+                            TokenJWT = "nope",
+                            TimeSpendSeconds = 0,
+
+                        });
+                        _db.SaveChanges();
+                    }
+                }
+                outputPort.Handle(new GenericResponse<StartNewMeetResponse>
+   (new StartNewMeetResponse
+   {
+       Message = "ok",
+       Status = 200,
+       RedirectURL = link,
+       Meeting = new SharedOBJ_Meeting
+       {
+           Title = meet.Title
+       }
+   }));
+                return;
+            }
+            else
+            {
+
+                outputPort.Handle(new GenericResponse<StartNewMeetResponse>
+           (new StartNewMeetResponse
+           {
+               Message = "ساختن جلسه جدید با خطای بیگ بلو باتن مواجه شد",
+               Status = 400,
+
+           }));
+                return;
+            }
+
 
         }
     }

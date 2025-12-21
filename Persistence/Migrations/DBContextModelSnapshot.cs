@@ -364,6 +364,9 @@ namespace Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
+                    b.Property<bool>("RequiredToEnterName")
+                        .HasColumnType("bit");
+
                     b.Property<string>("RoomFriendlyID")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
@@ -443,6 +446,9 @@ namespace Persistence.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("ID"), 25555L, 57);
 
+                    b.Property<string>("BBB_MeetID")
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<DateTime>("DateInsert")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
@@ -495,6 +501,10 @@ namespace Persistence.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("ID");
+
+                    b.HasIndex("BBB_MeetID")
+                        .IsUnique()
+                        .HasFilter("[BBB_MeetID] IS NOT NULL");
 
                     b.HasIndex("FriendlyID")
                         .IsUnique();

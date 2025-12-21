@@ -194,29 +194,53 @@ namespace Application.General
         }
         public static string GetDifferentPrettyDate(DateTime date)
         {
-            var dif = (date - DateTime.Now).TotalSeconds;
-            dif = Math.Abs(dif);
-            if (dif > 86400)
-            {
-                var day = (int)(dif / 86400);
-                return day.ToString() + " روز";
-            }
-            else if (dif > 3600)
-            {
-                var h = ((int)(dif / 3600));
-                return h.ToString() + " ساعت";
-            }
-            else if (dif > 60)
-            {
-                var m = ((int)(dif / 60));
-                return m.ToString() + " دقیقه";
-            }
-            else
-            {
+            var timeSpan = (date - DateTime.Now).Duration(); // استفاده از Duration برای گرفتن قدرمطلق اختلاف
+            var totalDays = (int)timeSpan.TotalDays;
+            var totalHours = timeSpan.Hours;
+            var totalMinutes = timeSpan.Minutes;
 
-                return dif.ToString("#.##") + " ثانیه.";
+            // اگر بیشتر از یک روز بود
+            if (totalDays > 0)
+            {
+                return $"{totalDays} روز";
             }
 
+            // اگر ساعت داشت
+            if (totalHours > 0)
+            {
+                string result = $"{totalHours} ساعت";
+                if (totalMinutes > 0)
+                {
+                    result += $" و {totalMinutes} دقیقه";
+                }
+                return result;
+            }
+
+            // اگر فقط دقیقه بود
+            if (totalMinutes > 0)
+            {
+                return $"{totalMinutes} دقیقه";
+            }
+
+            return "کمتر از یک دقیقه";
+        }
+        public static string GenerateRoomMeetID()
+        {
+            // Generate 20 random bytes (SHA-1 length)
+            byte[] randomBytes = new byte[20];
+            using (var rng = RandomNumberGenerator.Create())
+            {
+                rng.GetBytes(randomBytes);
+            }
+
+            // Convert bytes to hex string
+            StringBuilder hex = new StringBuilder(40);
+            foreach (var b in randomBytes)
+            {
+                hex.Append(b.ToString("x2"));
+            }
+
+            return hex.ToString();
         }
         public static string GetPrettyDateBySeconds(long seconds)
         {

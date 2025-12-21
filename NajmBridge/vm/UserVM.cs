@@ -208,7 +208,7 @@ namespace NajmBridge.vm
     public class EndTheMeetingViewModel : UserMainVM
     {
     }
-
+ 
     public class NewUserMeetingLogViewModel : UserMainVM
     {
         public string KeyLog { get; set; } //left,join, activity

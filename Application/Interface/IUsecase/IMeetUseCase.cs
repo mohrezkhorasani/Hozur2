@@ -14,6 +14,7 @@ namespace Application.Interface.IUsecase
     public interface IGenerateCertificateWithUserMeetIDUseCase : IUseCaseRequestHandler<GenerateCertificateWithUserMeetIDRequest, GenericResponse<GenerateCertificateWithUserMeetIDResponse>> { }
     public interface ISearchUserUseCase : IUseCaseRequestHandler<SearchUserRequest, GenericResponse<SearchUserResponse>> { }
     public interface IGetExcellMembersUseCase : IUseCaseRequestHandler<GetExcellMembersRequest, GenericResponse<GetExcellMembersResponse>> { }
+    public interface IStartNewMeetUseCase : IUseCaseRequestHandler<StartNewMeetRequest, GenericResponse<StartNewMeetResponse>> { }
     public interface IGetMemberByIDUseCase : IUseCaseRequestHandler<GetMemberByIDRequest, GenericResponse<GetMemberByIDResponse>> { }
     public interface IGetAllMeetingMemberUseCase : IUseCaseRequestHandler<GetAllMeetingMemberRequest, GenericResponse<GetAllMeetingMemberResponse>> { }
     public interface IGetAllCertificateOfMemberUseCase : IUseCaseRequestHandler<GetAllCertificateOfMemberRequest, GenericResponse<GetAllCertificateOfMemberResponse>> { }

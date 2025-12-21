@@ -27,6 +27,21 @@ namespace Application.DTO
 
 
 
+    #region GetRedirectURL
+    public class GetRedirectURLRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<GetRedirectURLResponse>>
+    {
+        public string RoomID { get; set; }
+        public string UUID { get; set; }
+    }
+
+    public class GetRedirectURLResponse : BaseParentResponce
+    {
+        public string Link { get; set; }
+    }
+    #endregion
+
+
+
 
 
 }
