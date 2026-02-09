@@ -218,6 +218,7 @@ namespace Application.DTO
     {
         public List<MiniRoomJSON> Data = new List<MiniRoomJSON>();
         public string Join { get; set; }  
+        public string JoinOthers { get; set; }  
     }
     #endregion
 
@@ -246,6 +247,18 @@ namespace Application.DTO
         public long ID { get; set; }
         public string Question { get; set; }
         public string NickName { get; set; }
+        public bool Answered { get; set; }
+    }
+    #endregion
+
+    #region QuestionAnswered
+    public class QuestionAnsweredRequest : NewUserRequest, IUseCaseRequest<GenericResponse<QuestionAnsweredResponse>>
+    {
+        public long ID { get; set; }
+    }
+
+    public class QuestionAnsweredResponse : BaseParentResponce
+    {
     }
     #endregion
 

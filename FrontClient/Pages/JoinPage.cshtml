@@ -1,0 +1,115 @@
+﻿@page "/rooms/{Mid}/join"
+@model FrontClient.Pages.JoinPageModel
+@{
+    ViewData["Title"] = "ورود به جلسه";
+}
+
+<style>
+    body {
+        background: #f3f6fb;
+    }
+
+    strong {
+        font-size: 25px;
+    }
+
+    .join-card {
+        max-width: 480px;
+        margin: 90px auto;
+        background: #fff;
+        border-radius: 16px;
+        box-shadow: 0 12px 40px rgba(0,0,0,.12);
+        padding: 32px;
+        font-family: sans-serif;
+    }
+
+    .join-title {
+        text-align: center;
+        font-size: 22px;
+        font-weight: 600;
+        margin-bottom: 20px;
+        color: #1f2937;
+    }
+
+    .meeting-info {
+        background: #f9fafb;
+        border-radius: 10px;
+        padding: 14px;
+        margin-bottom: 22px;
+        font-size: 14px;
+        color: #374151;
+    }
+
+        .meeting-info div {
+            margin-bottom: 6px;
+        }
+
+        .meeting-info strong {
+            color: #111827;
+        }
+
+    .form-group {
+        margin-bottom: 18px;
+    }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 14px;
+            color: #374151;
+        }
+
+        .form-group small {
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+    input[type="text"], input[type="password"] {
+        width: 100%;
+        padding: 10px 12px;
+        font-size: 14px;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+    }
+
+    button {
+        width: 100%;
+        padding: 12px;
+        font-size: 15px;
+        border-radius: 10px;
+        background: #0078B5;
+        color: #fff;
+        border: none;
+        cursor: pointer;
+    }
+
+        button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+</style>
+
+<div class="join-card">
+    <div class="join-title">ورود به جلسه</div>
+
+    <div class="meeting-info">
+        <div>نام جلسه</div>
+        <div><strong>@Model.MeetName</strong></div>
+    </div>
+
+    <form method="post">
+        <div class="form-group">
+            <label>نام نمایشی شما</label>
+            <input type="text" name="DisplayName" value="@Model.DisplayName" placeholder="نامی که به دیگران نمایش داده می‌شود" required />
+        </div>
+
+        <div class="form-group">
+            <label>رمز مدیر <small>(اختیاری)</small></label>
+            <input type="password" name="AdminPass" placeholder="فقط برای ورود مدیر جلسه" />
+        </div>
+
+        <button type="submit" @(Model.Loading ? "disabled" : "")>
+            @(Model.Loading ? "در حال اتصال..." : "پیوستن به جلسه")
+        </button>
+    </form>
+</div>

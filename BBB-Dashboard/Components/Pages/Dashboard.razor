@@ -711,7 +711,7 @@ else
                                     <div class="table-responsive">
                                         <table class="table table-hover">
                                             <tbody>
-                                                @if (GetLastMeetingResponse != null)
+                                                @if (GetLastMeetingResponse != null && GetLastMeetingResponse.Status==200)
                                                 {
                                                     @foreach (var i in GetLastMeetingResponse.SharedOBJ_Rooms)
                                                     {

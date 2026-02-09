@@ -34,7 +34,9 @@
         //Certificates
         CERT_FULL = 600,
         CERT_MEDIUM = 601,
-        
+        //Questions
+
+
         QUESTION_ANSWERED=610,
         QUESTION_NOT_ANSWERED=611,
     }   
@@ -49,6 +51,7 @@
         ROOM_NORMAL = 1,
 
         //Meetings
+        MEET_IGNORE = -99,
         MEET_GREEN_LIGHT = 100,
         MEET_API = 101,
 
@@ -63,7 +66,11 @@
         USER_CREATOR = 506,
         USER_VIEWER = 507,
         USER_TEACHER = 508,
-   
+        
+        //ROLE
+        ROLE_MANAGER = 500,
+        ROLE_FORROOM = 501,
+
         //cert
         CERT_NORMAL = 600,
 

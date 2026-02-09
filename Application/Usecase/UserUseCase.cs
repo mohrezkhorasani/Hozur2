@@ -128,7 +128,11 @@ namespace Application.Usecase
                         FriendlyID = message.RoomID,
                         IDOwnerTBL = user.ID,
                         Title = message.RoomName == null ? "" : message.RoomName,
-                        BBB_MeetID = message.MeetID.Split("-")[0]
+                        BBB_MeetID = message.MeetID.Split("-")[0],
+                        RecordRoom = true,
+                        RequiredAdminAcceptToView = false,
+                        RequiredLoginToView = false,
+
                     });
                     _db.SaveChanges();
                 }
@@ -139,6 +143,7 @@ namespace Application.Usecase
                     Type = MainEntity_Types.MEET_GREEN_LIGHT,
                     Status = MainEntity_Status.MEETING_STARTED_LATER,
                     JalaliDate = Statics.ToJalaliDate(DateTime.Now),
+
                     IDCreator = user.ID
                 };
 
@@ -186,6 +191,7 @@ namespace Application.Usecase
             }
             catch (Exception e)
             {
+                Statics.Log($"NewMeetingUseCase exception", e.InnerException.Message);
                 outputPort.Handle(new GenericResponse<NewMeetingResponse>(new NewMeetingResponse
                 {
                     Message = e.Message,
@@ -821,86 +827,99 @@ namespace Application.Usecase
         public async Task handleAsync(GetRoomsRequest message,
      IOutPutPort<GenericResponse<GetRoomsResponse>> outputPort)
         {
-            // اول اتاق‌ها رو با اطلاعات پایه می‌گیریم (سبک و سریع)
-            var rooms = await _db.RoomTBLs
-                .Where(e => (string.IsNullOrEmpty(message.Query) || e.Title.Contains(message.Query)) && e.Type == MainEntity_Types.ROOM_NORMAL)
-                .Include(e => e.MeetingTBLs)
-                    .ThenInclude(m => m.UserTBLToMeetingTBLs)
-                        .ThenInclude(um => um.UserTBL)
-                .OrderByDescending(e => e.DateInsert)
-                .Select(e => new
-                {
-                    e.FriendlyID,
-                    e.Title,
-                    e.DateInsert,
-                    Meetings = e.MeetingTBLs.Select(m => new
+            try
+            {
+
+
+                // اول اتاق‌ها رو با اطلاعات پایه می‌گیریم (سبک و سریع)
+                var rooms = await _db.RoomTBLs
+                    .Where(e => (string.IsNullOrEmpty(message.Query) || e.Title.Contains(message.Query)) && e.Type == MainEntity_Types.ROOM_NORMAL)
+                    .Include(e => e.MeetingTBLs)
+                        .ThenInclude(m => m.UserTBLToMeetingTBLs)
+                            .ThenInclude(um => um.UserTBL)
+                    .OrderByDescending(e => e.DateInsert)
+                    .Select(e => new
                     {
-                        m.ID,
-                        m.DateInsert,
-                        Participants = m.UserTBLToMeetingTBLs.Select(um => new
+                        e.FriendlyID,
+                        e.Title,
+                        e.DateInsert,
+                        Meetings = e.MeetingTBLs.Select(m => new
                         {
-                            um.UserNickName,
-                            um.UserTBL.UUID,
-                            um.UserTBL.Email,
-                            um.UserTBL.NationalCode,
-                            um.UserTBL.PhoneNumber,
-                            um.UserTBL.Type
+                            m.ID,
+                            m.DateInsert,
+                            Participants = m.UserTBLToMeetingTBLs.Select(um => new
+                            {
+                                um.UserNickName,
+                                um.UserTBL.UUID,
+                                um.UserTBL.Email,
+                                um.UserTBL.NationalCode,
+                                um.UserTBL.PhoneNumber,
+                                um.UserTBL.Type
+                            })
                         })
                     })
-                })
-                .ToListAsync(); // ← اینجا می‌ریزیم توی حافظه
+                    .ToListAsync(); // ← اینجا می‌ریزیم توی حافظه
 
-            // حالا توی حافظه محاسبه می‌کنیم (بدون هیچ مشکلی!)
-            var result = rooms.Select(room => new DTO.Models.MiniRoomJSON
-            {
-                RoomID = room.FriendlyID,
-                Title = room.Title,
-                Created = room.DateInsert,
+                // حالا توی حافظه محاسبه می‌کنیم (بدون هیچ مشکلی!)
+                var result = rooms.Select(room => new DTO.Models.MiniRoomJSON
+                {
+                    RoomID = room.FriendlyID,
+                    Title = room.Title,
+                    Created = room.DateInsert,
 
-                // آخرین جلسه
-                LastMeet = room.Meetings
-                    .OrderByDescending(m => m.DateInsert)
-                    .FirstOrDefault()?.DateInsert ?? room.DateInsert,
+                    // آخرین جلسه
+                    LastMeet = room.Meetings
+                        .OrderByDescending(m => m.DateInsert)
+                        .FirstOrDefault()?.DateInsert ?? room.DateInsert,
 
-                // تعداد جلساتی که حداقل ۲ نفر (غیر معلم) داشتن
-                Count = room.Meetings.Count(m => m.Participants
-                    .Count(p => p.Type != MainEntity_Types.USER_TEACHER) > 1),
+                    // تعداد جلساتی که حداقل ۲ نفر (غیر معلم) داشتن
+                    Count = room.Meetings.Count(m => m.Participants
+                        .Count(p => p.Type != MainEntity_Types.USER_TEACHER) > 1),
 
-                // تعداد معلم‌های یکتا
-                CountTeacher = room.Meetings
-                    .SelectMany(m => m.Participants)
-                    .Where(p => p.Type == MainEntity_Types.USER_TEACHER)
-                    .Select(p => p.UUID ?? p.Email ?? p.NationalCode ?? p.PhoneNumber ?? p.UserNickName)
-                    .Where(k => !string.IsNullOrWhiteSpace(k))
-                    .Distinct()
-                    .Count(),
+                    // تعداد معلم‌های یکتا
+                    CountTeacher = room.Meetings
+                        .SelectMany(m => m.Participants)
+                        .Where(p => p.Type == MainEntity_Types.USER_TEACHER)
+                        .Select(p => p.UUID ?? p.Email ?? p.NationalCode ?? p.PhoneNumber ?? p.UserNickName)
+                        .Where(k => !string.IsNullOrWhiteSpace(k))
+                        .Distinct()
+                        .Count(),
 
-                // تعداد شرکت‌کننده‌های یکتا (دانش‌آموز) با همه شناسه‌ها
-                CountPartis = room.Meetings
-                    .SelectMany(m => m.Participants)
-                    .Where(p => p.Type != MainEntity_Types.USER_TEACHER)
-                    .SelectMany(p => new[]
-                    {
+                    // تعداد شرکت‌کننده‌های یکتا (دانش‌آموز) با همه شناسه‌ها
+                    CountPartis = room.Meetings
+                        .SelectMany(m => m.Participants)
+                        .Where(p => p.Type != MainEntity_Types.USER_TEACHER)
+                        .SelectMany(p => new[]
+                        {
                 p.UUID?.Trim().ToLower(),
                 p.UserNickName?.Trim().ToLower(),
                 p.Email?.Trim().ToLower(),
                 p.NationalCode?.Trim(),
                 p.PhoneNumber?.Trim()
-                    })
-                    .Where(k => !string.IsNullOrWhiteSpace(k))
-                    .Distinct()
-                    .Count()
-            }).OrderByDescending(e => e.LastMeet).ToList();
+                        })
+                        .Where(k => !string.IsNullOrWhiteSpace(k))
+                        .Distinct()
+                        .Count()
+                }).OrderByDescending(e => e.LastMeet).ToList();
 
-            outputPort.Handle(new GenericResponse<GetRoomsResponse>(new GetRoomsResponse
+                outputPort.Handle(new GenericResponse<GetRoomsResponse>(new GetRoomsResponse
+                {
+                    Message = "ok",
+                    Status = 200,
+                    Data = result
+                }));
+            }
+            catch (Exception e)
             {
-                Message = "ok",
-                Status = 200,
-                Data = result
-            }));
+                Console.WriteLine(e.Message);
+                Statics.Log("GetRooms", e);
+
+            }
         }
     }
     #endregion
+
+
 
     #region GetRoomByFriendlyID
     public class GetRoomByFriendlyIDUseCase : IGetRoomByFriendlyIDUseCase
@@ -1003,6 +1022,7 @@ namespace Application.Usecase
         public async Task handleAsync(StartMeetingRequest message,
             IOutPutPort<GenericResponse<StartMeetingResponse>> outputPort)
         {
+
             var meet = await IBBBGetMeetings.CreateMeetingAsync(message.MeetiID, message.MeetName, "ff");
 
             var meetTBL = _commonMethods.NewMeeting(new MeetingTBL
@@ -1016,11 +1036,13 @@ namespace Application.Usecase
             });
 
             var joinURL = await IBBBGetMeetings.GetJoinUrlAsync(meet.MeetID, "مجمع عالی حکمت اسلامی", true, Statics.BBB_MODERATOR_PW);
+            var joinURLOthers = await IBBBGetMeetings.GetJoinUrlAsync(meet.MeetID, "مهمان", true, Statics.BBB_ATTEND_PW);
             outputPort.Handle(new GenericResponse<StartMeetingResponse>(new StartMeetingResponse
             {
                 Message = "ok",
                 Status = 200,
-                Join = joinURL
+                Join = joinURL,
+                JoinOthers=joinURLOthers
             }));
 
         }
@@ -1525,7 +1547,7 @@ namespace Application.Usecase
             {
                 Statics.Log("NewQuestionUseCase", e.Message);
             }
-          
+
         }
     }
     #endregion
@@ -1567,13 +1589,72 @@ namespace Application.Usecase
             {
                 Message = "ended",
                 Status = 200,
-                Questions= _db.MeetQuestionTBLs.Where(e=>e.UserTBLToMeeting.UUID==user.UUID && e.UserTBLToMeeting.MeetID == meet.MeetID)
-                .Include(e=>e.UserTBLToMeeting).Select(e=>new SharedOBJ_Question
+                Questions = _db.MeetQuestionTBLs.Where(e => e.UserTBLToMeeting.UUID == user.UUID && e.UserTBLToMeeting.MeetID == meet.MeetID)
+                .Include(e => e.UserTBLToMeeting).Select(e => new SharedOBJ_Question
                 {
-                    ID=e.ID,
-                    NickName=e.UserTBLToMeeting.UserNickName,
-                    Question=e.Question
+                    ID = e.ID,
+                    NickName = e.UserTBLToMeeting.UserNickName,
+                    Answered = e.Status == MainEntity_Status.QUESTION_ANSWERED,
+                    Question = e.Question
                 }).ToList(),
+            }));
+
+        }
+    }
+    #endregion
+
+    #region QuestionAnswered
+    public class QuestionAnsweredUseCase : IQuestionAnsweredUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        private IBBBGetMeetings bbb { get; }
+        public QuestionAnsweredUseCase(IDBContext repository,
+            IConfiguration configuration,
+            IBBBGetMeetings bbb
+            )
+        {
+            _db = repository;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+            this.bbb = bbb;
+        }
+
+        public async Task handleAsync(QuestionAnsweredRequest message,
+            IOutPutPort<GenericResponse<QuestionAnsweredResponse>> outputPort)
+        {
+            var init = await _commonMethods.Initialize<QuestionAnsweredRequest>(message);
+            var user = init.Item1;
+            var meet = init.Item2;
+            if (meet == null || user == null)
+            {
+                outputPort.Handle(new GenericResponse<QuestionAnsweredResponse>(new QuestionAnsweredResponse
+                {
+                    Message = "forbidden",
+                    Status = 403,
+                }));
+                return;
+            }
+            if (!UserTBL.TYPE_ALLOWED_QUESTION_ACTION.Contains(user.Type))
+            {
+                outputPort.Handle(new GenericResponse<QuestionAnsweredResponse>(new QuestionAnsweredResponse
+                {
+                    Message = "ok",
+                    Status = 202,
+                }));
+                return;
+            }
+            if (_db.MeetQuestionTBLs.Any(e => e.ID == message.ID))
+            {
+                var q = await _db.MeetQuestionTBLs.FindAsync(message.ID);
+                q.Status = MainEntity_Status.QUESTION_ANSWERED;
+                _db.Update(q);
+                _db.SaveChanges();
+            }
+            outputPort.Handle(new GenericResponse<QuestionAnsweredResponse>(new QuestionAnsweredResponse
+            {
+                Message = "ended",
+                Status = 200,
             }));
 
         }

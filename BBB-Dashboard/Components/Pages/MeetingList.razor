@@ -44,7 +44,7 @@
     protected async override Task OnInitializedAsync()
     {
         _ = CallGetLastMeetingResponse();
-        string UserIP = HttpContextAccessor.HttpContext?.Items["UserIP"]?.ToString(); 
+        string UserIP = HttpContextAccessor.HttpContext?.Items["UserIP"]?.ToString();
         string UserIP2 = HttpContextAccessor.HttpContext?.Connection?.RemoteIpAddress?.ToString();
 
     }
@@ -80,7 +80,31 @@
                         @foreach (var p in PagedPartis)
                         {
                             <li class="list-group-item text-end">
-                                <strong>@p.ID</strong> - @p.Name
+                                <strong>@p.ID</strong> - @p.Name.Replace("-", "")
+                                @if (p.HasCert.HasValue && p.HasCert.Value)
+                                {
+                                    <i class="la la-certificate" style="color: #09244b; font-size: 24px; "></i>
+                                }
+                                @if (p.Type == "استاد")
+                                {
+                                    <i class="la la-user-cog" style="color: #FF8400; font-size: 24px;"></i>
+                                }
+                                else if (p.Type == "مدیر")
+                                {
+                                    <i class="la la-user-shield" style="color: #00D12D; font-size: 24px;"></i>
+                                }
+                                else if (p.Type == "ادمینستریتور")
+                                {
+                                    <i class="la la-crown" style="color: #0065D1; font-size: 24px;"></i>
+                                }
+                                else if (p.Type == "کمک مدیر")
+                                {
+                                    <i class="la la-user-tag" style="color: #2EFF5B; font-size: 24px;"></i>
+                                }
+                                @if (p.Type == "سازنده")
+                                {
+                                    <i class="la la-user-cog" style="color: #6FB649; font-size: 24px;"></i>
+                                }
                             </li>
                         }
                     </ul>
@@ -436,11 +460,30 @@
                                                         <td>
                                                             @(i.MeetTitle == null ? "-" : i.MeetTitle)
                                                         </td>
-                                                        <td>@(i.TeacherTitle == null ? "-" : i.TeacherTitle.Name)</td>
                                                         <td>
-                                                            <a href="/meetings#modal" @onclick="() => OpenModal(GetLastMeetingResponse.SharedOBJ_Rooms.IndexOf(i))"> @i.Partis.Count</a>
+                                                            @if (i.Partis.Count(e => e.Type == "استاد") > 1)
+                                                            {
+                                                                foreach (var o in i.Partis.Where(e => e.Type == "استاد" && e.Name != @i.TeacherTitle.Name))
+                                                                {
+                                                                    <p>@(o.Name) </p>
+                                                                }
+                                                            }
+                                                            else
+                                                            {
+                                                                @(i.TeacherTitle == null ? "-" : i.TeacherTitle.Name)
+                                                            }
+
                                                         </td>
-                                                        <td><span class="badge badge-success py-1 px-2">@Statics.GetPersianDate(@i.Date) @i.Date.ToString("HH:mm")</span></td>
+                                                        <td>
+                                                            <a href="/meetings#modal" @onclick="() => OpenModal(GetLastMeetingResponse.SharedOBJ_Rooms.IndexOf(i))">
+                                                                (@i.Partis.Count/
+                                                                <i class="la la-certificate" style="color: #09244b; font-size: 100%;"></i>@i.Partis.Count(e => e.HasCert.Value))
+                                                            </a>
+                                                        </td>
+                                                        <td>
+                                                            <span class="badge badge-success font-size-14 py-1 px-2">@Statics.GetPersianDate(@i.Date) </span>
+                                                            <p>@i.Date.ToString("HH:mm")  @(i.EndDate.HasValue? (" تا " + @i.EndDate.Value.ToString("HH:mm")):"") </p>
+                                                        </td>
                                                         @* <td>
                                                             <div class="table-content">
                                                                 <a @onclick="() => OpenModal(GetLastMeetingResponse.SharedOBJ_Rooms.IndexOf(i))" class="theme-btn theme-btn-small mr-2" data-toggle="tooltip" data-placement="top" title="مشاهده جزئیات"><i class="la la-eye"></i></a>

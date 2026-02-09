@@ -123,7 +123,7 @@ namespace Application.General
 
         public long GetTimerStayUserInMeet(UserTBLToMeetingTBL m)
         {
-            if (m.MeetingTBL.EndDate == null)
+            if (!m.MeetingTBL.EndDate.HasValue)
             {
                 m.MeetingTBL.EndDate = DateTime.MaxValue;
             }
@@ -360,7 +360,7 @@ namespace Application.General
 
         public string GetTimerUserLogs(ICollection<UserTBLToMeetingTBLLogs> userTBLToMeetingTBLLogs)
         {
-            if (!userTBLToMeetingTBLLogs.Any(e => e.Key.ToLower() == "join"))
+            if (userTBLToMeetingTBLLogs==null || !userTBLToMeetingTBLLogs.Any(e => e.Key.ToLower() == "join"))
             {
                 return "غائب";
             }

@@ -343,6 +343,7 @@ namespace Application.DTO
         public SharedOBJ_Partis TeacherTitle { get; set; }
         public SharedOBJ_Partis ModeratorTitle { get; set; }
         public DateTime Date { get; set; }
+        public DateTime? EndDate { get; set; }
         public List<SharedOBJ_Partis> Partis { get; set; }
     }
     public class SharedOBJ_Partis
@@ -350,6 +351,8 @@ namespace Application.DTO
         public long ID { get; set; }
         public string Name { get; set; }
         public string Timer { get; set; }
+        public string Type { get; set; } = null;
+        public bool? HasCert { get; set; } 
     }
     #endregion
 

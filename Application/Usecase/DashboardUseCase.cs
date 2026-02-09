@@ -1018,18 +1018,22 @@ namespace Application.Usecase
             {
 
 
-                DateTime today = DateTime.Today;
-                int daysUntilSaturday = ((int)DayOfWeek.Saturday - (int)today.DayOfWeek + 7) % 7;
-                DateTime thisWeekSaturday = today.AddDays(-daysUntilSaturday); // شنبه همین هفته
+                //DateTime today = DateTime.Today;
+                //int daysUntilSaturday = ((int)DayOfWeek.Saturday - (int)today.DayOfWeek + 7) % 7;
+                //DateTime thisWeekSaturday = today.AddDays(-daysUntilSaturday); // شنبه همین هفته
 
 
                 var data = _db.MeetingTBLs.Where(e => e.UserTBLToMeetingTBLs.Count > 1 &&
                     new MainEntity_Types[]
-                    {MainEntity_Types.Normal}
-                    .Contains(e.Type))
+                    {MainEntity_Types.MEET_GREEN_LIGHT,MainEntity_Types.MEET_API}
+                    .Contains(e.Type) &&
+                    e.RoomTBL.Type==MainEntity_Types.ROOM_NORMAL
+                    )
 
                     .OrderByDescending(e => e.ID).Skip(message.Count * (message.Page - 1)).Take(message.Count).Include(e => e.Teacher)
-                    .Include(e => e.UserTBLToMeetingTBLs).ThenInclude(e => e.UserTBLToMeetingTBLLogs).Include(e => e.RoomTBL).Include(e => e.Creator).ToList();
+                    .Include(e => e.UserTBLToMeetingTBLs).ThenInclude(e => e.UserTBLToMeetingTBLLogs).Include(e=>e.UserTBLToMeetingTBLs).ThenInclude(e=>e.CertificateTBL)
+                    .Include(e => e.UserTBLToMeetingTBLs).ThenInclude(e=>e.UserTBL)
+                    .Include(e => e.RoomTBL).Include(e => e.Creator).ToList();
 
                 var count = _db.MeetingTBLs.Count();
 
@@ -1042,14 +1046,19 @@ namespace Application.Usecase
                     {
                         Date = e.DateInsert,
                         MeetID = e.MeetID,
+                        EndDate=e.EndDate,
                         MeetTitle = e.Title,
                         RoomTitle = new SharedOBJ_Partis { Name = e.RoomTBL.Title, ID = e.RoomTBL.ID },
                         TeacherTitle = e.Teacher == null ? null : new SharedOBJ_Partis { Name = $"{e.Teacher.Firstname}{e.Teacher.LastName}", ID = e.Teacher.ID },
-                        ModeratorTitle = e.UserTBLToMeetingTBLs.Where(r => r.Role == "MODERATOR").Select(r => new SharedOBJ_Partis { ID = r.ID, Name = $"{r.UserNickName}" }).First(),
+                        ModeratorTitle = !e.UserTBLToMeetingTBLs.Any(r => r.Role == "MODERATOR")?null:e.UserTBLToMeetingTBLs.Where(r => r.Role == "MODERATOR").Select(r => new SharedOBJ_Partis { ID = r.ID, Name = $"{r.UserNickName}" }).First(),
                         Partis = e.UserTBLToMeetingTBLs == null ? null : e.UserTBLToMeetingTBLs.Select(r => new SharedOBJ_Partis
-                        {
+                           {
                             ID = r.ID,
-                            Name = r.UserNickName,
+                            Name = r.Type==MainEntity_Types.USER_TEACHER ?
+                                $"{r.UserTBL.Firstname} {r.UserTBL.LastName}" :
+                                r.UserNickName ,
+                            Type=r.ReturnTypeString(),
+                            HasCert= !(r.CertificateTBL == null || string.IsNullOrEmpty(r.CertificateTBL.FilePath)),
                             Timer = _commonMethods.GetTimerUserLogs(r.UserTBLToMeetingTBLLogs)
                         }).ToList()
                     }).ToList()

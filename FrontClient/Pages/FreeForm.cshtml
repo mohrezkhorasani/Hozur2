@@ -1,0 +1,83 @@
+﻿@page "/freeForm"
+@using Application.DTO
+@model FrontClient.Pages.FreeFormModel
+@{
+}
+@{
+    ViewData["Title"] = "Home page";
+}
+
+<style>
+    .form-group {
+        margin-bottom: 10px;
+    }
+
+    input[type="text"], select {
+        width: 550px; /* Adjust as needed */
+        padding: 8px;
+        font-size: 16px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        background-color: #fff;
+    }
+
+    .form-group label {
+        margin-top: 5px;
+    }
+
+    .centered-form {
+        display: flex;
+        justify-content: center;
+        align-items: end; /* Adjust based on your content */
+        height: calc(100vh - 90vh); /* Adjust based on your content */
+    }
+</style>
+
+<form method="post" class="col"
+      asp-page-handler="StartMeeting">
+    @Html.AntiForgeryToken()
+    <div class="col-12 form-group centered-form">
+        <label class="col-12 p-1 font-size-27 text-bg-success text-md-center" for="TitleInput">عنوان جلسه (درصورت نیاز)</label>
+        <input type="text" name="Title" placeholder="عنوان جلسه در صورت نیاز" required />
+    </div>
+
+    <div class="col-12 form-group centered-form">
+        <button type="button"
+                onclick="startMeeting()"
+                style="background-color: #0078B5; color: white; border: none; padding: 12px 24px;">
+            شروع جلسه
+        </button>
+
+    </div>
+
+
+</form>
+
+<script>
+    async function startMeeting() {
+            const form = document.querySelector("form");
+    const formData = new FormData(form); // includes title + anti-forgery token
+
+        const token = document.querySelector(
+            'input[name="__RequestVerificationToken"]'
+        ).value;
+
+        const res = await fetch("?handler=StartMeeting", {
+            method: "POST",
+            headers: {
+                "RequestVerificationToken": token
+            },
+                    body: formData
+        });
+
+        if (!res.ok) {
+            alert("خطا در ایجاد جلسه");
+            return;
+        }
+
+        const data = await res.json();
+
+        window.open(data.url, "_blank", "noopener,noreferrer");
+        window.open(data.join, "_blank", "noopener,noreferrer");
+    }
+</script>

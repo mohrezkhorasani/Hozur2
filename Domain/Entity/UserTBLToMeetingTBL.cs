@@ -34,5 +34,25 @@ namespace Domain.Entity
         public ICollection<UserTBLToMeetingTBLLogs> UserTBLToMeetingTBLLogs { get; set; }
         public ICollection<MeetQuestionTBL> MeetQuestionTBLs { get; set; }
         public ICollection<MeetCommentTBL> MeetCommentTBLs { get; set; }
+
+        public string ReturnTypeString()
+        {
+            if (Type == MainEntity_Types.USER_TEACHER)
+                return "استاد";
+            if (Type == MainEntity_Types.USER_MODERATOR)
+                return "مدیر";
+            if (Type == MainEntity_Types.USER_GUEST)
+                return "مهمان";
+            if (Type == MainEntity_Types.USER_ADMINSTRATOR)
+                return "ادمینستریتور";
+            if (Type == MainEntity_Types.USER_CREATOR)
+                return "سازنده";
+            if (Type == MainEntity_Types.USER_VIEWER)
+                return "شرکت کننده";
+            if (Type == MainEntity_Types.USER_ADMIN)
+                return "کمک مدیر";
+            return "نامشخص";
+
+        }
     }
 }

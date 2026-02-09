@@ -511,8 +511,7 @@ namespace Persistence.Migrations
 
                     b.HasIndex("IDOwnerTBL");
 
-                    b.HasIndex("Title")
-                        .IsUnique();
+                    b.HasIndex("Title");
 
                     b.ToTable("RoomTBL", (string)null);
                 });

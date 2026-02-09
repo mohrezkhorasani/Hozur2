@@ -81,7 +81,7 @@ namespace Application.Usecase
 
                 return;
             }
-            
+
             var room = _db.RoomTBLs.First(e => e.FriendlyID == message.RoomID || e.ID == idroom || e.BBB_MeetID == message.RoomID);
             var lives = await bbb.GetLivesShort(new GetLivesRequest { });
             var livesID = lives.Select(e => e.BBB_MeetID).ToList();
@@ -104,7 +104,7 @@ namespace Application.Usecase
          {
              Message = "ok",
              Status = 200,
-             Link= $"https://vc.hekmateislami.com/rooms/{room.FriendlyID}"
+             Link = $"https://vc.hekmateislami.com/rooms/{room.FriendlyID}"
 
          }));
                 return;
@@ -127,8 +127,8 @@ namespace Application.Usecase
                     }
                     else
                     {
-                        var count = _db.UserTBLToMeetingTBLs.Count(e=>e.MeetID==meetTBL.MeetID);
-                        var join = await bbb.GetJoinUrlAsync(meetTBL.MeetID, (1111111+ count).ToString(), false, "");
+                        var count = _db.UserTBLToMeetingTBLs.Count(e => e.MeetID == meetTBL.MeetID);
+                        var join = await bbb.GetJoinUrlAsync(meetTBL.MeetID, (1111111 + count).ToString(), false, "");
                         outputPort.Handle(new GenericResponse<GetRedirectURLResponse>
    (new GetRedirectURLResponse
    {
@@ -165,13 +165,60 @@ namespace Application.Usecase
         }));
                 return;
             }
-          
+
             outputPort.Handle(new GenericResponse<GetRedirectURLResponse>
                (new GetRedirectURLResponse
                {
                    Message = "ok",
                    Status = 200,
 
+               }));
+
+        }
+    }
+    #endregion
+
+
+    #region GetRoomList
+    public class GetRoomListUseCase : IGetRoomListUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        private IBBBGetMeetings bbb;
+
+        public GetRoomListUseCase(IDBContext repository,
+            IConfiguration configuration,
+            IBBBGetMeetings bbb
+            )
+        {
+            _db = repository;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+            this.bbb = bbb;
+        }
+
+        public async Task handleAsync(GetRoomListRequest message,
+            IOutPutPort<GenericResponse<GetRoomListResponse>> outputPort)
+        {
+            var rr = _db.RoomTBLs.Where(e => e.Title.Contains(message.q)).Select(e => new DTO.Models.MiniRoomJSON
+            {
+                Title = e.Title,
+                CountTeacher=0,
+                Count=0,
+                Created=DateTime.Now,
+                LastMeet=DateTime.Now,
+                CountPartis=0,
+                BBB_MeetID ="aa",
+                RoomID = e.FriendlyID,
+            }
+            ).ToList();
+
+            outputPort.Handle(new GenericResponse<GetRoomListResponse>
+               (new GetRoomListResponse
+               {
+                   Message = "ok",
+                   Status = 200,
+                   Data = rr
                }));
 
         }

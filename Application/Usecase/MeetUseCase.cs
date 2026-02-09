@@ -137,7 +137,7 @@ namespace Application.Usecase
                 var room = _db.RoomTBLs.First(e => e.FriendlyID == message.ID || e.ID == id);
                 var meets = _db.MeetingTBLs
                     .Where(e => e.RoomFriendlyID == message.ID &&
-                        e.Type == MainEntity_Types.ROOM_NORMAL &&
+                        e.Type != MainEntity_Types.MEET_IGNORE &&
                         e.RoomTBL.Type == MainEntity_Types.ROOM_NORMAL
                         )
                     .OrderByDescending(e => e.ID)
@@ -445,20 +445,24 @@ namespace Application.Usecase
                         Certificates = m.Select(e => new SharedOBJ_Certificate
                         {
                             ID = e.ID,
-                            Gender = e.IsMale.HasValue ? "تعیین نشده" : e.IsMale.Value ? "آقا" : "خانم",
+                            Gender = !e.IsMale.HasValue ? "تعیین نشده" : e.IsMale.Value ? "آقا" : "خانم",
                             Date = e.DateInsert,
                             Meet = new SharedOBJ_Partis
                             {
                                 ID = e.UserTBLToMeetingTBL.MeetingTBL.ID,
                                 Name = e.UserTBLToMeetingTBL?.MeetingTBL?.Title,
+                                HasCert = false,
+                                Type = "جلسه",
                                 Timer = Statics.GetPrettyDateBySeconds(
-                                    (long)(new[] { e.UserTBLToMeetingTBL.MeetingTBL.EndDate.Value, e.UserTBLToMeetingTBL.MeetingTBL.DateInsert.AddHours(4) }.Min() -
+                                    (long)(new[] { e.UserTBLToMeetingTBL.MeetingTBL.EndDate.HasValue? e.UserTBLToMeetingTBL.MeetingTBL.EndDate.Value: e.UserTBLToMeetingTBL.MeetingTBL.DateInsert.AddHours(3), e.UserTBLToMeetingTBL.MeetingTBL.DateInsert.AddHours(4) }.Min() -
                                         e.UserTBLToMeetingTBL.MeetingTBL.DateInsert).TotalSeconds)
                             },
                             Parti = new SharedOBJ_Partis
                             {
                                 ID = e.IDUserTBLToMeetingTBL,
                                 Name = e.UserTBLToMeetingTBL.UserNickName,
+                                HasCert=!string.IsNullOrEmpty(e.FilePath),
+                                Type=e.UserTBLToMeetingTBL.ReturnTypeString(),
                                 Timer = Statics.GetPrettyDateBySeconds(_commonMethods.GetTimerStayUserInMeet(e.UserTBLToMeetingTBL))
                             },
                             PresentTimeSeconds = _commonMethods.GetTimerStayUserInMeet(e.UserTBLToMeetingTBL),
@@ -466,6 +470,8 @@ namespace Application.Usecase
                             {
                                 ID = e.UserTBLToMeetingTBL.MeetingTBL.RoomTBL.ID,
                                 Name = e.UserTBLToMeetingTBL.MeetingTBL.RoomTBL.Title,
+                                HasCert = false,
+                                Type = "گروه",
                                 Timer = ""
                             }
                         }).ToList()
@@ -863,7 +869,7 @@ namespace Application.Usecase
                     RequiredToEnterName = message.RequiredToEnterName,
                     IDCreator = -6000,
                 });
-                var link = await bbb.GetJoinUrlAsync(meetid, "مدیر", true, Statics.BBB_MODERATOR_PW);
+                var link = await bbb.GetJoinUrlAsync(meetid, "مجمع عالی حکمت اسلامی", true, Statics.BBB_MODERATOR_PW);
                 foreach (var t in message.Teachers)
                 {
 

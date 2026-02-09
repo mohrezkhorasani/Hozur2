@@ -28,6 +28,15 @@ namespace Domain.Entity
             MainEntity_Types.USER_MODERATOR,
         };
         [NotMapped]
+        public static List<MainEntity_Types> TYPE_ALLOWED_QUESTION_ACTION = new List<MainEntity_Types>
+        {
+            MainEntity_Types.USER_ADMINSTRATOR,
+            MainEntity_Types.USER_ADMIN,
+            MainEntity_Types.USER_CREATOR,
+            MainEntity_Types.USER_TEACHER,
+            MainEntity_Types.USER_MODERATOR,
+        };
+        [NotMapped]
         public static List<MainEntity_Types> TYPE_ALLOWED_LOG_FOR_OTHERS = new List<MainEntity_Types>
         {
             MainEntity_Types.USER_ADMINSTRATOR,

@@ -242,6 +242,44 @@ namespace Application.General
 
             return hex.ToString();
         }
+        public class NormalizedQuery
+        {
+            public string Persian { get; set; }  // نسخه فارسی استاندارد
+            public string Arabic { get; set; }   // نسخه عربی معادل (برای پوشش داده‌های قدیمی)
+        }
+
+        // تابع کمکی برای نرمالایز کردن کوئری به هر دو شکل ممکن
+        public static NormalizedQuery NormalizeQuery(string input)
+        {
+            if (string.IsNullOrWhiteSpace(input))
+                return new NormalizedQuery { Persian = "", Arabic = "" };
+
+            string trimmed = input.Trim();
+
+            // نسخه فارسی استاندارد
+            string persian = trimmed
+                .Replace("ي", "ی")   // ی عربی → ی فارسی
+                .Replace("ي", "ی")   // تکرار برای اطمینان
+                .Replace("ى", "ی")   // الف مقصوره → ی
+                .Replace("ك", "ک")   // ک عربی → ک فارسی
+                .Replace("ة", "ه")   // ته مربوطه → ه
+                .Replace("ؤ", "و")   // واو معجم → واو ساده (در برخی موارد)
+                .Replace("إ", "ا")   // الف با همزه زیر → الف
+                .Replace("أ", "ا")   // الف با همزه بالا
+                .Replace("آ", "ا");  // آ → ا (اختیاری، بسته به نیاز)
+
+            // نسخه عربی (برای پوشش داده‌هایی که با کیبورد عربی ذخیره شدن)
+            string arabic = trimmed
+                .Replace("ی", "ي")   // ی فارسی → ی عربی
+                .Replace("ک", "ك")   // ک فارسی → ک عربی
+                .Replace("ه", "ة");  // ه → ته مربوطه (در انتهای کلمه معموله)
+
+            return new NormalizedQuery
+            {
+                Persian = persian,
+                Arabic = arabic
+            };
+        }
         public static string GetPrettyDateBySeconds(long seconds)
         {
             var dif = seconds;
@@ -436,7 +474,22 @@ namespace Application.General
                 Directory.CreateDirectory("logs");
                 File.AppendAllText($"logs/std-{DateTime.Today:yyyy-MM-dd}.log", line);
             }
-            catch(Exception e)
+            catch (Exception e)
+            {
+
+            }
+        }
+        public static void Log(string level, Exception message)
+        {
+            try
+            {
+                var line = @$"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} [{level}] {message.Message} {message.Source} 
+{message.InnerException}{message.StackTrace} {Environment.NewLine}";
+
+                Directory.CreateDirectory("logs");
+                File.AppendAllText($"logs/std-{DateTime.Today:yyyy-MM-dd}.log", line);
+            }
+            catch (Exception e)
             {
 
             }

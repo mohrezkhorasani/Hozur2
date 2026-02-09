@@ -119,6 +119,10 @@ builder.Services.AddScoped<IBackupDBUseCase, BackupDBUseCase>();
 builder.Services.AddScoped<IGetRedirectURLUseCase, GetRedirectURLUseCase>();
 builder.Services.AddScoped<INewQuestionUseCase, NewQuestionUseCase>();
 builder.Services.AddScoped<IGetQuestionOfMeetUseCase, GetQuestionOfMeetUseCase>();
+builder.Services.AddScoped<IQuestionAnsweredUseCase, QuestionAnsweredUseCase>();
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+builder.Logging.AddDebug();
 
 
 
@@ -170,7 +174,7 @@ app.UseSwaggerUI(c =>
 
 
 
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
 
 app.UseAuthorization();
 

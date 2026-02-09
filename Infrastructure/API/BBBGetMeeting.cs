@@ -88,12 +88,12 @@ namespace Infrastructure.API
                                  $"&attendeePW={Statics.BBB_ATTEND_PW}" +
                                  $"&moderatorPW={Statics.BBB_MODERATOR_PW}" +
                                  $"&loginURL={Uri.EscapeDataString(joinUrl)}" +
-                                 $"&allowStartStopRecording=true" +
+                                 $"&allowStartStopRecording=false" +
                                  $"&autoStartRecording=false" +
                                  $"&muteOnStart=true" +                 // همه هنگام ورود میوت باشند
                                  $"&lockSettingsDisableMic=true" +      // بستن میکروفون کاربران عادی
                                  $"&lockSettingsDisableCam=true" +      // بستن دوربین کاربران عادی
-                                 $"&lockSettingsLockOnJoin=true" +      // اعمال محدودیت از لحظه ورود
+                                 $"&lockSettingsLockOnJoin=false" +      // اعمال محدودیت از لحظه ورود
                                  $"&lockSettingsLockOnJoinConfigurable=true" +
                                  $"&logo={Uri.EscapeDataString("https://vc.hekmateislami.com/images/logo.png")}" +
                                  $"&metadata={Uri.EscapeDataString(metadataXml)}";
@@ -157,13 +157,12 @@ namespace Infrastructure.API
 
             string apiCall = "join";
             string password = asModerator ? Statics.BBB_MODERATOR_PW : Statics.BBB_ATTEND_PW;
-
             // Parameters
             string queryString =
                 $"fullName={Uri.EscapeDataString(fullName)}" +
                                  //$"&bot=true" +
                                  //$"&guest=true" +
-                                 //$"&logoutURL={Uri.EscapeDataString("")}"+
+                                 //$"&logoutURL={Uri.EscapeDataString("")}"+    
                 $"&meetingID={Uri.EscapeDataString(meetingID)}" +
                 $"&password={Uri.EscapeDataString(password)}" +
                 

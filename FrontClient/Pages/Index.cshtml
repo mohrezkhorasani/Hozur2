@@ -1,0 +1,97 @@
+﻿@page
+@using Application.DTO
+@model IndexModel
+
+@{
+    ViewData["Title"] = "Home page";
+}
+
+<style>
+    .form-group {
+        margin-bottom: 10px;
+    }
+
+    input[type="text"], select {
+        width: 550px; /* Adjust as needed */
+        padding: 8px;
+        font-size: 16px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        background-color: #fff;
+    }
+
+    .form-group label {
+        margin-top: 5px;
+    }
+
+    .centered-form {
+        display: flex;
+        justify-content: center;
+        align-items: end; /* Adjust based on your content */
+        height: calc(100vh - 90vh); /* Adjust based on your content */
+    }
+</style>
+@* 
+<form method="post" class="col"
+      asp-page-handler="StartMeeting">
+    <div class="col-12 h-100 form-group centered-form">
+        @if (Model._GetRoomListResponse.jsonContentResult.obj != null)
+        {
+            var selectedRoomsListItem = ((GetRoomListResponse)Model._GetRoomListResponse.jsonContentResult.obj).Data.Select(e => new SelectListItem
+            {
+                Text = e.Title,
+                Value = e.RoomID.ToString()
+            }).ToList();
+
+            <select name="RoomID" id="roomSelect" required>
+                @foreach (var item in selectedRoomsListItem)
+                {
+                    <option value="@item.Value">@item.Text</option>
+                }
+            </select>
+        }
+        else
+        {
+            <p>در حال بارگیری گروه ها</p>
+        }
+    </div>
+
+    <div class="col-12 form-group centered-form">
+        <label class="col-12 p-1 font-size-27 text-bg-success text-md-center" for="TitleInput">عنوان جلسه (درصورت نیاز)</label>
+        <input type="text" name="Title" placeholder="عنوان جلسه در صورت نیاز" required />
+    </div>
+
+    <div class="col-12 form-group centered-form">
+        <button type="submit" style="background-color: #0078B5; color: white; border: none; padding: 12px 24px;">
+            شروع جلسه
+        </button>
+    </div>
+    @if (Model.LoadingStartMeet)
+    {
+        <div class="col-12 form-group centered-form">
+            <p style="background-color: #fff; color: green; border: none; padding: 12px 24px;">
+                در حال شروع جلسه ...
+            </p>
+        </div>
+    }
+    @if (Model.link != null)
+    {
+        var link = ((StartNewMeetResponse)Model._StartNewMeetResponse.jsonContentResult.obj).RedirectURL;
+
+        <div class="col-12 form-group centered-form">
+            <h1> لینک زیر را کپی کنید و برای شرکت کنندگان ارسال کنید</h1>
+            <p style="background-color: #fff; color: green; border: none; padding: 12px 24px;">
+                @link
+            </p>
+        </div>
+    }
+
+</form> *@
+
+@functions {
+    public void StartMeeting()
+    {
+        // Your logic here
+
+    }
+}

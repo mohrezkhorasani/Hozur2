@@ -40,6 +40,18 @@ namespace Application.DTO
     }
     #endregion
 
+    #region GetRoomList
+    public class GetRoomListRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<GetRoomListResponse>>
+    {
+        public string q { get; set; }
+    }
+
+    public class GetRoomListResponse : BaseParentResponce
+    {
+        public List<MiniRoomJSON> Data = new List<MiniRoomJSON>();
+    }
+    #endregion
+
 
 
 

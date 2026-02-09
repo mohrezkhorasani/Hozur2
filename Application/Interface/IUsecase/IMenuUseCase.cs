@@ -8,4 +8,5 @@ namespace Application.Interface.IUsecase
 
     public interface IApplicationVersionUseCase : IUseCaseRequestHandler<ApplicationVersionRequest, GenericResponse<ApplicationVersionResponse>> { }
     public interface IGetRedirectURLUseCase : IUseCaseRequestHandler<GetRedirectURLRequest, GenericResponse<GetRedirectURLResponse>> { }
+    public interface IGetRoomListUseCase : IUseCaseRequestHandler<GetRoomListRequest, GenericResponse<GetRoomListResponse>> { }
 }

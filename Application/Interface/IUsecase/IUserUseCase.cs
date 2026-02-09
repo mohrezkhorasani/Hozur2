@@ -23,4 +23,5 @@ namespace Application.Interface.IUsecase
     public interface IEndTheMeetingUseCase : IUseCaseRequestHandler<EndTheMeetingRequest, GenericResponse<EndTheMeetingResponse>> { }
     public interface INewQuestionUseCase : IUseCaseRequestHandler<NewQuestionRequest, GenericResponse<NewQuestionResponse>> { }
     public interface IGetQuestionOfMeetUseCase : IUseCaseRequestHandler<GetQuestionOfMeetRequest, GenericResponse<GetQuestionOfMeetResponse>> { }
+    public interface IQuestionAnsweredUseCase : IUseCaseRequestHandler<QuestionAnsweredRequest, GenericResponse<QuestionAnsweredResponse>> { }
 }
