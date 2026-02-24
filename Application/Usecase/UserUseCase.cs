@@ -1279,13 +1279,23 @@ namespace Application.Usecase
                 }
                 if (!_db.CertificateTBLs.Any(e => e.IDUserTBLToMeetingTBL == um.ID))
                 {
-                    Statics.Log("GenerateCertificateUseCase", $"{um.ID}");
-                    outputPort.Handle(new GenericResponse<GenerateCertificateResponse>(new GenerateCertificateResponse
+                    _db.CertificateTBLs.Add(new CertificateTBL
                     {
-                        Message = "هنوز گواهینامه برای شما صادر نشده است!",
-                        Status = 404,
-                    }));
-                    return;
+                        IDUserTBLToMeetingTBL = um.ID,
+                        Status = MainEntity_Status.CERT_FULL,
+                        Type = MainEntity_Types.CERT_NORMAL,
+                        Title = "گواهینامه حضور در جلسه",
+
+                        Validation = checkCert.Item1
+                    });
+                    _db.SaveChanges();
+                    //Statics.Log("GenerateCertificateUseCase", $"{um.ID}");
+                    //outputPort.Handle(new GenericResponse<GenerateCertificateResponse>(new GenerateCertificateResponse
+                    //{
+                    //    Message = "هنوز گواهینامه برای شما صادر نشده است!",
+                    //    Status = 404,
+                    //}));
+                    //return;
                 }
                 var cert = await _db.CertificateTBLs.FirstOrDefaultAsync(e => e.IDUserTBLToMeetingTBL == um.ID);
                 cert.NationalCode = message.NationalCode;

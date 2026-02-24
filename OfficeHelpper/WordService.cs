@@ -69,28 +69,28 @@ namespace Infrastructure.Word
                     page.Content().PaddingHorizontal(100).PaddingVertical(30).Column(column =>
                     {
                         // --- دو تاریخ بالا سمت چپ ---
-                        column.Item().PaddingLeft(5).PaddingTop(52)
+                        column.Item().PaddingLeft(45).PaddingTop(73)
                             .ScaleToFit()
                             .AlignLeft()
                             .Text(date1)
                             .FontFamily(fontPath)
-                            .FontSize(17)
+                            .FontSize(24)
                             .FontColor("#000000");
 
-                        column.Item().PaddingLeft(5).PaddingTop(-10)
+                        column.Item().PaddingLeft(45).PaddingTop(-10)
                             .ScaleToFit()
                             .AlignLeft()
                             .Text(date2)
                             .FontFamily(fontPath)
-                            .FontSize(17)
+                            .FontSize(24)
                             .FontColor("#000000");
 
                         // --- متن معرفی ---
-                        column.Item().PaddingTop(70).PaddingHorizontal(60)
+                        column.Item().PaddingTop(55).PaddingHorizontal(60)
                             .ScaleToFit()
                             .Text(text =>
                             {
-                                text.DefaultTextStyle(x => x.FontFamily(fontPath).FontSize(24));
+                                text.DefaultTextStyle(x => x.FontFamily(fontPath).FontSize(34));
                                 text.Span(lineIntroductionUser).FontColor("#000000");
                                 text.Span(lineIntroductionUser2).FontColor("#065E47");
                                 text.Span(lineIntroductionUser3).FontColor("#000000");
@@ -104,7 +104,7 @@ namespace Infrastructure.Word
                             .ScaleToFit()
                             .Text(lineTitleOfMeet)
                             .FontFamily(fontPath)
-                            .FontSize(29)
+                            .FontSize(40)
                             .FontColor("#065E47")
                             .AlignCenter();
 
@@ -114,7 +114,7 @@ namespace Infrastructure.Word
                             .ScaleToFit()
                             .Text(text =>
                             {
-                                text.DefaultTextStyle(x => x.FontFamily(fontPath).FontSize(24));
+                                text.DefaultTextStyle(x => x.FontFamily(fontPath).FontSize(34));
                                 text.Span(lineDateTitle).FontColor("#000000");
                                 text.Span(lineDateValue).FontColor("#FB2C36");
                                 text.Span(" برگزار شد، به عنوان ").FontColor("#000000");
@@ -129,7 +129,7 @@ namespace Infrastructure.Word
                             .ScaleToFit()
                             .Text(line4)
                             .FontFamily(fontPath)
-                            .FontSize(24)
+                            .FontSize(34)
                             .FontColor("#000000")
                             .AlignCenter()
                             .DirectionFromRightToLeft();
