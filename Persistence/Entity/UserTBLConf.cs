@@ -47,7 +47,8 @@ namespace Presistence.Entities
             builder.HasIndex(e => e.UUID).IsUnique();
             builder.HasIndex(e => e.Email).IsUnique();
             builder.HasIndex(e => e.PhoneNumber).IsUnique();
-
+            builder.HasIndex(e => e.NationalCode).IsUnique();
+            builder.HasIndex(e => e.Username).IsUnique();
 
 
             //builder.HasOne(e => e.StateTBL).WithMany(c => c.UserTBLs)

@@ -41,6 +41,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FrontClientBBB", "FrontClie
 EndProject
 Project("{54A90642-561A-4BB1-A94E-469ADEE60C69}") = "reactproject1", "reactproject1\reactproject1.esproj", "{CEC6E8C3-C1F6-C646-E98F-4C172527373D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CacheHandler", "CacheHandler\CacheHandler.csproj", "{FC449B21-A778-49F5-AEA2-581C02D97FED}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -113,6 +115,10 @@ Global
 		{CEC6E8C3-C1F6-C646-E98F-4C172527373D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{CEC6E8C3-C1F6-C646-E98F-4C172527373D}.Release|Any CPU.Build.0 = Release|Any CPU
 		{CEC6E8C3-C1F6-C646-E98F-4C172527373D}.Release|Any CPU.Deploy.0 = Release|Any CPU
+		{FC449B21-A778-49F5-AEA2-581C02D97FED}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FC449B21-A778-49F5-AEA2-581C02D97FED}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FC449B21-A778-49F5-AEA2-581C02D97FED}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FC449B21-A778-49F5-AEA2-581C02D97FED}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -134,6 +140,7 @@ Global
 		{009198ED-A290-4D07-BF53-BEE09CF29B72} = {25993B06-6839-4959-A01A-E8E36B27DD5C}
 		{7E173AA9-08BF-45AB-99EC-0735FAD6DC16} = {25993B06-6839-4959-A01A-E8E36B27DD5C}
 		{CEC6E8C3-C1F6-C646-E98F-4C172527373D} = {25993B06-6839-4959-A01A-E8E36B27DD5C}
+		{FC449B21-A778-49F5-AEA2-581C02D97FED} = {2C2F35D6-C1F2-4996-8184-22A978F207AE}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {A53ABC9D-DAF8-4B86-B792-07B2A7EC4399}

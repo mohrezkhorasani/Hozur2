@@ -22,6 +22,11 @@ namespace Presistence.Entities
         public DbSet<AccessLevelTBLToRoleTBL> AccessLevelTBLToRoleTBLs { get; set; }
         public DbSet<MeetCommentTBL> MeetCommentTBLs { get; set; }
         public DbSet<MeetQuestionTBL> MeetQuestionTBLs { get; set; }
+        public DbSet<UserRevokeTokenTBL> UserRevokeTokenTBL { get; set; }
+        public DbSet<ContactUsTBL> ContactUsTBL { get; set; }
+        public DbSet<SlideshowTBL> SlideshowTBL { get; set; }
+        public DbSet<UserTBLToUserTBL> UserTBLToUserTBLs { get; set; }
+        public DbSet<RoomTBLPlanTBL> RoomTBLPlanTBLs { get; set; }
 
         #endregion
         #region 12/07/2025  
@@ -44,7 +49,7 @@ namespace Presistence.Entities
             {
                 var optioonbuilder = new DbContextOptionsBuilder<DBContext>();
 
-                optioonbuilder.UseSqlServer(@"Data Source=192.168.0.158;Initial Catalog=eitherir_maj;User ID=hekmatbbbremote;Password=n098*0EWj#JWjK@&;TrustServerCertificate=True", builder =>
+                optioonbuilder.UseSqlServer(@"Data Source=192.168.0.158;Initial Catalog=eitherir_maj;User ID=hekmatbbbremote;Password=fety124FIG93tHI;TrustServerCertificate=True", builder =>
                 {
                     builder.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null);
                 });
@@ -80,7 +85,12 @@ namespace Presistence.Entities
             modelBuilder.ApplyConfiguration(new UserTBLToMeetingTBLConfiguration());
             modelBuilder.ApplyConfiguration(new ConfigTBLConfiguration());
             modelBuilder.ApplyConfiguration(new UserTBLToMeetingTBLLogsConfiguration());
+            modelBuilder.ApplyConfiguration(new ContactUsTBLConfiguration());
             modelBuilder.ApplyConfiguration(new RoomTBLToUserTBLConfiguration());
+            modelBuilder.ApplyConfiguration(new UserRevokeTokenTBLConfiguration());
+            modelBuilder.ApplyConfiguration(new SlideshowTBLConfiguration());
+            modelBuilder.ApplyConfiguration(new UserTBLToUserTBLConfiguration());
+            modelBuilder.ApplyConfiguration(new RoomTBLPlanTBLConfiguration());
             #endregion
         }
 

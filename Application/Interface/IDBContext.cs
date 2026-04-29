@@ -28,6 +28,11 @@ namespace Application.Interfaces
         public DbSet<RoomTBLToUserTBL> RoomTBLToUserTBLs { get; set; }
         public DbSet<UserTBLToMeetingTBL> UserTBLToMeetingTBLs { get; set; }
         public DbSet<UserTBLToMeetingTBLLogs> UserTBLToMeetingTBLLogs { get; set; }
+        public DbSet<UserRevokeTokenTBL> UserRevokeTokenTBL { get; set; }
+        public DbSet<ContactUsTBL> ContactUsTBL { get; set; }
+        public DbSet<UserTBLToUserTBL> UserTBLToUserTBLs { get; set; }
+        public DbSet<RoomTBLPlanTBL> RoomTBLPlanTBLs { get; set; }
+        public DbSet<SlideshowTBL> SlideshowTBL { get; set; }
         #endregion
         public int SaveChanges();
         public Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default);

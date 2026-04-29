@@ -55,14 +55,15 @@ namespace Infrastructure.DTO
         [XmlElement("recording")]
         public string Recording { get; set; }
         [XmlElement("metadata")]
-        public List<MetaData> MetaDatas { get; set; }
+        public MetaData MetaDatas { get; set; }
     }
     public class MetaData
     {
-        [XmlElement("bbb-context-name")]
-        public string RoomName { get; set; }
-        [XmlElement("bbb-context-id")]
+        [XmlElement("roomid")]
         public string RoomID { get; set; }
+        [XmlElement("public")]
+        public bool RoomPublic{ get; set; }
+
     }
     [XmlRoot("response")]
     public class BBBCreateResponse

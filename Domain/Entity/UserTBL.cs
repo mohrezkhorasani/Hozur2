@@ -53,6 +53,7 @@ namespace Domain.Entity
         };
         public MainEntity_Status Status { get; set; }
         public MainEntity_Types Type { get; set; }
+        public bool IsHekmatShobe { get; set; } = false;
         public string? Explain { get; set; }
         public DateTime DateInsert { get; set; }
         public string? Firstname { get; set; }
@@ -66,13 +67,57 @@ namespace Domain.Entity
         public List<string> ExtId { get; set; } = new List<string>();
         public List<string> IPList { get; set; } = new List<string>();
         public string? Email { get; set; }
+        public string? AvatarPath { get; set; }
         public ICollection<MeetingTBL> TeacherMeetings { get; set; }
         public ICollection<MeetingTBL> CreatedMeetings { get; set; }
         public ICollection<RoomTBL> RoomTBLs { get; set; }
         public ICollection<UserTBLToMeetingTBL> UserTBLToMeetingTBLs { get; set; }
         public ICollection<RoomTBLToUserTBL> RoomTBLToUserTBLs { get; set; }
+        public ICollection<UserRevokeTokenTBL> UserRevokeTokenTBLs { get; set; }
+        public ICollection<UserTBLToUserTBL> Followings { get; set; }
+        public ICollection<UserTBLToUserTBL> Followers { get; set; }
 
+        public string GetName()
+        {
+            return $@"{Firstname} {LastName}";
+        }
+        public List<string> GetUserPermissions()
+        {
+            var permissions = new List<string>();
+            UserTBL user = this;
+            // اضافه کردن پرمیشن‌ها بر اساس نقش کاربر
+            switch (user.Type)
+            {
+                case MainEntity_Types.USER_ADMINSTRATOR:
+                    permissions.AddRange(new[] { "manage_admins" });
+                    goto case MainEntity_Types.USER_ADMIN;
+                case MainEntity_Types.USER_ADMIN:
+                    permissions.AddRange(new[] { "manage_users", "view_reports", "create_rooms_for_others" });
+                    goto case MainEntity_Types.USER_MODERATOR;
+                case MainEntity_Types.USER_MODERATOR:
+                    permissions.AddRange(new[] { "create_rooms" });
+                    goto case MainEntity_Types.USER_CREATOR;
+                case MainEntity_Types.USER_CREATOR:
+                    permissions.AddRange(new[] { "create_meeting", "edit_meeting", "delete_meeting" });
+                    goto case MainEntity_Types.USER_TEACHER;
+                case MainEntity_Types.USER_TEACHER:
+                case MainEntity_Types.USER_VIEWER:
+                    permissions.AddRange(new[] { "follow_user", "block_user" });
+                    break;
+                case MainEntity_Types.USER_GUEST:
+                default:
+                    permissions.AddRange(new[] { "join_meeting", "view_meeting" });
+                    break;
+            }
 
+            return permissions;
+        }
+
+        public bool VerifyUserPermissions(params string[] permissions)
+        {
+            var userPermissions = GetUserPermissions();
+            return permissions.All(p => userPermissions.Contains(p));
+        }
 
         public static MainEntity_Types MapRoleToType(string role)
         {
@@ -101,10 +146,69 @@ namespace Domain.Entity
                     return MainEntity_Types.USER_UNKNOWN;
             }
         }
+        public static string MapTypeToRole(MainEntity_Types type)
+        {
+            switch (type)
+            {
+                case MainEntity_Types.USER_GUEST:
+                    return "GUEST";
+                case MainEntity_Types.USER_MODERATOR:
+                    return "MODERATOR";
+                case MainEntity_Types.USER_ADMINSTRATOR:
+                    return "ADMINISTRATOR";
+                case MainEntity_Types.USER_ADMIN:
+                    return "ADMIN";
+                case MainEntity_Types.USER_USER:
+                    return "USER";
+                case MainEntity_Types.USER_CREATOR:
+                    return "CREATOR";
+                case MainEntity_Types.USER_VIEWER:
+                    return "VIEWER";
+                case MainEntity_Types.USER_TEACHER:
+                    return "TEACHER";
+                case MainEntity_Types.USER_UNKNOWN:
+                    return "UNKNOWN";
+                default:
+                    return "NORMAL";
+            }
+        }
+        public string GetRole()
+        {
+            switch (Type)
+            {
+                case MainEntity_Types.USER_GUEST:
+                    return "GUEST";
+                case MainEntity_Types.USER_MODERATOR:
+                    return "MODERATOR";
+                case MainEntity_Types.USER_ADMINSTRATOR:
+                    return "ADMINISTRATOR";
+                case MainEntity_Types.USER_ADMIN:
+                    return "ADMIN";
+                case MainEntity_Types.USER_USER:
+                    return "USER";
+                case MainEntity_Types.USER_CREATOR:
+                    return "CREATOR";
+                case MainEntity_Types.USER_VIEWER:
+                    return "VIEWER";
+                case MainEntity_Types.USER_TEACHER:
+                    return "TEACHER";
+                case MainEntity_Types.USER_UNKNOWN:
+                    return "UNKNOWN";
+                default:
+                    return "NORMAL";
+            }
+        }
+
         public bool AddIP(string q)
         {
             if (IPList.Any(e => e == q)) return false;
             IPList.Add(q);
+            return true;
+        }
+        public bool AddGuid(Guid q)
+        {
+            if (AllowedGUID.Any(e => e == q)) return false;
+            AllowedGUID.Add(q);
             return true;
         }
     }

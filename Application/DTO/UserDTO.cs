@@ -1,6 +1,8 @@
 ﻿using Application.DTO.Generals;
 using Application.DTO.Models;
 using Application.Interface.IUsecase;
+using Domain.Entity;
+using Microsoft.AspNetCore.Http;
 using System;
 using System.Collections.Generic;
 using static Application.General.Statics;
@@ -26,6 +28,45 @@ namespace Application.DTO
     public class NewUserResponse : BaseParentResponce
     {
         public JWTTokenJSON Data { get; set; }
+    }
+    #endregion
+    #region LoginUserPanel
+    public class LoginUserPanelRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<LoginUserPanelResponse>>
+    {
+        public string Username { get; set; }
+        public string Password { get; set; }
+    }
+
+    public class LoginUserPanelResponse : BaseParentResponce
+    {
+        public JWTTokenJSON Data { get; set; }
+    }
+    #endregion
+
+    #region SignInUserPanel
+    public class SignInUserPanelRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<SignInUserPanelResponse>>
+    {
+        public string Name { get; set; }
+        public string Username { get; set; }
+        public string Password { get; set; }
+        public string Email { get; set; }
+        public string Explain { get; set; }
+    }
+
+    public class SignInUserPanelResponse : BaseParentResponce
+    {
+        public JWTTokenJSON Data { get; set; }
+    }
+    #endregion
+
+    #region VerifyToken
+    public class VerifyTokenRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<VerifyTokenResponse>>
+    {
+    }
+
+    public class VerifyTokenResponse : BaseParentResponce
+    {
+        public MiniUserJSON Data { get; set; }
     }
     #endregion
 
@@ -170,10 +211,25 @@ namespace Application.DTO
     #region GetRooms
     public class GetRoomsRequest : NewUserRequest, IUseCaseRequest<GenericResponse<GetRoomsResponse>>
     {
+        public bool UseCache { get; set; } = false;
         public string Query { get; set; }
+        public string? UserName { get; set; }
     }
 
     public class GetRoomsResponse : BaseParentResponce
+    {
+        public List<MiniRoomJSON> Data = new List<MiniRoomJSON>();
+    }
+    #endregion
+    //Get Rooms
+    #region GetRoomsPublic
+    public class GetRoomsPublicRequest : NewUserRequest, IUseCaseRequest<GenericResponse<GetRoomsPublicResponse>>
+    {
+        public string Query { get; set; }
+        public string? UserName { get; set; }
+    }
+
+    public class GetRoomsPublicResponse : BaseParentResponce
     {
         public List<MiniRoomJSON> Data = new List<MiniRoomJSON>();
     }
@@ -198,6 +254,7 @@ namespace Application.DTO
     public class GetLivesRequest : NewUserRequest, IUseCaseRequest<GenericResponse<GetLivesResponse>>
     {
         public string Query { get; set; }
+        public bool Public { get; set; } = true;
     }
 
     public class GetLivesResponse : BaseParentResponce
@@ -206,19 +263,27 @@ namespace Application.DTO
     }
     #endregion
 
-    //StartMeeting
-    #region StartMeeting
-    public class StartMeetingRequest : NewUserRequest, IUseCaseRequest<GenericResponse<StartMeetingResponse>>
+    #region GetLivesPublic
+    public class GetLivesPublicRequest : GetLivesRequest, IUseCaseRequest<GenericResponse<GetLivesPublicResponse>>
     {
-        public string MeetiID { get; set; }
-        public string MeetName { get; set; }
+        public string Query { get; set; }
     }
 
-    public class StartMeetingResponse : BaseParentResponce
+    public class GetLivesPublicResponse : BaseParentResponce
     {
         public List<MiniRoomJSON> Data = new List<MiniRoomJSON>();
-        public string Join { get; set; }  
-        public string JoinOthers { get; set; }  
+    }
+    #endregion
+
+    #region GetLiveWithID
+    public class GetLiveWithIDRequest : GetLivesRequest, IUseCaseRequest<GenericResponse<GetLiveWithIDResponse>>
+    {
+        public string ID { get; set; }
+    }
+
+    public class GetLiveWithIDResponse : BaseParentResponce
+    {
+        public List<MiniRoomJSON> Data = new List<MiniRoomJSON>();
     }
     #endregion
 
@@ -314,7 +379,203 @@ namespace Application.DTO
 
     //CheckUser
 
+    #region NewPlanRoom
+    public class NewPlanRoomRequest : NewUserRequest, IUseCaseRequest<GenericResponse<NewPlanRoomResponse>>
+    {
+        public string FriendlyID{ get; set; }
+        public string? Title { get; set; }
+        public string? Teacher { get; set; }
+        public DateTime StartDate{ get; set; }
+    }
 
+    public class NewPlanRoomResponse : BaseParentResponce
+    {
+    }
+    #endregion
 
+    #region GetSlideShow
+    public class GetSlideShowRequest : NewUserRequest, IUseCaseRequest<GenericResponse<GetSlideShowResponse>>
+    {
+        public string Page { get; set; }
+        
+    }
 
+    public class GetSlideShowResponse : BaseParentResponce
+    {
+        public List<MiniSlideShowJSON> Data = new List<MiniSlideShowJSON>();
+    }
+    #endregion
+
+    #region EditSlideShow
+    public class EditSlideShowRequest : NewUserRequest, IUseCaseRequest<GenericResponse<EditSlideShowResponse>>
+    {
+        public long IDSlideshow{ get; set; }
+        public int Position{ get; set; } //0 = disable
+        public string? Href{ get; set; } //0 = disable
+        
+    }
+
+    public class EditSlideShowResponse : BaseParentResponce
+    {
+        public List<MiniSlideShowJSON> Data = new List<MiniSlideShowJSON>();
+    }
+    #endregion
+    #region InsertSlideShow
+    public class InsertSlideShowRequest : NewUserRequest, IUseCaseRequest<GenericResponse<InsertSlideShowResponse>>
+    {
+        public int Position{ get; set; } //0 = disable
+        public string? Title{ get; set; } //0 = disable
+        public string? Href{ get; set; } //0 = disable
+        public IFormFile? File{ get; set; } //0 = disable
+
+    }
+
+    public class InsertSlideShowResponse : BaseParentResponce
+    {
+        public List<MiniSlideShowJSON> Data = new List<MiniSlideShowJSON>();
+    }
+    #endregion
+
+    #region Contactus
+    public class ContactusRequest : NewUserRequest, IUseCaseRequest<GenericResponse<ContactusResponse>>
+    {
+        public string Name { get; set; }
+        public string Email{ get; set; }
+        public string? Phone { get; set; }
+        public string Text { get; set; }
+    }
+
+    public class ContactusResponse : BaseParentResponce
+    {
+    }
+    #endregion
+
+    #region GetProfileInfo
+    public class GetProfileInfoRequest : NewUserRequest, IUseCaseRequest<GenericResponse<GetProfileInfoResponse>>
+    {
+        public string Username { get; set; }
+    }
+
+    public class GetProfileInfoResponse : BaseParentResponce
+    {
+        public MiniProfileJSON Data { get; set; }
+    }
+    #endregion
+
+    #region FollowProfile
+    public class FollowProfileRequest : NewUserRequest, IUseCaseRequest<GenericResponse<FollowProfileResponse>>
+    {
+        public string Username { get; set; }
+    }
+
+    public class FollowProfileResponse : BaseParentResponce
+    {
+        public int NewFollowersCount { get; set; }
+        public bool IsFollowing{ get; set; }
+    }
+    #endregion
+
+    #region GetHekmatShobe
+    public class GetHekmatShobeRequest : NewUserRequest, IUseCaseRequest<GenericResponse<GetHekmatShobeResponse>>
+    {
+        public string Query { get; set; }
+    }
+
+    public class GetHekmatShobeResponse : BaseParentResponce
+    {
+        public List<MiniShobeJSON> Data = new List<MiniShobeJSON>();
+    }
+    #endregion
+    
+    #region GetPlanRoom
+    public class GetPlanRoomRequest : NewUserRequest, IUseCaseRequest<GenericResponse<GetPlanRoomResponse>>
+    {
+        public string FriendlyID { get; set; }
+    }
+
+    public class GetPlanRoomResponse : BaseParentResponce
+    {
+        public List<MiniPlanJSON> Data = new List<MiniPlanJSON>();
+    }
+    #endregion
+    #region GetPlanRoomPublic
+    public class GetPlanRoomPublicRequest : NewUserRequest, IUseCaseRequest<GenericResponse<GetPlanRoomPublicResponse>>
+    {
+    }
+
+    public class GetPlanRoomPublicResponse : BaseParentResponce
+    {
+        public List<MiniPlanJSON> Data = new List<MiniPlanJSON>();
+    }
+    #endregion
+
+    #region DeletePlanRoom
+    public class DeletePlanRoomRequest : NewUserRequest, IUseCaseRequest<GenericResponse<DeletePlanRoomResponse>>
+    {
+        public long IDPlan { get; set; }
+    }
+
+    public class DeletePlanRoomResponse : BaseParentResponce
+    {
+    }
+#endregion
+
+    //Admins
+    #region AdminGetUserList
+    public class AdminGetUserListRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<AdminGetUserListResponse>>
+    {
+        public string Query { get; set; }
+        public OrderBy OrderBy { get; set; }
+
+    }
+
+    public class AdminGetUserListResponse : BaseParentResponce
+    {
+        public List<MiniUserJSON> Data = new List<MiniUserJSON>();
+    }
+    #endregion
+    #region AdminGetUserRoomList
+    public class AdminGetUserRoomListRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<AdminGetUserRoomListResponse>>
+    {
+        public string Query { get; set; }
+        public long OwnerID{ get; set; }
+        public OrderBy OrderBy { get; set; }
+
+    }
+
+    public class AdminGetUserRoomListResponse : BaseParentResponce
+    {
+        public List<MiniRoomJSON> Data = new List<MiniRoomJSON>();
+    }
+    #endregion
+    #region AdminChangeRole
+    public class AdminChangeRoleRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<AdminChangeRoleResponse>>
+    {
+        public MainEntity_Types Role{ get; set; }
+        public long UserId { get; set; }
+    }
+
+    public class AdminChangeRoleResponse : BaseParentResponce
+    {
+        public MiniUserJSON Data = new MiniUserJSON();
+    }
+    #endregion
+    #region AdminCreateRoom
+    public class AdminCreateRoomRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<AdminCreateRoomResponse>>
+    {
+        public long? ID { get; set; }
+        public string Title{ get; set; }
+        public long UserID{ get; set; }
+        public bool IsPublic { get; set; } = false; 
+        public bool IsRequiredLogin { get; set; } = false;
+        public bool IsRequiredAccept { get; set; } = false;
+        public bool IsRecordable { get; set; } = false;
+
+    }
+
+    public class AdminCreateRoomResponse : BaseParentResponce
+    {
+        public MiniRoomJSON Data = new MiniRoomJSON();
+    }
+    #endregion
 }

@@ -1,5 +1,6 @@
 ﻿using Application.DTO.Generals;
 using Application.General;
+using CoreMe.Presenter;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using System;
@@ -12,48 +13,7 @@ namespace Presenter
 {
     public static class GeneralHeader
     {
-        public static GeneralHeaders GetGeneralHeaders(HttpRequest request)
-        {
-            try
-            {
-                Statics.Log("GeneralHeaders", string.Join("\n",request.Headers));
-                Guid guid = GetIdentificationCode(request);
-                var guidMeetString = GetFromJWT(GetFromHeader(request, "meet-secret"), "guid");
-                var roomid = GetFromJWT(GetFromHeader(request, "meet-secret"), "room");
-                return new GeneralHeaders
-                {
-                    Agent = request.Headers["User-Agent"].ToString(),
-                    JWTUserToken = request.Headers["Authorization"].ToString(),
-                    JWTMeetingToken = GetFromHeader(request, "meet-secret"),
-                    RequestedPage = request.Path.ToString(),
-                    RequestedIP = request.HttpContext.Connection.RemoteIpAddress?.ToString(),
-                    RequestedDevice = request.Headers["sec-ch-ua-platform"].ToString(), // Assuming User-Agent for device
-                    IdentificationCode = guid,
-                    MeetIdentificationCode = guidMeetString,
-                    RoomID=roomid,
-                    Referer = request.Headers["Referer"].ToString(),
-                    RefererGoogle = request.Headers["Referer"].ToString().Contains("google") ? request.Headers["Referer"].ToString() : null
-                };
-            }
-            catch (Exception ex)
-            {
-                string ip = "";
-                if (request.HttpContext.Connection.RemoteIpAddress != null)
-                {
-                    ip = request.HttpContext.Connection.RemoteIpAddress.ToString();
-                }
-                return new GeneralHeaders{
-                    RequestedIP= ip,
-                    Agent= request.Headers["User-Agent"].ToString(),
-                    Referer = request.Headers["Referer"].ToString(),
-                    RefererGoogle = request.Headers["Referer"].ToString().Contains("google") ? request.Headers["Referer"].ToString() : null,
-                    RequestedPage = request.Path.ToString(),
-                    RequestedDevice = request.Headers["sec-ch-ua-platform"].ToString(), // Assuming User-Agent for device
-
-                };
-            }
-
-        }
+     
         public static string GetFromHeader(HttpRequest request, string key)
         {
             if (request.Headers.Any(e => e.Key.ToLower() == key.ToLower()))
@@ -98,19 +58,19 @@ namespace Presenter
         }
         public static Guid GetIdentificationCode(HttpRequest request)
         {
-                try
-                {
-                    var headerValue = request.Headers["IdentificationCode"].ToString();
-                    if (string.IsNullOrEmpty(headerValue))
-                        return Guid.Empty;
-                    return new Guid(headerValue);
-                }
-                catch
-                {
+            try
+            {
+                var headerValue = request.Headers["IdentificationCode"].ToString();
+                if (string.IsNullOrEmpty(headerValue))
+                    return Guid.Empty;
+                return new Guid(headerValue);
+            }
+            catch
+            {
                 return Guid.Empty;
-            }   
+            }
         }
-     
+
         public static string GetIdentificationCodeNoLogin(HttpRequest request)
         {
             try

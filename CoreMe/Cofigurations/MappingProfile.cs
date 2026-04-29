@@ -42,6 +42,22 @@ public class MappingProfile : Profile
           .ForMember(dest => dest.GeneralHeaders, opt => opt.Ignore());
         CreateMap<NewQuestionViewModel, NewQuestionRequest>()
           .ForMember(dest => dest.GeneralHeaders, opt => opt.Ignore());
+        CreateMap<SignInUserPanelViewModel, SignInUserPanelRequest>()
+          .ForMember(dest => dest.GeneralHeaders, opt => opt.Ignore());
+        CreateMap<LoginUserPanelViewModel, LoginUserPanelRequest>()
+          .ForMember(dest => dest.GeneralHeaders, opt => opt.Ignore());
+        CreateMap<VerifyTokenViewModel, VerifyTokenRequest>()
+          .ForMember(dest => dest.GeneralHeaders, opt => opt.Ignore());
+        CreateMap<AdminCreateRoomVM, AdminCreateRoomRequest>()
+          .ForMember(dest => dest.GeneralHeaders, opt => opt.Ignore());
+        CreateMap<AdminChangeRoleVM, AdminChangeRoleRequest>()
+          .ForMember(dest => dest.GeneralHeaders, opt => opt.Ignore());
+        CreateMap<NewPlanRoomViewModel, NewPlanRoomRequest>()
+          .ForMember(dest => dest.GeneralHeaders, opt => opt.Ignore());
+        CreateMap<EditSlideShowVM, EditSlideShowRequest>()
+          .ForMember(dest => dest.GeneralHeaders, opt => opt.Ignore());
+        CreateMap<InsertSlideShowVM, InsertSlideShowRequest>()
+          .ForMember(dest => dest.GeneralHeaders, opt => opt.Ignore());
 
     }
 }

@@ -30,16 +30,20 @@
         USER_ACTIVE = 500,
         USER_ACTIVATED_BY_JOINING_MEETING = 501,
         USER_ACTIVATED_BY_CREATING_MEETING = 502,
+        USER_ACTIVATED_BY_SIGN_UP_SITE = 503,
         USER_DEACTIVE = -500,
         //Certificates
         CERT_FULL = 600,
         CERT_MEDIUM = 601,
         //Questions
-
+        
 
         QUESTION_ANSWERED=610,
         QUESTION_NOT_ANSWERED=611,
-    }   
+
+        CONTACTUS_SUBMITED=620,
+        CONTACTUS_SEEN=621,
+    }
     public enum MainEntity_Types
     {
         Normal = 1,
@@ -49,6 +53,11 @@
         ROOM_HIDDEN = 98,
         ROOM_DELETED = -98,
         ROOM_NORMAL = 1,
+        ROOM_CREATED_BY_ADMIN = 2,
+
+        //Plan
+        PLAN_NORMAL=14,
+        PLAN_WITH_CERT = 15,
 
         //Meetings
         MEET_IGNORE = -99,
@@ -75,7 +84,9 @@
         CERT_NORMAL = 600,
 
         COMMENT_ANONYMOUS = 610,
-        COMMENT_NORMAL=609
+        COMMENT_NORMAL=609,
+        
+        CONTACTUS_WEBSITE=620,
     }
     public interface MainEntity
     {

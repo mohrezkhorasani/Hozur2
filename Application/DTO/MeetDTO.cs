@@ -183,6 +183,7 @@ namespace Application.DTO
     {
         public string? MeetTitle { get; set; }
         public string IDRoom { get; set; }
+        public string? Name { get; set; } = "مجمع عالی حکمت اسلامی";
         public bool RequiredToEnterName { get; set; }
         public List<string> Teachers { get; set; }
     }

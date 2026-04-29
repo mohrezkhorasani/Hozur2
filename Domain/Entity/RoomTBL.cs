@@ -20,6 +20,7 @@ namespace Domain.Entity
         public string? TTR_URL{ get; set; }
         public string? BBB_MeetID{ get; set; }
         public string? ModeratorCode { get; set; }
+        public string? Avatar { get; set; }
         public string? ViewerCode { get; set; }
         //قبل از پیوستن به جلسه نیاز به تأیید مدیر باشد
         public bool RequiredAdminAcceptToView { get; set; } = false;
@@ -27,9 +28,11 @@ namespace Domain.Entity
         public bool RequiredLoginToView { get; set; } = false;
         //اجازه دهید اتاق ضبط شود
         public bool RecordRoom { get; set; } = true;
+        public bool IsPublicRoom { get; set; } = false;
         public string? PresentationPath { get; set; }
         public ICollection<MeetingTBL> MeetingTBLs { get; set; }
         public ICollection<UserTBLToMeetingTBL> UserTBLToMeetingTBLs { get; set; }
         public ICollection<RoomTBLToUserTBL> RoomTBLToUserTBLs { get; set; }
+        public ICollection<RoomTBLPlanTBL> RoomTBLPlanTBLs { get; set; }
     }
 }

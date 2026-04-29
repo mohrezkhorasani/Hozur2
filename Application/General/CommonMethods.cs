@@ -10,6 +10,7 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -165,7 +166,7 @@ namespace Application.General
             _db.MeetingTBLs.Add(tbl);
             Console.WriteLine("inj3");
 
-            _db.SaveChanges();
+            await _db.SaveChangesAsync();
             Console.WriteLine("inj4");
 
             return tbl;
@@ -360,7 +361,7 @@ namespace Application.General
 
         public string GetTimerUserLogs(ICollection<UserTBLToMeetingTBLLogs> userTBLToMeetingTBLLogs)
         {
-            if (userTBLToMeetingTBLLogs==null || !userTBLToMeetingTBLLogs.Any(e => e.Key.ToLower() == "join"))
+            if (userTBLToMeetingTBLLogs == null || !userTBLToMeetingTBLLogs.Any(e => e.Key.ToLower() == "join"))
             {
                 return "غائب";
             }
@@ -376,5 +377,70 @@ namespace Application.General
 
             return result;
         }
+
+        public bool VerifyPasswordHash(string password, byte[] passwordHash, byte[] passwordSalt)
+        {
+            try
+            {
+
+
+                using (var hmac = new System.Security.Cryptography.HMACSHA512(passwordSalt))
+                {
+
+                    var computedHash = hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password));
+                    for (int i = 0; i < computedHash.Length; i++)
+                    {
+                        if (computedHash[i] != passwordHash[i]) return false;
+                    }
+                }
+                return true;
+            }
+            catch (Exception e)
+            {
+                return false;
+            }
+        }
+        public string HashToken(string token)
+        {
+            using (var sha256 = SHA256.Create())
+            {
+                var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(token));
+                return Convert.ToBase64String(hashedBytes); // طول ثابت 44 کاراکتر
+            }
+        }
+        public void CreatePasswordHash(string password, out byte[] passwordHash, out byte[] passwordSalt)
+        {
+            using (var hmac = new System.Security.Cryptography.HMACSHA512())
+            {
+                passwordSalt = hmac.Key;
+                passwordHash = hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password));
+            }
+        }
+
+#pragma warning disable CS8603 // Possible null reference return.
+        public async Task<string> ReturnPassword(string FriendlyID, bool modir = false)
+        {
+            try
+            {
+                var e = await _db.RoomTBLs.Where(e => e.FriendlyID == FriendlyID).FirstOrDefaultAsync();
+                var code = modir ? e.ModeratorCode : e.ViewerCode;
+                if (string.IsNullOrEmpty(code))
+                {
+                    code = modir ? Statics.bbb.ModeratorPassword : Statics.bbb.AttendPassword;
+                    e.ModeratorCode = Statics.bbb.ModeratorPassword;
+                    e.ViewerCode = Statics.bbb.AttendPassword;
+                    _db.SaveChanges();
+                }
+                return code;
+
+            }
+            catch (Exception e)
+            {
+                return "";
+            }
+        }
+
+#pragma warning restore CS8603 // Possible null reference return.
+
     }
 }

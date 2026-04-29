@@ -1,13 +1,18 @@
+using Application.Cache.Handlers;
 using Application.General;
 using Application.Interface.IInfrastructure;
 using Application.Interface.IUsecase;
 using Application.Interfaces;
 using Application.Usecase;
 using AutoMapper;
+using CoreMe.Cofigurations;
+using CoreMe.Cofigurations.Auth;
+using CoreMe.Presenter;
 using Infrastructure.API;
 using Infrastructure.Word;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi;
 using Presenter;
@@ -15,7 +20,9 @@ using Presistence.Entities;
 using SCPHandler;
 
 using Serilog;
+using System.Reflection;
 using TelegramServiceLog;
+using BBBConfig = CoreMe.Cofigurations.BBBConfig;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -89,9 +96,27 @@ builder.Services.AddCors(options =>
     });
 });
 
+var bbb = builder.Configuration.GetSection("bbb").Get<BBBConfig>();
+Statics.bbb = new Application.General.BBBConfig
+{
+    AttendPassword = bbb.AttendPassword,
+    ModeratorPassword = bbb.ModeratorPassword,
+    Secret = bbb.Secret,
+    Url = bbb.Url,
+    UrlAPI = bbb.UrlAPI,
+    Last = bbb.Last,
+};
+
 
 
 builder.Services.AddControllers();
+builder.Services.AddMediatR(cfg => {
+    cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly());
+    cfg.RegisterServicesFromAssembly(typeof(HekmatShobeCacheInvalidationHandler).Assembly);
+    cfg.RegisterServicesFromAssembly(typeof(HekmatPlanCacheHandler).Assembly);
+
+});
+
 builder.Services.AddDbContext<DBContext>(option =>
 option.UseSqlServer(builder.Configuration.GetConnectionString("DBConnecDBConnectiontionMohrez")));
 
@@ -119,11 +144,36 @@ builder.Services.AddScoped<IBackupDBUseCase, BackupDBUseCase>();
 builder.Services.AddScoped<IGetRedirectURLUseCase, GetRedirectURLUseCase>();
 builder.Services.AddScoped<INewQuestionUseCase, NewQuestionUseCase>();
 builder.Services.AddScoped<IGetQuestionOfMeetUseCase, GetQuestionOfMeetUseCase>();
+builder.Services.AddScoped<IGetRoomsPublicUseCase, GetRoomsPublicUseCase>();
 builder.Services.AddScoped<IQuestionAnsweredUseCase, QuestionAnsweredUseCase>();
+builder.Services.AddScoped<ISignInUserPanelUseCase, SignInUserPanelUseCase>();
+builder.Services.AddScoped<IVerifyTokenUseCase, VerifyTokenUseCase>();
+builder.Services.AddScoped<ILoginUserPanelUseCase, LoginUserPanelUseCase>();
+builder.Services.AddScoped<IGetLivesPublicUseCase, GetLivesPublicUseCase>();
+builder.Services.AddScoped<IContactusUseCase, ContactusUseCase>();
+builder.Services.AddScoped<IGetSlideShowUseCase, GetSlideShowUseCase>();
+builder.Services.AddScoped<IGetProfileInfoUseCase, GetProfileInfoUseCase>();
+builder.Services.AddScoped<IFollowProfileUseCase, FollowProfileUseCase>();
+builder.Services.AddScoped<IAdminGetUserRoomListUseCase, AdminGetUserRoomListUseCase>();
+builder.Services.AddScoped<IAdminCreateRoomUseCase, AdminCreateRoomUseCase>();
+builder.Services.AddScoped<IGetPlanRoomPublicUseCase, GetPlanRoomPublicUseCase>();
+builder.Services.AddScoped<IAdminChangeRoleUseCase, AdminChangeRoleUseCase>();
+builder.Services.AddScoped<IAdminGetUserListUseCase, AdminGetUserListUseCase>();
+builder.Services.AddScoped<IGetHekmatShobeUseCase, GetHekmatShobeUseCase>();
+builder.Services.AddScoped<IEditSlideShowUseCase, EditSlideShowUseCase>();
+builder.Services.AddScoped<IInsertSlideShowUseCase, InsertSlideShowUseCase>();
+builder.Services.AddScoped<INewPlanRoomUseCase, NewPlanRoomUseCase>();
+builder.Services.AddScoped<IDeletePlanRoomUseCase, DeletePlanRoomUseCase>();
+builder.Services.AddScoped<IGetPlanRoomUseCase, GetPlanRoomUseCase>();
+builder.Services.AddScoped<IGetLiveWithIDUseCase, GetLiveWithIDUseCase>();
+
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.AddDebug();
 
+builder.Services.AddScoped<IGeneralHeadersService, GeneralHeadersService>();
+builder.Services.AddMemoryCache(); // اگر از Caching استفاده می‌کنید
+builder.Services.AddHttpContextAccessor();
 
 
 #region Infrustructure
@@ -142,6 +192,23 @@ File.AppendAllText($"logs/std-{DateTime.Today:yyyy-MM-dd}.log",
     $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} [INF] اپ استارت شد — {Environment.NewLine}");
 
 
+
+//vc2AuthNorm
+#region JWT handlers
+builder.Services.AddAuthentication("vc2AuthNorm") // "vc2AuthNorm" نام Scheme شماست
+    .AddScheme<JwtAuthenticationVC2NormOptions, JwtAuthenticationVC2NormHandler>("vc2AuthNorm", "VC2Norm Authentication", options =>
+    {
+        // تنظیمات مربوط به توکن JWT را اینجا انجام دهید
+        // این تنظیمات در کلاس JwtAuthenticationHandler استفاده خواهند شد
+        options.ValidIssuer = "core.hekmateislami.com"; // مثال: تنظیم کنید اگر لازم است
+        options.ValidAudience = "vc2.hekmateislami.com"; // مثال: تنظیم کنید اگر لازم است
+
+    });
+
+#endregion
+
+
+
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -150,6 +217,8 @@ builder.Services.AddSwaggerGen(c =>
 
     // Remove servers for local development
     c.AddServer(new Microsoft.OpenApi.OpenApiServer { Url = "/" });
+
+
 });
 
 
@@ -157,14 +226,14 @@ var app = builder.Build();
 // if (app.Environment.IsDevelopment())
 // {
 //app.UseCors("AllowAllOrigins");
-app.UseCors("AllowAllOrigins"); 
+app.UseCors("AllowAllOrigins");
 
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
     // Relative URL points to your swagger.json
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "CoreMe v1");
-    c.RoutePrefix = string.Empty; // optional: serve Swagger UI at root /
+    c.RoutePrefix = "docs"; // optional: serve Swagger UI at /docs /
 });
 
 // }
@@ -172,13 +241,38 @@ app.UseSwaggerUI(c =>
 
 //app.UseCors("AllowHekmateSubdomains");
 
-
+app.UseStaticFiles();
 
 //app.UseHttpsRedirection();
 
+// --- فعال کردن احراز هویت ---
+app.UseAuthentication();
+// --- فعال کردن authorization ---
 app.UseAuthorization();
 
+app.UseMiddleware<GeneralHeadersMiddleware>();
+
 app.MapControllers();
+
+
+app.MapWhen(context => context.Request.Host.Host.Equals("vcfile.hekmateislami.com", StringComparison.OrdinalIgnoreCase),
+    subdomainApp =>
+    {
+        var staticFileOptions = new StaticFileOptions
+        {
+            FileProvider = new PhysicalFileProvider(@"C:\hekmatFiles"),
+            RequestPath = "" // Serve files at the root of the subdomain
+        };
+        subdomainApp.UseStaticFiles(staticFileOptions);
+
+        // Optional: If you need default files (like index.html)
+        subdomainApp.UseDefaultFiles(new DefaultFilesOptions
+        {
+            FileProvider = staticFileOptions.FileProvider,
+            RequestPath = staticFileOptions.RequestPath
+        });
+    });
+
 
 //middlewares
 

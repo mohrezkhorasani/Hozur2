@@ -1,8 +1,11 @@
 using Application.DTO;
+using Application.DTO.Generals;
 using Application.General;
 using Application.Interface.IUsecase;
 using AutoMapper;
+using CoreMe.Presenter;
 using CoreMe.VM;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
@@ -34,34 +37,60 @@ namespace CoreMe.Controllers
         public ApiPresenter<GetTeacherListResponse> _GetTeacherListResponse { get; }
         public IGetRoomsUseCase _IGetRoomsUseCase { get; }
         public ApiPresenter<GetRoomsResponse> _GetRoomsResponse { get; }
+        public IGetRoomsPublicUseCase _IGetRoomsPublicUseCase { get; }
+        public ApiPresenter<GetRoomsPublicResponse> _GetRoomsPublicResponse { get; }
         public IGetLivesUseCase _IGetLivesUseCase { get; }
         public ApiPresenter<GetLivesResponse> _GetLivesResponse { get; }
+        public IGetLiveWithIDUseCase _IGetLiveWithIDUseCase { get; }
+        public ApiPresenter<GetLiveWithIDResponse> _GetLiveWithIDResponse { get; }
+        public IGetLivesPublicUseCase _IGetLivesPublicUseCase { get; }
+        public ApiPresenter<GetLivesPublicResponse> _GetLivesPublicResponse { get; }
         public IStartNewMeetUseCase _IStartNewMeetUseCase { get; }
         public ApiPresenter<StartNewMeetResponse> _StartNewMeetResponse { get; }
         public IGetMeetingURLUseCase _IGetMeetingURLUseCase { get; }
         public ApiPresenter<GetMeetingURLResponse> _GetMeetingURLResponse { get; }
         public IGetRoomByFriendlyIDUseCase _IGetRoomByFriendlyIDUseCase { get; }
         public ApiPresenter<GetRoomByFriendlyIDResponse> _GetRoomByFriendlyIDResponse { get; }
-
         public INewRoomUseCase _INewRoomUseCase { get; }
         public ApiPresenter<NewRoomResponse> _NewRoomResponse { get; }
         public IGenerateCertificateUseCase _IGenerateCertificateUseCase { get; }
         public ApiPresenter<GenerateCertificateResponse> _GenerateCertificateResponse { get; }
         public IGuarantCertificateUseCase _IGuarantCertificateUseCase { get; }
         public ApiPresenter<GuarantCertificateResponse> _GuarantCertificateResponse { get; }
-
         public IEndTheMeetingUseCase _IEndTheMeetingUseCase { get; }
         public ApiPresenter<EndTheMeetingResponse> _EndTheMeetingResponse { get; }
-
         public INewQuestionUseCase _INewQuestionUseCase { get; }
         public ApiPresenter<NewQuestionResponse> _NewQuestionResponse { get; }
-
+        public INewPlanRoomUseCase _INewPlanRoomUseCase { get; }
+        public ApiPresenter<NewPlanRoomResponse> _NewPlanRoomResponse { get; }
         public IGetQuestionOfMeetUseCase _IGetQuestionOfMeetUseCase { get; }
         public ApiPresenter<GetQuestionOfMeetResponse> _GetQuestionOfMeetResponse { get; }
         public IQuestionAnsweredUseCase _IQuestionAnsweredUseCase { get; }
         public ApiPresenter<QuestionAnsweredResponse> _QuestionAnsweredResponse { get; }
+        public ISignInUserPanelUseCase _ISignInUserPanelUseCase { get; }
+        public ApiPresenter<SignInUserPanelResponse> _SignInUserPanelResponse { get; }
+        public ILoginUserPanelUseCase _ILoginUserPanelUseCase { get; }
+        public ApiPresenter<LoginUserPanelResponse> _LoginUserPanelResponse { get; }
+        public IVerifyTokenUseCase _IVerifyTokenUseCase { get; }
+        public ApiPresenter<VerifyTokenResponse> _VerifyTokenResponse { get; }
+        public IGetSlideShowUseCase _IGetSlideShowUseCase { get; }
+        public ApiPresenter<GetSlideShowResponse> _GetSlideShowResponse { get; }
+        public IContactusUseCase _IContactusUseCase { get; }
+        public ApiPresenter<ContactusResponse> _ContactusResponse { get; }
+        public IGetProfileInfoUseCase _IGetProfileInfoUseCase { get; }
+        public ApiPresenter<GetProfileInfoResponse> _GetProfileInfoResponse { get; }
+        public IFollowProfileUseCase _IFollowProfileUseCase { get; }
+        public ApiPresenter<FollowProfileResponse> _FollowProfileResponse { get; }
+        public IGetHekmatShobeUseCase _IGetHekmatShobeUseCase { get; }
+        public ApiPresenter<GetHekmatShobeResponse> _GetHekmatShobeResponse { get; }
+        public IGetPlanRoomUseCase _IGetPlanRoomUseCase { get; }
+        public ApiPresenter<GetPlanRoomResponse> _GetPlanRoomResponse { get; }
+        public IGetPlanRoomPublicUseCase _IGetPlanRoomPublicUseCase { get; }
+        public ApiPresenter<GetPlanRoomPublicResponse> _GetPlanRoomPublicResponse { get; }
+        public IDeletePlanRoomUseCase _IDeletePlanRoomUseCase { get; }
+        public ApiPresenter<DeletePlanRoomResponse> _DeletePlanRoomResponse { get; }
 
-        public BBBController(ILogger<BBBController> logger, IMapper mapper, INewUserUseCase iNewUserUseCase, ApiPresenter<NewUserResponse> newUserResponse, INewMeetingUseCase iNewMeetingUseCase, ApiPresenter<NewMeetingResponse> newMeetingResponse, IUpdateMeetingUseCase iUpdateMeetingUseCase, ApiPresenter<UpdateMeetingResponse> updateMeetingResponse, INewUserMettingsUseCase iNewUserMettingsUseCase, ApiPresenter<NewUserMettingsResponse> newUserMettingsResponse, INewUserMeetingLogUseCase iNewUserMeetingLogUseCase, ApiPresenter<NewUserMeetingLogResponse> newUserMeetingLogResponse, INewUserMeetingLogFromModeratorUseCase iNewUserMeetingLogFromModeratorUseCase, ApiPresenter<NewUserMeetingLogFromModeratorResponse> newUserMeetingLogFromModeratorResponse, IGetTeacherListUseCase iGetTeacherListUseCase, ApiPresenter<GetTeacherListResponse> getTeacherListResponse, IGetRoomsUseCase iGetRoomsUseCase, ApiPresenter<GetRoomsResponse> getRoomsResponse, IGetLivesUseCase iGetLivesUseCase, ApiPresenter<GetLivesResponse> getLivesResponse, IStartNewMeetUseCase iStartNewMeetUseCase, ApiPresenter<StartNewMeetResponse> startNewMeetResponse, IGetMeetingURLUseCase iGetMeetingURLUseCase, ApiPresenter<GetMeetingURLResponse> getMeetingURLResponse, IGetRoomByFriendlyIDUseCase iGetRoomByFriendlyIDUseCase, ApiPresenter<GetRoomByFriendlyIDResponse> getRoomByFriendlyIDResponse, INewRoomUseCase iNewRoomUseCase, ApiPresenter<NewRoomResponse> newRoomResponse, IGenerateCertificateUseCase iGenerateCertificateUseCase, ApiPresenter<GenerateCertificateResponse> generateCertificateResponse, IGuarantCertificateUseCase iGuarantCertificateUseCase, ApiPresenter<GuarantCertificateResponse> guarantCertificateResponse, IEndTheMeetingUseCase iEndTheMeetingUseCase, ApiPresenter<EndTheMeetingResponse> endTheMeetingResponse, INewQuestionUseCase iNewQuestionUseCase, ApiPresenter<NewQuestionResponse> newQuestionResponse, IGetQuestionOfMeetUseCase iGetQuestionOfMeetUseCase, ApiPresenter<GetQuestionOfMeetResponse> getQuestionOfMeetResponse, IQuestionAnsweredUseCase iQuestionAnsweredUseCase, ApiPresenter<QuestionAnsweredResponse> questionAnsweredResponse)
+        public BBBController(ILogger<BBBController> logger, IMapper mapper, INewUserUseCase iNewUserUseCase, ApiPresenter<NewUserResponse> newUserResponse, INewMeetingUseCase iNewMeetingUseCase, ApiPresenter<NewMeetingResponse> newMeetingResponse, IUpdateMeetingUseCase iUpdateMeetingUseCase, ApiPresenter<UpdateMeetingResponse> updateMeetingResponse, INewUserMettingsUseCase iNewUserMettingsUseCase, ApiPresenter<NewUserMettingsResponse> newUserMettingsResponse, INewUserMeetingLogUseCase iNewUserMeetingLogUseCase, ApiPresenter<NewUserMeetingLogResponse> newUserMeetingLogResponse, INewUserMeetingLogFromModeratorUseCase iNewUserMeetingLogFromModeratorUseCase, ApiPresenter<NewUserMeetingLogFromModeratorResponse> newUserMeetingLogFromModeratorResponse, IGetTeacherListUseCase iGetTeacherListUseCase, ApiPresenter<GetTeacherListResponse> getTeacherListResponse, IGetRoomsUseCase iGetRoomsUseCase, ApiPresenter<GetRoomsResponse> getRoomsResponse, IGetRoomsPublicUseCase iGetRoomsPublicUseCase, ApiPresenter<GetRoomsPublicResponse> getRoomsPublicResponse, IGetLivesUseCase iGetLivesUseCase, ApiPresenter<GetLivesResponse> getLivesResponse, IGetLiveWithIDUseCase iGetLiveWithIDUseCase, ApiPresenter<GetLiveWithIDResponse> getLiveWithIDResponse, IGetLivesPublicUseCase iGetLivesPublicUseCase, ApiPresenter<GetLivesPublicResponse> getLivesPublicResponse, IStartNewMeetUseCase iStartNewMeetUseCase, ApiPresenter<StartNewMeetResponse> startNewMeetResponse, IGetMeetingURLUseCase iGetMeetingURLUseCase, ApiPresenter<GetMeetingURLResponse> getMeetingURLResponse, IGetRoomByFriendlyIDUseCase iGetRoomByFriendlyIDUseCase, ApiPresenter<GetRoomByFriendlyIDResponse> getRoomByFriendlyIDResponse, INewRoomUseCase iNewRoomUseCase, ApiPresenter<NewRoomResponse> newRoomResponse, IGenerateCertificateUseCase iGenerateCertificateUseCase, ApiPresenter<GenerateCertificateResponse> generateCertificateResponse, IGuarantCertificateUseCase iGuarantCertificateUseCase, ApiPresenter<GuarantCertificateResponse> guarantCertificateResponse, IEndTheMeetingUseCase iEndTheMeetingUseCase, ApiPresenter<EndTheMeetingResponse> endTheMeetingResponse, INewQuestionUseCase iNewQuestionUseCase, ApiPresenter<NewQuestionResponse> newQuestionResponse, INewPlanRoomUseCase iNewPlanRoomUseCase, ApiPresenter<NewPlanRoomResponse> newPlanRoomResponse, IGetQuestionOfMeetUseCase iGetQuestionOfMeetUseCase, ApiPresenter<GetQuestionOfMeetResponse> getQuestionOfMeetResponse, IQuestionAnsweredUseCase iQuestionAnsweredUseCase, ApiPresenter<QuestionAnsweredResponse> questionAnsweredResponse, ISignInUserPanelUseCase iSignInUserPanelUseCase, ApiPresenter<SignInUserPanelResponse> signInUserPanelResponse, ILoginUserPanelUseCase iLoginUserPanelUseCase, ApiPresenter<LoginUserPanelResponse> loginUserPanelResponse, IVerifyTokenUseCase iVerifyTokenUseCase, ApiPresenter<VerifyTokenResponse> verifyTokenResponse, IGetSlideShowUseCase iGetSlideShowUseCase, ApiPresenter<GetSlideShowResponse> getSlideShowResponse, IContactusUseCase iContactusUseCase, ApiPresenter<ContactusResponse> contactusResponse, IGetProfileInfoUseCase iGetProfileInfoUseCase, ApiPresenter<GetProfileInfoResponse> getProfileInfoResponse, IFollowProfileUseCase iFollowProfileUseCase, ApiPresenter<FollowProfileResponse> followProfileResponse, IGetHekmatShobeUseCase iGetHekmatShobeUseCase, ApiPresenter<GetHekmatShobeResponse> getHekmatShobeResponse, IGetPlanRoomUseCase iGetPlanRoomUseCase, ApiPresenter<GetPlanRoomResponse> getPlanRoomResponse, IGetPlanRoomPublicUseCase iGetPlanRoomPublicUseCase, ApiPresenter<GetPlanRoomPublicResponse> getPlanRoomPublicResponse, IDeletePlanRoomUseCase iDeletePlanRoomUseCase, ApiPresenter<DeletePlanRoomResponse> deletePlanRoomResponse)
         {
             _logger = logger;
             _mapper = mapper;
@@ -81,8 +110,14 @@ namespace CoreMe.Controllers
             _GetTeacherListResponse = getTeacherListResponse;
             _IGetRoomsUseCase = iGetRoomsUseCase;
             _GetRoomsResponse = getRoomsResponse;
+            _IGetRoomsPublicUseCase = iGetRoomsPublicUseCase;
+            _GetRoomsPublicResponse = getRoomsPublicResponse;
             _IGetLivesUseCase = iGetLivesUseCase;
             _GetLivesResponse = getLivesResponse;
+            _IGetLiveWithIDUseCase = iGetLiveWithIDUseCase;
+            _GetLiveWithIDResponse = getLiveWithIDResponse;
+            _IGetLivesPublicUseCase = iGetLivesPublicUseCase;
+            _GetLivesPublicResponse = getLivesPublicResponse;
             _IStartNewMeetUseCase = iStartNewMeetUseCase;
             _StartNewMeetResponse = startNewMeetResponse;
             _IGetMeetingURLUseCase = iGetMeetingURLUseCase;
@@ -99,13 +134,65 @@ namespace CoreMe.Controllers
             _EndTheMeetingResponse = endTheMeetingResponse;
             _INewQuestionUseCase = iNewQuestionUseCase;
             _NewQuestionResponse = newQuestionResponse;
+            _INewPlanRoomUseCase = iNewPlanRoomUseCase;
+            _NewPlanRoomResponse = newPlanRoomResponse;
             _IGetQuestionOfMeetUseCase = iGetQuestionOfMeetUseCase;
             _GetQuestionOfMeetResponse = getQuestionOfMeetResponse;
             _IQuestionAnsweredUseCase = iQuestionAnsweredUseCase;
             _QuestionAnsweredResponse = questionAnsweredResponse;
+            _ISignInUserPanelUseCase = iSignInUserPanelUseCase;
+            _SignInUserPanelResponse = signInUserPanelResponse;
+            _ILoginUserPanelUseCase = iLoginUserPanelUseCase;
+            _LoginUserPanelResponse = loginUserPanelResponse;
+            _IVerifyTokenUseCase = iVerifyTokenUseCase;
+            _VerifyTokenResponse = verifyTokenResponse;
+            _IGetSlideShowUseCase = iGetSlideShowUseCase;
+            _GetSlideShowResponse = getSlideShowResponse;
+            _IContactusUseCase = iContactusUseCase;
+            _ContactusResponse = contactusResponse;
+            _IGetProfileInfoUseCase = iGetProfileInfoUseCase;
+            _GetProfileInfoResponse = getProfileInfoResponse;
+            _IFollowProfileUseCase = iFollowProfileUseCase;
+            _FollowProfileResponse = followProfileResponse;
+            _IGetHekmatShobeUseCase = iGetHekmatShobeUseCase;
+            _GetHekmatShobeResponse = getHekmatShobeResponse;
+            _IGetPlanRoomUseCase = iGetPlanRoomUseCase;
+            _GetPlanRoomResponse = getPlanRoomResponse;
+            _IGetPlanRoomPublicUseCase = iGetPlanRoomPublicUseCase;
+            _GetPlanRoomPublicResponse = getPlanRoomPublicResponse;
+            _IDeletePlanRoomUseCase = iDeletePlanRoomUseCase;
+            _DeletePlanRoomResponse = deletePlanRoomResponse;
         }
 
+        [HttpGet("/user/GetSlideShow")]
+        public async Task<IActionResult> GetSlideShow(string? page)
+        {
+            //GetSlideShowRequest req = _mapper.Map<GetSlideShowRequest>();
+            //req.GeneralHeaders = HttpContext.GetGeneralHeaders();
+            var head = HttpContext.GetGeneralHeaders();
+            await _IGetSlideShowUseCase.handleAsync(new GetSlideShowRequest { GeneralHeaders = head, Page = page }, _GetSlideShowResponse);
+            return _GetSlideShowResponse.jsonContentResult;
+        }
+        [HttpGet("/user/GetProfileInfo")]
+        public async Task<IActionResult> GetProfileInfo([FromQuery] string username)
+        {
+            //GetProfileInfoRequest req = _mapper.Map<GetProfileInfoRequest>();
+            //req.GeneralHeaders = HttpContext.GetGeneralHeaders();
+            var head = HttpContext.GetGeneralHeaders();
+            await _IGetProfileInfoUseCase.handleAsync(new GetProfileInfoRequest { GeneralHeaders = head, Username = username }, _GetProfileInfoResponse);
+            return _GetProfileInfoResponse.jsonContentResult;
+        }
 
+        [HttpPost("/user/FollowProfile")]
+        [Authorize(AuthenticationSchemes = "vc2AuthNorm")]
+        public async Task<IActionResult> FollowProfile([FromQuery] string username)
+        {
+            //FollowProfileRequest req = _mapper.Map<FollowProfileRequest>();
+            //req.GeneralHeaders = HttpContext.GetGeneralHeaders();
+            var head = HttpContext.GetGeneralHeaders();
+            await _IFollowProfileUseCase.handleAsync(new FollowProfileRequest { GeneralHeaders = head, Username = username }, _FollowProfileResponse);
+            return _FollowProfileResponse.jsonContentResult;
+        }
 
 
 
@@ -128,7 +215,7 @@ namespace CoreMe.Controllers
         {
             await _INewUserUseCase.handleAsync(new NewUserRequest
             {
-                GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request),
+                GeneralHeaders = HttpContext.GetGeneralHeaders(),
                 UUID = vm.UUID,
                 Firstname = vm.Firstname,
                 Lastname = vm.Lastname,
@@ -146,7 +233,7 @@ namespace CoreMe.Controllers
         public async Task<IActionResult> UpdateMeeting(UpdateMeetingViewModel vm)
         {
             UpdateMeetingRequest req = _mapper.Map<UpdateMeetingRequest>(vm);
-            req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
+            req.GeneralHeaders = HttpContext.GetGeneralHeaders();
             await _IUpdateMeetingUseCase.handleAsync(req, _UpdateMeetingResponse);
             return _UpdateMeetingResponse.jsonContentResult;
         }
@@ -157,7 +244,7 @@ namespace CoreMe.Controllers
         {
             Statics.Log("NewMeetingContr", JsonConvert.SerializeObject(vm));
             NewMeetingRequest req = _mapper.Map<NewMeetingRequest>(vm);
-            req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
+            req.GeneralHeaders = HttpContext.GetGeneralHeaders();
             await _INewMeetingUseCase.handleAsync(req, _NewMeetingResponse);
             return _NewMeetingResponse.jsonContentResult;
         }
@@ -167,7 +254,7 @@ namespace CoreMe.Controllers
         public async Task<IActionResult> NewUserMettings(NewUserMettingsViewModel vm)
         {
             NewUserMettingsRequest req = _mapper.Map<NewUserMettingsRequest>(vm);
-            req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
+            req.GeneralHeaders = HttpContext.GetGeneralHeaders();
             await _INewUserMettingsUseCase.handleAsync(req, _NewUserMettingsResponse);
             return _NewUserMettingsResponse.jsonContentResult;
         }
@@ -177,7 +264,7 @@ namespace CoreMe.Controllers
         // public async Task<IActionResult> NewTeacher(NewTeacherViewModel vm)
         // {
         //     NewTeacherRequest req = _mapper.Map<NewTeacherRequest>(vm);
-        //     req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
+        //     req.GeneralHeaders = HttpContext.GetGeneralHeaders();
         //     await _INewTeacherUseCase.handleAsync(req, _NewTeacherResponse);
         //     return _NewTeacherResponse.jsonContentResult;
         // }
@@ -192,9 +279,22 @@ namespace CoreMe.Controllers
             {
                 Query = q
             };
-            req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
+            req.GeneralHeaders = HttpContext.GetGeneralHeaders();
             await _IGetTeacherListUseCase.handleAsync(req, _GetTeacherListResponse);
             return _GetTeacherListResponse.jsonContentResult;
+        }
+        [HttpGet("/user/GetHekmatShobe")]
+        public async Task<IActionResult> GetHekmatShobe([FromQuery] string q = "")
+        {
+            Statics.Log("GetHekmatShobe", string.Join("\n", Request.Headers));
+            Statics.Log("GetHekmatShobe", string.Join("\n", Request.Headers.Select(e => e.Key).ToList()));
+            GetHekmatShobeRequest req = new GetHekmatShobeRequest
+            {
+                Query = q
+            };
+            req.GeneralHeaders = HttpContext.GetGeneralHeaders();
+            await _IGetHekmatShobeUseCase.handleAsync(req, _GetHekmatShobeResponse);
+            return _GetHekmatShobeResponse.jsonContentResult;
         }
         [HttpGet("/user/GetRoomByFriendlyID")]
         public async Task<IActionResult> GetRoomByFriendlyID([FromQuery] string q = "")
@@ -203,22 +303,48 @@ namespace CoreMe.Controllers
             {
                 Query = q
             };
-            req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
+            req.GeneralHeaders = HttpContext.GetGeneralHeaders();
             await _IGetRoomByFriendlyIDUseCase.handleAsync(req, _GetRoomByFriendlyIDResponse);
             return _GetRoomByFriendlyIDResponse.jsonContentResult;
         }
         [HttpGet("/user/GetRooms")]
+        [Authorize(AuthenticationSchemes = "vc2AuthNorm")]
         public async Task<IActionResult> GetRooms([FromQuery] string q = "")
         {
             GetRoomsRequest req = new GetRoomsRequest
             {
                 Query = q
             };
-            req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
+            req.GeneralHeaders = HttpContext.GetGeneralHeaders();
             await _IGetRoomsUseCase.handleAsync(req, _GetRoomsResponse);
             return _GetRoomsResponse.jsonContentResult;
         }
+        [HttpGet("/user/GetRoomsPublic")]
+        public async Task<IActionResult> GetRoomsPublic([FromQuery] string q = "", [FromQuery] string username = null)
+        {
+            GetRoomsPublicRequest req = new GetRoomsPublicRequest
+            {
+                Query = q,
+                UserName = username
+            };
+            req.GeneralHeaders = HttpContext.GetGeneralHeaders();
+            await _IGetRoomsPublicUseCase.handleAsync(req, _GetRoomsPublicResponse);
+            return _GetRoomsPublicResponse.jsonContentResult;
+        }
 
+        [HttpGet("/user/GetLivesPublic")]
+        public async Task<IActionResult> GetLivesPublic([FromQuery] string q = "")
+        {
+            GetLivesPublicRequest req = new GetLivesPublicRequest
+            {
+                Query = q
+            };
+            req.GeneralHeaders = HttpContext.GetGeneralHeaders();
+            await _IGetLivesPublicUseCase.handleAsync(req, _GetLivesPublicResponse);
+            return _GetLivesPublicResponse.jsonContentResult;
+        }
+
+        [Authorize(AuthenticationSchemes = "vc2AuthNorm")]
         [HttpGet("/user/GetLives")]
         public async Task<IActionResult> GetLives([FromQuery] string q = "")
         {
@@ -226,31 +352,43 @@ namespace CoreMe.Controllers
             {
                 Query = q
             };
-            req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
+            req.GeneralHeaders = HttpContext.GetGeneralHeaders();
             await _IGetLivesUseCase.handleAsync(req, _GetLivesResponse);
             return _GetLivesResponse.jsonContentResult;
         }
+        [HttpGet("/user/GetLiveWithID")]
+        public async Task<IActionResult> GetLiveWithID([FromQuery] string idRoom = "")
+        {
+            GetLiveWithIDRequest req = new GetLiveWithIDRequest
+            {
+                ID = idRoom
+            };
+            req.GeneralHeaders = HttpContext.GetGeneralHeaders();
+            await _IGetLiveWithIDUseCase.handleAsync(req, _GetLiveWithIDResponse);
+            return _GetLiveWithIDResponse.jsonContentResult;
+        }
 
+        [Authorize(AuthenticationSchemes = "vc2AuthNorm")]
         [HttpPost("/user/StartNewMeet/{IDRoom}")]
         public async Task<IActionResult> StartNewMeet(StartMeetingViewModel vm)
         {
             StartNewMeetRequest req = _mapper.Map<StartNewMeetRequest>(vm);
-            req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
+            req.GeneralHeaders = HttpContext.GetGeneralHeaders();
             await _IStartNewMeetUseCase.handleAsync(req, _StartNewMeetResponse);
             return _StartNewMeetResponse.jsonContentResult;
         }
 
-        [HttpPost("/user/GetMeetingURL")]
-        public async Task<IActionResult> GetMeetingURL(GetMeetingURLViewModel vm)
+        [HttpGet("/user/GetMeetingURL")]
+        public async Task<IActionResult> GetMeetingURL(string nick, string meetid, bool modir, string pass)
         {
             GetMeetingURLRequest req = new GetMeetingURLRequest
             {
-                FullName = vm.NickName,
-                MeetiID = vm.MeetID,
-                AsModerator = vm.IsModerator,
-                Password = vm.Password
+                FullName = nick,
+                MeetiID = meetid,
+                AsModerator = modir,
+                Password = pass
             };
-            req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
+            req.GeneralHeaders = HttpContext.GetGeneralHeaders();
             await _IGetMeetingURLUseCase.handleAsync(req, _GetMeetingURLResponse);
             return _GetMeetingURLResponse.jsonContentResult;
         }
@@ -261,7 +399,7 @@ namespace CoreMe.Controllers
         public async Task<IActionResult> NewRoom(NewRoomViewModel vm)
         {
             NewRoomRequest req = _mapper.Map<NewRoomRequest>(vm);
-            req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
+            req.GeneralHeaders = HttpContext.GetGeneralHeaders();
             await _INewRoomUseCase.handleAsync(req, _NewRoomResponse);
             return _NewRoomResponse.jsonContentResult;
         }
@@ -272,7 +410,7 @@ namespace CoreMe.Controllers
         public async Task<IActionResult> GenerateCertificate(GenerateCertificateViewModel vm)
         {
             GenerateCertificateRequest req = _mapper.Map<GenerateCertificateRequest>(vm);
-            req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
+            req.GeneralHeaders = HttpContext.GetGeneralHeaders();
             await _IGenerateCertificateUseCase.handleAsync(req, _GenerateCertificateResponse);
             return _GenerateCertificateResponse.jsonContentResult;
         }
@@ -281,7 +419,7 @@ namespace CoreMe.Controllers
         public async Task<IActionResult> GuarantCertificate(GuarantCertificateViewModel vm)
         {
             GuarantCertificateRequest req = _mapper.Map<GuarantCertificateRequest>(vm);
-            req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
+            req.GeneralHeaders = HttpContext.GetGeneralHeaders();
             Statics.Log("GuarantCertificate", "GeneralHeaders22222" + JsonConvert.SerializeObject(req.GeneralHeaders));
             Statics.Log("GuarantCertificate", "GeneralHeaders22222" + (req.GeneralHeaders.JWTMeetingToken));
 
@@ -293,7 +431,7 @@ namespace CoreMe.Controllers
         public async Task<IActionResult> EndTheMeeting(EndTheMeetingViewModel vm)
         {
             EndTheMeetingRequest req = _mapper.Map<EndTheMeetingRequest>(vm);
-            req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
+            req.GeneralHeaders = HttpContext.GetGeneralHeaders();
             Statics.Log("EndTheMeeting", "GeneralHeaders22222" + JsonConvert.SerializeObject(req.GeneralHeaders));
             Statics.Log("EndTheMeeting", "GeneralHeaders22222" + (req.GeneralHeaders.JWTMeetingToken));
 
@@ -305,7 +443,7 @@ namespace CoreMe.Controllers
         public async Task<IActionResult> NewQuestion(NewQuestionViewModel vm)
         {
             NewQuestionRequest req = _mapper.Map<NewQuestionRequest>(vm);
-            req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
+            req.GeneralHeaders = HttpContext.GetGeneralHeaders();
             Statics.Log("NewQuestion", "GeneralHeaders22222" + JsonConvert.SerializeObject(req.GeneralHeaders));
             Statics.Log("NewQuestion", "GeneralHeaders22222" + (req.GeneralHeaders.JWTMeetingToken));
 
@@ -317,7 +455,7 @@ namespace CoreMe.Controllers
         public async Task<IActionResult> GetQuestionOfMeet()
         {
             GetQuestionOfMeetRequest req = new GetQuestionOfMeetRequest { };
-            req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
+            req.GeneralHeaders = HttpContext.GetGeneralHeaders();
             Statics.Log("GetQuestionOfMeet", "GeneralHeaders22222" + JsonConvert.SerializeObject(req.GeneralHeaders));
             Statics.Log("GetQuestionOfMeet", "GeneralHeaders22222" + (req.GeneralHeaders.JWTMeetingToken));
 
@@ -328,8 +466,8 @@ namespace CoreMe.Controllers
         [EnableCors("AllowHekmateSubdomains")]
         public async Task<IActionResult> QuestionAnswered([FromRoute] long id)
         {
-            QuestionAnsweredRequest req = new QuestionAnsweredRequest {ID=id };
-            req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
+            QuestionAnsweredRequest req = new QuestionAnsweredRequest { ID = id };
+            req.GeneralHeaders = HttpContext.GetGeneralHeaders();
             Statics.Log("QuestionAnswered", "GeneralHeaders22222" + JsonConvert.SerializeObject(req.GeneralHeaders));
             Statics.Log("QuestionAnswered", "GeneralHeaders22222" + (req.GeneralHeaders.JWTMeetingToken));
 
@@ -342,7 +480,7 @@ namespace CoreMe.Controllers
         public async Task<IActionResult> NewUserMeetingLog(NewUserMeetingLogViewModel vm)
         {
             NewUserMeetingLogRequest req = _mapper.Map<NewUserMeetingLogRequest>(vm);
-            req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
+            req.GeneralHeaders = HttpContext.GetGeneralHeaders();
             await _INewUserMeetingLogUseCase.handleAsync(req, _NewUserMeetingLogResponse);
             return _NewUserMeetingLogResponse.jsonContentResult;
         }
@@ -353,9 +491,109 @@ namespace CoreMe.Controllers
         public async Task<IActionResult> NewUserMeetingLogFromModerator(NewUserMeetingLogFromModeratorViewModel vm)
         {
             NewUserMeetingLogFromModeratorRequest req = _mapper.Map<NewUserMeetingLogFromModeratorRequest>(vm);
-            req.GeneralHeaders = GeneralHeader.GetGeneralHeaders(Request);
+            req.GeneralHeaders = HttpContext.GetGeneralHeaders();
             await _INewUserMeetingLogFromModeratorUseCase.handleAsync(req, _NewUserMeetingLogFromModeratorResponse);
             return _NewUserMeetingLogFromModeratorResponse.jsonContentResult;
+        }
+
+        //[Authorize(AuthenticationSchemes = "vc2AuthNorm")]
+        [HttpPost("/user/SignInUserPanel")]
+        public async Task<IActionResult> SignInUserPanel(SignInUserPanelViewModel vm)
+        {
+            var headers = HttpContext.GetGeneralHeaders();
+            SignInUserPanelRequest req = _mapper.Map<SignInUserPanelRequest>(vm);
+            req.GeneralHeaders = headers;
+            await _ISignInUserPanelUseCase.handleAsync(req, _SignInUserPanelResponse);
+            return _SignInUserPanelResponse.jsonContentResult;
+        }
+
+
+
+        [HttpPost("/user/LoginUserPanel")]
+        public async Task<IActionResult> LoginUserPanel(LoginUserPanelViewModel vm)
+        {
+            LoginUserPanelRequest req = _mapper.Map<LoginUserPanelRequest>(vm);
+            req.GeneralHeaders = HttpContext.GetGeneralHeaders();
+            await _ILoginUserPanelUseCase.handleAsync(req, _LoginUserPanelResponse);
+            return _LoginUserPanelResponse.jsonContentResult;
+        }
+
+
+        [Authorize(AuthenticationSchemes = "vc2AuthNorm")]
+        [HttpPost("/user/VerifyToken")]
+        public async Task<IActionResult> VerifyToken()
+        {
+            //VerifyTokenRequest req = _mapper.Map<VerifyTokenRequest>();
+            //req.GeneralHeaders = HttpContext.GetGeneralHeaders();
+            var head = HttpContext.GetGeneralHeaders();
+            await _IVerifyTokenUseCase.handleAsync(new VerifyTokenRequest { GeneralHeaders = head }, _VerifyTokenResponse);
+            return _VerifyTokenResponse.jsonContentResult;
+        }
+
+        [HttpPost("/user/NewPlanRoom")]
+        [Authorize(AuthenticationSchemes = "vc2AuthNorm")]
+        public async Task<IActionResult> NewPlanRoom(NewPlanRoomViewModel vm)
+        {
+            NewPlanRoomRequest req = _mapper.Map<NewPlanRoomRequest>(vm);
+            req.GeneralHeaders = HttpContext.GetGeneralHeaders();
+
+            await _INewPlanRoomUseCase.handleAsync(req, _NewPlanRoomResponse);
+            return _NewPlanRoomResponse.jsonContentResult;
+        }
+        [HttpGet("/user/GetPlanRoom")]
+        [Authorize(AuthenticationSchemes = "vc2AuthNorm")]
+        public async Task<IActionResult> GetPlanRoom([FromQuery] string friendlyID = "")
+        {
+            Statics.Log("GetPlanRoom", string.Join("\n", Request.Headers));
+            Statics.Log("GetPlanRoom", string.Join("\n", Request.Headers.Select(e => e.Key).ToList()));
+            GetPlanRoomRequest req = new GetPlanRoomRequest
+            {
+                FriendlyID = friendlyID
+            };
+            req.GeneralHeaders = HttpContext.GetGeneralHeaders();
+            await _IGetPlanRoomUseCase.handleAsync(req, _GetPlanRoomResponse);
+            return _GetPlanRoomResponse.jsonContentResult;
+        }
+        [HttpGet("/user/GetPlanRoomPublic")]
+        public async Task<IActionResult> GetPlanRoomPublic()
+        {
+            GetPlanRoomPublicRequest req = new GetPlanRoomPublicRequest
+            {
+            };
+            req.GeneralHeaders = HttpContext.GetGeneralHeaders();
+            await _IGetPlanRoomPublicUseCase.handleAsync(req, _GetPlanRoomPublicResponse);
+            return _GetPlanRoomPublicResponse.jsonContentResult;
+        }
+        [HttpDelete("/user/DeletePlanRoom/{idplan}")]
+        [Authorize(AuthenticationSchemes = "vc2AuthNorm")]
+        public async Task<IActionResult> DeletePlanRoom(long idplan)
+        {
+            try
+            {
+                // Validate input
+                if ((idplan <= 0))
+                {
+                    return BadRequest(new { error = "idplan is required" });
+                }
+
+                Statics.Log("DeletePlanRoom", string.Join("\n", Request.Headers));
+                Statics.Log("DeletePlanRoom", string.Join("\n", Request.Headers.Select(e => e.Key).ToList()));
+
+                DeletePlanRoomRequest req = new DeletePlanRoomRequest
+                {
+                    IDPlan = idplan
+                };
+                req.GeneralHeaders = HttpContext.GetGeneralHeaders();
+
+                await _IDeletePlanRoomUseCase.handleAsync(req, _DeletePlanRoomResponse);
+
+                return _DeletePlanRoomResponse.jsonContentResult;
+            }
+            catch (Exception ex)
+            {
+                Statics.Log("DeletePlanRoom Error", ex.Message);
+                return StatusCode(500, new { error = "Internal server error" });
+            }
         }
 
 

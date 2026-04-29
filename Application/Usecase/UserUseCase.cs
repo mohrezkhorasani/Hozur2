@@ -5,21 +5,31 @@ using Application.General;
 using Application.Interface.IInfrastructure;
 using Application.Interface.IUsecase;
 using Application.Interfaces;
+using CacheHandler.Events;
+using DocumentFormat.OpenXml.Spreadsheet;
+using DocumentFormat.OpenXml.Wordprocessing;
 using Domain.Entity;
+using MediatR;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Identity.Client.Kerberos;
+using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using QuestPDF.Fluent;
 using QuestPDF.Infrastructure;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.Metrics;
 using System.Drawing;
+using System.IdentityModel.Tokens.Jwt;
 using System.IO;
 using System.Linq;
+using System.Net.NetworkInformation;
 using System.Reflection.Metadata;
 using System.Runtime.ConstrainedExecution;
 using System.Text;
@@ -71,6 +81,376 @@ namespace Application.Usecase
                     Token = Statics.GenerateJWTUser(user)
                 }
             }));
+
+        }
+    }
+    #endregion
+
+    #region LoginUserPanel
+    public class LoginUserPanelUseCase : ILoginUserPanelUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+
+        public LoginUserPanelUseCase(IDBContext repository,
+            IConfiguration configuration)
+        {
+            _db = repository;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+        }
+
+        public async Task handleAsync(LoginUserPanelRequest message,
+            IOutPutPort<GenericResponse<LoginUserPanelResponse>> outputPort)
+        {
+            if (_db.UserTBLs.Any(e => e.Email == message.Username || e.Username == message.Username || e.NationalCode == message.Username))
+            {
+                var user = _db.UserTBLs.Where(e => e.Email == message.Username || e.Username == message.Username || e.NationalCode == message.Username || e.PhoneNumber == message.Username).First();
+                var verify = _commonMethods.VerifyPasswordHash(message.Password, user.PasswordHash, user.PasswordSalt);
+                if (verify)
+                {
+                    string token = Statics.GenerateJWTLoginVC2(user, message.GeneralHeaders);
+                    user.AddIP(message.GeneralHeaders.RequestedIP);
+                    user.AddGuid(Guid.NewGuid());
+                    outputPort.Handle(new GenericResponse<LoginUserPanelResponse>(new LoginUserPanelResponse
+                    {
+                        Message = "ok",
+                        Status = 200,
+                        Data = new DTO.Models.JWTTokenJSON
+                        {
+                            Token = token
+                        }
+                    }));
+                    var hashed = _commonMethods.HashToken(token);
+                    _db.UserRevokeTokenTBL.Add(new UserRevokeTokenTBL
+                    {
+                        IDUserTBL = user.ID,
+                        IsRevoked = false,
+                        TokenHash = hashed,
+                        Token = token,
+                        Status = MainEntity_Status.Enabled,
+                        Type = MainEntity_Types.Normal,
+                        Explain = "login"
+                    });
+                    _db.SaveChanges();
+                    return;
+                }
+            }
+            outputPort.Handle(new GenericResponse<LoginUserPanelResponse>(new LoginUserPanelResponse
+            {
+                Message = "کاربر یافت نشد در صورت لزوم میتوانید <a href='https://vc2.hekmateislami.com/signup'>ثبت نام</a> کنید",
+                Status = 400,
+                Data = new DTO.Models.JWTTokenJSON
+                {
+                    Token = null
+                }
+            }));
+
+
+        }
+    }
+    #endregion
+
+    #region VerifyToken
+    public class VerifyTokenUseCase : IVerifyTokenUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        private readonly IConfiguration _configuration;
+
+        public VerifyTokenUseCase(IDBContext repository,
+            IConfiguration configuration)
+        {
+            _db = repository;
+            _configuration = configuration;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+        }
+
+        public async Task handleAsync(VerifyTokenRequest message,
+            IOutPutPort<GenericResponse<VerifyTokenResponse>> outputPort)
+        {
+            try
+            {
+                string token = message.GeneralHeaders.JWTUserToken;
+
+                // 1. بررسی وجود توکن
+                if (string.IsNullOrEmpty(token))
+                {
+                    outputPort.Handle(new GenericResponse<VerifyTokenResponse>(new VerifyTokenResponse
+                    {
+                        Message = "توکن معتبر نمی‌باشد. لطفاً دوباره وارد شوید.",
+                        Status = 401,
+                        Data = null
+                    }));
+                    return;
+                }
+
+                // 2. اعتبارسنجی و خواندن توکن JWT
+                var tokenHandler = new JwtSecurityTokenHandler();
+                var jwtSecret = "a1b32c5e-8f1d-5a3c-8d5e-2f6a5b4c9d0e";
+                var key = Encoding.ASCII.GetBytes(jwtSecret);
+
+                try
+                {
+                    var tokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateIssuerSigningKey = true,
+                        IssuerSigningKey = new SymmetricSecurityKey(key),
+                        ValidateIssuer = false,
+                        ValidateAudience = false,
+                        ValidateLifetime = true,
+                        ClockSkew = TimeSpan.Zero
+                    };
+
+                    // اعتبارسنجی توکن
+                    var principal = tokenHandler.ValidateToken(token, tokenValidationParameters, out SecurityToken validatedToken);
+                    var jwtToken = (JwtSecurityToken)validatedToken;
+
+                    // 3. خواندن Claim ها از توکن
+                    var userIdClaim = jwtToken.Claims.FirstOrDefault(x => x.Type == "UserID" || x.Type == "uid" || x.Type == JwtRegisteredClaimNames.Sub);
+                    var usernameClaim = jwtToken.Claims.FirstOrDefault(x => x.Type == "Username" || x.Type == JwtRegisteredClaimNames.UniqueName);
+                    var roleClaim = jwtToken.Claims.FirstOrDefault(x => x.Type == "Role" || x.Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/role");
+                    var emailClaim = jwtToken.Claims.FirstOrDefault(x => x.Type == "Email" || x.Type == JwtRegisteredClaimNames.Email);
+                    var fullnameClaim = jwtToken.Claims.FirstOrDefault(x => x.Type == "IP" || x.Type == "name");
+
+                    if (userIdClaim == null)
+                    {
+                        outputPort.Handle(new GenericResponse<VerifyTokenResponse>(new VerifyTokenResponse
+                        {
+                            Message = "ساختار توکن نامعتبر است. لطفاً دوباره وارد شوید.",
+                            Status = 401,
+                            Data = null
+                        }));
+                        return;
+                    }
+
+                    // 4. جستجوی کاربر در دیتابیس
+                    var user = await _db.UserTBLs.FirstOrDefaultAsync(u => u.UUID == userIdClaim.Value);
+
+                    if (user == null)
+                    {
+                        // کاربر یافت نشد
+                        outputPort.Handle(new GenericResponse<VerifyTokenResponse>(new VerifyTokenResponse
+                        {
+                            Message = "کاربر یافت نشد. در صورت لزوم می‌توانید <a href='https://vc2.hekmateislami.com/signup'>ثبت نام</a> کنید",
+                            Status = 404,
+                            Data = null
+                        }));
+                        return;
+                    }
+
+                    // 5. بررسی انقضای توکن در دیتابیس (اختیاری - برای قابلیت Logout از همه دستگاه‌ها)
+                    var tokenHash = _commonMethods.HashToken(token);
+
+                    var isTokenRevoked = await _db.UserRevokeTokenTBL.AnyAsync(rt => rt.TokenHash == tokenHash && rt.IsRevoked);
+                    if (isTokenRevoked)
+                    {
+                        outputPort.Handle(new GenericResponse<VerifyTokenResponse>(new VerifyTokenResponse
+                        {
+                            Message = "توکن شما منقضی شده است. لطفاً دوباره وارد شوید.",
+                            Status = 401,
+                            Data = null
+                        }));
+                        return;
+                    }
+
+                    // 6. به‌روزرسانی آخرین فعالیت کاربر
+                    //user.LastActivity = DateTime.UtcNow;
+                    await _db.SaveChangesAsync();
+
+                    // 7. ساخت پاسخ موفقیت‌آمیز
+                    var response = new MiniUserJSON
+                    {
+                        ID = user.ID,
+                        UID = user.UUID?.ToString() ?? userIdClaim.Value,
+                        Fullname = user.Firstname ?? fullnameClaim?.Value ?? "",
+                        Username = user.Username ?? usernameClaim?.Value ?? "",
+                        Email = user.Email ?? emailClaim?.Value ?? "",
+                        Role = user.GetRole() ?? roleClaim?.Value ?? "User",
+                        IsValid = true,
+                        Permissions = user.GetUserPermissions() // متد برای گرفتن دسترسی‌ها
+                    };
+
+                    outputPort.Handle(new GenericResponse<VerifyTokenResponse>(new VerifyTokenResponse
+                    {
+
+                        Message = "success",
+                        Status = 200,
+                        Data = response
+                    }));
+                }
+                catch (SecurityTokenExpiredException)
+                {
+                    outputPort.Handle(new GenericResponse<VerifyTokenResponse>(new VerifyTokenResponse
+                    {
+                        Message = "توکن منقضی شده است. لطفاً دوباره وارد شوید.",
+                        Status = 401,
+                        Data = null
+                    }));
+                }
+                catch (SecurityTokenInvalidSignatureException)
+                {
+                    outputPort.Handle(new GenericResponse<VerifyTokenResponse>(new VerifyTokenResponse
+                    {
+                        Message = "امضای توکن نامعتبر است. ممکن است توکن دستکاری شده باشد.",
+                        Status = 401,
+                        Data = null
+                    }));
+                }
+                catch (Exception ex)
+                {
+                    // لاگ خطا
+                    Console.WriteLine($"Token validation error: {ex.Message}");
+
+                    outputPort.Handle(new GenericResponse<VerifyTokenResponse>(new VerifyTokenResponse
+                    {
+                        Message = "خطا در اعتبارسنجی توکن. لطفاً دوباره وارد شوید.",
+                        Status = 500,
+                        Data = null
+                    }));
+                }
+            }
+            catch (Exception ex)
+            {
+                outputPort.Handle(new GenericResponse<VerifyTokenResponse>(new VerifyTokenResponse
+                {
+                    Message = $"خطا در سرور: {ex.Message}",
+                    Status = 500,
+                    Data = null
+                }));
+            }
+        }
+
+
+    }
+    #endregion
+
+    #region SignInUserPanel
+    public class SignInUserPanelUseCase : ISignInUserPanelUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        private readonly IMediator _mediator;
+
+        public SignInUserPanelUseCase(IDBContext repository,
+            IMediator _mediator,
+            IConfiguration configuration)
+        {
+            _db = repository;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+            this._mediator = _mediator;
+        }
+
+        public async Task handleAsync(SignInUserPanelRequest message,
+            IOutPutPort<GenericResponse<SignInUserPanelResponse>> outputPort)
+        {
+            byte[] seenHash, seenSalt;
+
+            UserTBL user;
+            _commonMethods.CreatePasswordHash(message.Password, out seenHash, out seenSalt);
+
+            if (int.TryParse(message.Username, out int o))
+            {
+                outputPort.Handle(new GenericResponse<SignInUserPanelResponse>(new SignInUserPanelResponse
+                {
+                    Message = "نام کاربری  باید با حرف اغاز شود",
+                    Status = 400,
+
+                }));
+                return;
+            }
+            if (message.Username.Length < 4)
+            {
+                outputPort.Handle(new GenericResponse<SignInUserPanelResponse>(new SignInUserPanelResponse
+                {
+                    Message = "نام کاربری  باید حداقل چهار حرف باشد",
+                    Status = 400,
+
+                }));
+                return;
+            }
+
+            if (_db.UserTBLs.Any(e => e.Email == message.Email || e.Username == message.Username))
+            {
+                outputPort.Handle(new GenericResponse<SignInUserPanelResponse>(new SignInUserPanelResponse
+                {
+                    Message = "نام کاربری  یا ادرس ایمیل تکراری میباشد",
+                    Status = 400,
+
+                }));
+                return;
+            }
+            if (!_db.UserTBLs.Any(e => e.Email == message.Email))
+            {
+                string id = IdGenerator.GenerateId(2);
+                while (_db.UserTBLs.Any(e => e.UUID == id))
+                    id = IdGenerator.GenerateId(2);
+
+                user = new UserTBL
+                {
+                    Email = message.Email,
+                    Firstname = message.Name,
+                    PasswordSalt = seenSalt,
+                    PasswordHash = seenHash,
+                    Type = MainEntity_Types.USER_USER,
+                    Status = MainEntity_Status.USER_ACTIVATED_BY_SIGN_UP_SITE,
+                    IPList = new List<string>() { message.GeneralHeaders.RequestedIP },
+                    AllowedGUID = new List<Guid>() { Guid.NewGuid() },
+                    UUID = id,
+                    Explain = message.Explain.Contains("کاربر معمولی") ? null : message.Explain,
+                    Username = message.Username
+                };
+                _db.UserTBLs.Add(user);
+                _db.SaveChanges();
+                await this._mediator.Publish(new UserUpdatedEvent
+                {
+                    Action = "Create",
+                    UserId = user.ID
+                });
+                string token = Statics.GenerateJWTLoginVC2(user, message.GeneralHeaders);
+                outputPort.Handle(new GenericResponse<SignInUserPanelResponse>(new SignInUserPanelResponse
+                {
+                    Message = "ok",
+                    Status = 200,
+                    Data = new DTO.Models.JWTTokenJSON
+                    {
+                        Token = token
+                    }
+                }));
+                var hashed = _commonMethods.HashToken(token);
+                _db.UserRevokeTokenTBL.Add(new UserRevokeTokenTBL
+                {
+                    IDUserTBL = user.ID,
+                    IsRevoked = false,
+                    TokenHash = hashed,
+                    Token = token,
+                    Status = MainEntity_Status.Enabled,
+                    Type = MainEntity_Types.Normal,
+                    Explain = "signup"
+                });
+                _db.SaveChanges();
+                return;
+            }
+            outputPort.Handle(new GenericResponse<SignInUserPanelResponse>(new SignInUserPanelResponse
+            {
+                Message = "یوزر وجود دارد",
+                Status = 400,
+                Data = new DTO.Models.JWTTokenJSON
+                {
+                    Token = null
+                }
+            }));
+
+
+            //if (user.AddIP(message.GeneralHeaders.RequestedIP))
+            //{
+            //    _db.Update(user);
+            //    _db.SaveChanges();
+            //}
+
+
 
         }
     }
@@ -816,12 +1196,15 @@ namespace Application.Usecase
         public IDBContext _db { get; }
         public CommonMethods _commonMethods { get; }
         private IWebHostEnvironment hosting;
+        private readonly IMemoryCache _cache;
 
         public GetRoomsUseCase(IDBContext repository,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            IMemoryCache memoryCache)  // ← inject IMemoryCache
         {
             _db = repository;
             _commonMethods = new CommonMethods(configuration, repository, hosting);
+            _cache = memoryCache;
         }
 
         public async Task handleAsync(GetRoomsRequest message,
@@ -829,24 +1212,200 @@ namespace Application.Usecase
         {
             try
             {
+                List<DTO.Models.MiniRoomJSON>? result = null;
+                string cacheKey = $"GetRooms_User_{message.GeneralHeaders.UserTBL.ID}_Query_{message.Query ?? ""}";
+                if (message.UseCache)
+                {
 
+                    // Build a unique cache key per user and query
+                    if (message.GeneralHeaders.UserTBL == null)
+                    {
+                        return;
+                    }
+
+
+                    // Try to get data from cache (with error protection)
+                    try
+                    {
+                        if (_cache.TryGetValue(cacheKey, out List<DTO.Models.MiniRoomJSON>? cachedResult))
+                        {
+                            result = cachedResult;
+                        }
+                    }
+                    catch (Exception cacheEx)
+                    {
+                        // If cache read fails, log and continue as if cache miss
+                        Statics.Log("GetRooms_CacheRead", cacheEx);
+                    }
+                }
+
+                if (result == null)
+                {
+                    // Cache miss – compute data as before
+                    var rooms = await _db.RoomTBLs
+                        .Where(e => (
+                            string.IsNullOrEmpty(message.Query) ||
+                                e.Title.Contains(message.Query)) &&
+                            e.IDOwnerTBL == message.GeneralHeaders.UserTBL.ID
+                        )
+                        .Include(e => e.MeetingTBLs)
+                            .ThenInclude(m => m.UserTBLToMeetingTBLs)
+                                .ThenInclude(um => um.UserTBL)
+                                .Include(e => e.OwnerTBL)
+                        .OrderByDescending(e => e.DateInsert)
+                        .Select(e => new
+                        {
+                            e.FriendlyID,
+                            e.Title,
+                            e.DateInsert,
+                            plan = e.RoomTBLPlanTBLs.OrderBy(e => e.StartDate).ToList(),
+                            e.OwnerTBL,
+                            Meetings = e.MeetingTBLs.Select(m => new
+                            {
+                                m.ID,
+                                m.DateInsert,
+                                Participants = m.UserTBLToMeetingTBLs.Select(um => new
+                                {
+                                    um.UserNickName,
+                                    um.UserTBL.UUID,
+                                    um.UserTBL.Email,
+                                    um.UserTBL.NationalCode,
+                                    um.UserTBL.PhoneNumber,
+                                    um.UserTBL.Type
+                                })
+                            })
+                        })
+                        .ToListAsync();
+
+                    // Compute in memory
+                    result = rooms.Select(room => new DTO.Models.MiniRoomJSON
+                    {
+                        RoomID = room.FriendlyID,
+                        Title = room.Title,
+                        Created = room.DateInsert,
+                        Owner = new MiniUserJSON
+                        {
+                            UID = room.OwnerTBL.UUID,
+                            Fullname = room.OwnerTBL.Firstname
+                        },
+                        LastMeet = room.Meetings
+                            .OrderByDescending(m => m.DateInsert)
+                            .FirstOrDefault()?.DateInsert ?? room.DateInsert,
+                        Count = room.Meetings.Count(m => m.Participants
+                            .Count(p => p.Type != MainEntity_Types.USER_TEACHER) > 1),
+                        NextMeet = room.plan.Any(e => e.StartDate > DateTime.Now) ? room.plan.Where(e => e.StartDate > DateTime.Now).First().StartDate : null,
+                        CountTeacher = room.Meetings
+                            .SelectMany(m => m.Participants)
+                            .Where(p => p.Type == MainEntity_Types.USER_TEACHER)
+                            .Select(p => p.UUID ?? p.Email ?? p.NationalCode ?? p.PhoneNumber ?? p.UserNickName)
+                            .Where(k => !string.IsNullOrWhiteSpace(k))
+                            .Distinct()
+                            .Count(),
+                        CountPartis = room.Meetings
+                            .SelectMany(m => m.Participants)
+                            .Where(p => p.Type != MainEntity_Types.USER_TEACHER)
+                            .SelectMany(p => new[]
+                            {
+                            p.UUID?.Trim().ToLower(),
+                            p.UserNickName?.Trim().ToLower(),
+                            p.Email?.Trim().ToLower(),
+                            p.NationalCode?.Trim(),
+                            p.PhoneNumber?.Trim()
+                            })
+                            .Where(k => !string.IsNullOrWhiteSpace(k))
+                            .Distinct()
+                            .Count()
+                    }).OrderByDescending(e => e.NextMeet).ThenBy(e => e.LastMeet).ToList();
+                    // Store in cache (with error protection)
+                    if (message.UseCache)
+                    {
+                        try
+                        {
+                            var cacheOptions = new MemoryCacheEntryOptions()
+                                .SetAbsoluteExpiration(TimeSpan.FromMinutes(10))
+                                .SetSlidingExpiration(TimeSpan.FromMinutes(5))
+                                .SetPriority(CacheItemPriority.Normal);
+
+                            _cache.Set(cacheKey, result, cacheOptions);
+                        }
+                        catch (Exception cacheWriteEx)
+                        {
+                            // If cache write fails (e.g., memory full), log and continue
+                            Statics.Log("GetRooms_CacheWrite", cacheWriteEx);
+                        }
+                    }
+
+                }
+
+                outputPort.Handle(new GenericResponse<GetRoomsResponse>(new GetRoomsResponse
+                {
+                    Message = "ok",
+                    Status = 200,
+                    Data = result
+                }));
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+                Statics.Log("GetRooms", e);
+                // Optionally, you can still return an error response via outputPort
+                // outputPort.Handle(new GenericResponse<GetRoomsResponse> { Status = 500, Message = "Internal error" });
+            }
+        }
+    }
+    #endregion
+
+    #region GetRoomsPublic
+    public class GetRoomsPublicUseCase : IGetRoomsPublicUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+
+        public GetRoomsPublicUseCase(IDBContext repository,
+            IConfiguration configuration)
+        {
+            _db = repository;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+        }
+
+        public async Task handleAsync(GetRoomsPublicRequest message,
+     IOutPutPort<GenericResponse<GetRoomsPublicResponse>> outputPort)
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(message.UserName) && !message.UserName.StartsWith("@"))
+                {
+                    throw new Exception("user must start with @");
+                }
+                if (!string.IsNullOrEmpty(message.UserName))
+                    message.UserName = message.UserName.Replace("@", "");
 
                 // اول اتاق‌ها رو با اطلاعات پایه می‌گیریم (سبک و سریع)
                 var rooms = await _db.RoomTBLs
-                    .Where(e => (string.IsNullOrEmpty(message.Query) || e.Title.Contains(message.Query)) && e.Type == MainEntity_Types.ROOM_NORMAL)
+                    .Where(e => (string.IsNullOrEmpty(message.Query) || e.Title.Contains(message.Query)) &&
+                        e.IsPublicRoom &&
+                        ((message.UserName != null && message.UserName == e.OwnerTBL.Username) || (string.IsNullOrEmpty(message.UserName)))
+                    )
+
                     .Include(e => e.MeetingTBLs)
                         .ThenInclude(m => m.UserTBLToMeetingTBLs)
                             .ThenInclude(um => um.UserTBL)
+                    .Include(e => e.OwnerTBL)
+                    .Include(e => e.RoomTBLPlanTBLs)
                     .OrderByDescending(e => e.DateInsert)
                     .Select(e => new
                     {
                         e.FriendlyID,
                         e.Title,
                         e.DateInsert,
+                        plan = e.RoomTBLPlanTBLs.OrderBy(e => e.StartDate).ToList(),
+                        e.OwnerTBL,
                         Meetings = e.MeetingTBLs.Select(m => new
                         {
                             m.ID,
                             m.DateInsert,
+                            m.Title,
                             Participants = m.UserTBLToMeetingTBLs.Select(um => new
                             {
                                 um.UserNickName,
@@ -875,7 +1434,12 @@ namespace Application.Usecase
                     // تعداد جلساتی که حداقل ۲ نفر (غیر معلم) داشتن
                     Count = room.Meetings.Count(m => m.Participants
                         .Count(p => p.Type != MainEntity_Types.USER_TEACHER) > 1),
-
+                    NextMeet = room.plan.Any(e => e.StartDate > DateTime.Now) ? room.plan.Where(e => e.StartDate > DateTime.Now).First().StartDate : DateTime.MaxValue,
+                    Owner = new MiniUserJSON
+                    {
+                        UID = room.OwnerTBL.UUID,
+                        Fullname = room.OwnerTBL.Firstname
+                    },
                     // تعداد معلم‌های یکتا
                     CountTeacher = room.Meetings
                         .SelectMany(m => m.Participants)
@@ -884,7 +1448,7 @@ namespace Application.Usecase
                         .Where(k => !string.IsNullOrWhiteSpace(k))
                         .Distinct()
                         .Count(),
-
+                    LatestTitle = room.Meetings != null && room.Meetings.Count() > 0 ? room.Meetings.OrderByDescending(e => e.ID).First().Title : "",
                     // تعداد شرکت‌کننده‌های یکتا (دانش‌آموز) با همه شناسه‌ها
                     CountPartis = room.Meetings
                         .SelectMany(m => m.Participants)
@@ -900,9 +1464,9 @@ namespace Application.Usecase
                         .Where(k => !string.IsNullOrWhiteSpace(k))
                         .Distinct()
                         .Count()
-                }).OrderByDescending(e => e.LastMeet).ToList();
+                }).OrderBy(e => e.NextMeet).ThenBy(e => e.LastMeet).ToList();
 
-                outputPort.Handle(new GenericResponse<GetRoomsResponse>(new GetRoomsResponse
+                outputPort.Handle(new GenericResponse<GetRoomsPublicResponse>(new GetRoomsPublicResponse
                 {
                     Message = "ok",
                     Status = 200,
@@ -912,14 +1476,12 @@ namespace Application.Usecase
             catch (Exception e)
             {
                 Console.WriteLine(e.Message);
-                Statics.Log("GetRooms", e);
+                Statics.Log("GetRoomsPublic", e);
 
             }
         }
     }
     #endregion
-
-
 
     #region GetRoomByFriendlyID
     public class GetRoomByFriendlyIDUseCase : IGetRoomByFriendlyIDUseCase
@@ -942,11 +1504,19 @@ namespace Application.Usecase
             {
                 Message = "ok",
                 Status = 200,
-                Data = _db.RoomTBLs.Where(e => e.FriendlyID == message.Query)
+                Data = _db.RoomTBLs.Where(e => e.FriendlyID == message.Query).Include(e=>e.OwnerTBL).Include(e=>e.RoomTBLPlanTBLs.OrderBy(e=>e.StartDate))
                 .Select(e => new DTO.Models.MiniRoomJSON
                 {
                     RoomID = e.FriendlyID,
-                    Title = e.Title
+                    Title = e.Title,
+                    NextMeet= e.RoomTBLPlanTBLs.Any(e => e.StartDate > DateTime.Now) ? e.RoomTBLPlanTBLs.Where(e => e.StartDate > DateTime.Now).First().StartDate : DateTime.MaxValue,
+                    LatestTitle= e.RoomTBLPlanTBLs.Any(e => e.StartDate > DateTime.Now) ? e.RoomTBLPlanTBLs.Where(e => e.StartDate > DateTime.Now).First().Title : "",
+                    Avatar=e.Avatar,
+                    Owner =new MiniUserJSON
+                    {
+                        Fullname=e.OwnerTBL.GetName(),
+                        Username=e.OwnerTBL.Username,
+                    }
                 }).First()
             }));
 
@@ -979,7 +1549,11 @@ namespace Application.Usecase
             IOutPutPort<GenericResponse<GetLivesResponse>> outputPort)
         {
             var meets = await IBBBGetMeetings.Request(message);
-
+            foreach (var m in meets)
+            {
+                var r = _db.RoomTBLs.First(e => e.BBB_MeetID == m.BBB_MeetID);
+                m.RoomID = r.FriendlyID;
+            }
             //var r = await IBBBGetMeetings.GetRecordingsByMeetingId("1khe4quugbx7ziilyojrvapwebknxbn1jydcjozl");
 
             //var resp = IScpUploader.ExecuteRemoteCommand("ls -lht");
@@ -994,6 +1568,7 @@ namespace Application.Usecase
                     Title = e.Title,
                     Created = e.Created,
                     BBB_MeetID = e.BBB_MeetID,
+                    CountPartis = e.CountPartis,
 
                 }).ToList()
             }));
@@ -1002,47 +1577,106 @@ namespace Application.Usecase
     }
     #endregion
 
-    #region StartMeeting
-    public class StartMeetingUseCase : IStartMeetingUseCase
+    #region GetLivesPublic
+    public class GetLivesPublicUseCase : IGetLivesPublicUseCase
     {
         public IDBContext _db { get; }
         public CommonMethods _commonMethods { get; }
         private IWebHostEnvironment hosting;
         private IBBBGetMeetings IBBBGetMeetings { get; }
-        public StartMeetingUseCase(IDBContext repository,
+        private IScpUploader IScpUploader { get; }
+        public GetLivesPublicUseCase(IDBContext repository,
             IConfiguration configuration,
-            IBBBGetMeetings bBBGetMeetings
+            IBBBGetMeetings bBBGetMeetings,
+            IScpUploader IScpUploader
             )
         {
             _db = repository;
             _commonMethods = new CommonMethods(configuration, repository, hosting);
             IBBBGetMeetings = bBBGetMeetings;
+            this.IScpUploader = IScpUploader;
         }
 
-        public async Task handleAsync(StartMeetingRequest message,
-            IOutPutPort<GenericResponse<StartMeetingResponse>> outputPort)
+
+        public async Task handleAsync(GetLivesPublicRequest message,
+            IOutPutPort<GenericResponse<GetLivesPublicResponse>> outputPort)
         {
-
-            var meet = await IBBBGetMeetings.CreateMeetingAsync(message.MeetiID, message.MeetName, "ff");
-
-            var meetTBL = _commonMethods.NewMeeting(new MeetingTBL
+            var meets = await IBBBGetMeetings.Request(message);
+            foreach (var m in meets)
             {
-                RoomFriendlyID = message.MeetiID,
-                MeetID = meet.MeetID,
-                Type = MainEntity_Types.Normal,
-                Status = MainEntity_Status.MEETING_STARTED_LATER,
-                JalaliDate = Statics.ToJalaliDate(DateTime.Now),
-                IDCreator = -6000
-            });
+                var r = _db.RoomTBLs.First(e => e.BBB_MeetID == m.BBB_MeetID);
+                m.RoomID = r.FriendlyID;
+            }
+            //var r = await IBBBGetMeetings.GetRecordingsByMeetingId("1khe4quugbx7ziilyojrvapwebknxbn1jydcjozl");
 
-            var joinURL = await IBBBGetMeetings.GetJoinUrlAsync(meet.MeetID, "مجمع عالی حکمت اسلامی", true, Statics.BBB_MODERATOR_PW);
-            var joinURLOthers = await IBBBGetMeetings.GetJoinUrlAsync(meet.MeetID, "مهمان", true, Statics.BBB_ATTEND_PW);
-            outputPort.Handle(new GenericResponse<StartMeetingResponse>(new StartMeetingResponse
+            //var resp = IScpUploader.ExecuteRemoteCommand("ls -lht");
+
+
+            outputPort.Handle(new GenericResponse<GetLivesPublicResponse>(new GetLivesPublicResponse
             {
                 Message = "ok",
                 Status = 200,
-                Join = joinURL,
-                JoinOthers=joinURLOthers
+                Data = meets.Select(e => new MiniRoomJSON
+                {
+                    RoomID = e.RoomID,
+                    Title = e.Title,
+                    Created = e.Created,
+                    BBB_MeetID = e.BBB_MeetID,
+                    CountPartis = e.CountPartis,
+                }).ToList()
+            }));
+
+        }
+    }
+    #endregion
+
+    #region GetLiveWithID
+    public class GetLiveWithIDUseCase : IGetLiveWithIDUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        private IBBBGetMeetings IBBBGetMeetings { get; }
+        private IScpUploader IScpUploader { get; }
+        public GetLiveWithIDUseCase(IDBContext repository,
+            IConfiguration configuration,
+            IBBBGetMeetings bBBGetMeetings,
+            IScpUploader IScpUploader
+            )
+        {
+            _db = repository;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+            IBBBGetMeetings = bBBGetMeetings;
+            this.IScpUploader = IScpUploader;
+        }
+
+
+        public async Task handleAsync(GetLiveWithIDRequest message,
+            IOutPutPort<GenericResponse<GetLiveWithIDResponse>> outputPort)
+        {
+            var meets = await IBBBGetMeetings.Request(message);
+            foreach (var m in meets)
+            {
+                var r = _db.RoomTBLs.First(e => e.BBB_MeetID == m.BBB_MeetID);
+                m.RoomID = r.FriendlyID;
+            }
+            //var r = await IBBBGetMeetings.GetRecordingsByMeetingId("1khe4quugbx7ziilyojrvapwebknxbn1jydcjozl");
+
+            //var resp = IScpUploader.ExecuteRemoteCommand("ls -lht");
+
+
+            outputPort.Handle(new GenericResponse<GetLiveWithIDResponse>(new GetLiveWithIDResponse
+            {
+                Message = "ok",
+                Status = 200,
+                Data = meets.Select(e => new MiniRoomJSON
+                {
+                    RoomID = e.RoomID,
+                    Title = e.Title,
+                    Created = e.Created,
+                    BBB_MeetID = e.BBB_MeetID,
+                    CountPartis = e.CountPartis,
+                }).ToList()
             }));
 
         }
@@ -1069,6 +1703,19 @@ namespace Application.Usecase
         public async Task handleAsync(GetMeetingURLRequest message,
             IOutPutPort<GenericResponse<GetMeetingURLResponse>> outputPort)
         {
+            bool modir = false;
+            if (message.AsModerator)
+            {
+                if (message.GeneralHeaders?.UserTBL?.ID != null)
+                {
+                    if (_db.RoomTBLs.Any(e => e.FriendlyID==message.MeetiID && e.IDOwnerTBL == message.GeneralHeaders.UserTBL.ID))
+                    {
+                        modir = true;
+                    }
+
+                }
+            }
+
             var listmeet = await IBBBGetMeetings.Request(new GetLivesRequest
             {
                 GeneralHeaders = message.GeneralHeaders,
@@ -1078,9 +1725,10 @@ namespace Application.Usecase
                 UUID = message.UUID
             });
             listmeet.ForEach(e => e.RoomID = _db.MeetingTBLs.Any(r => r.MeetID.EndsWith(e.RoomID)) ? _db.MeetingTBLs.FirstOrDefault(r => r.MeetID.EndsWith(e.RoomID)).RoomFriendlyID : e.RoomID);
+            var r = _db.RoomTBLs.Where(e => e.FriendlyID == message.MeetiID).First();
+            string meetid = r.BBB_MeetID;
 
-
-            var meets = await IBBBGetMeetings.GetJoinUrlAsync(message.MeetiID, message.FullName, message.AsModerator, message.Password);
+            var meets = await IBBBGetMeetings.GetJoinUrlAsync(meetid, message.FullName, modir,await _commonMethods.ReturnPassword(message.MeetiID, modir));
 
             outputPort.Handle(new GenericResponse<GetMeetingURLResponse>(new GetMeetingURLResponse
             {
@@ -1440,7 +2088,7 @@ namespace Application.Usecase
 
     }
     #endregion
-
+        
     #region EndTheMeeting
     public class EndTheMeetingUseCase : IEndTheMeetingUseCase
     {
@@ -1671,4 +2319,940 @@ namespace Application.Usecase
     }
     #endregion
 
+    #region GetSlideShow
+    public class GetSlideShowUseCase : IGetSlideShowUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        private IBBBGetMeetings IBBBGetMeetings { get; }
+        private IScpUploader IScpUploader { get; }
+        public GetSlideShowUseCase(IDBContext repository,
+            IConfiguration configuration,
+            IBBBGetMeetings bBBGetMeetings,
+            IScpUploader IScpUploader
+            )
+        {
+            _db = repository;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+            IBBBGetMeetings = bBBGetMeetings;
+            this.IScpUploader = IScpUploader;
+        }
+
+
+        public async Task handleAsync(GetSlideShowRequest message,
+            IOutPutPort<GenericResponse<GetSlideShowResponse>> outputPort)
+        {
+
+            if (!_db.SlideshowTBL.Any(e => e.Status == MainEntity_Status.Enabled))
+            {
+                outputPort.Handle(new GenericResponse<GetSlideShowResponse>(new GetSlideShowResponse
+                {
+                    Message = "empty",
+                    Status = 404,
+                    Data = new List<MiniSlideShowJSON>() { new MiniSlideShowJSON
+                    {
+                        Title="اقتصاد مقاومتی",
+                        Href="https://hekmateislami.com/21348",
+                        Type="image",
+
+                        Link = "https://hekmateislami.com/wp-content/uploads/2026/03/%D8%B4%D8%B9%D8%A7%D8%B1-%D8%B3%D8%A7%D9%84-1405.webp",
+                        ID=-1
+                    } }
+                }));
+                return;
+            }
+            List<MiniSlideShowJSON> li = [];
+            if (message.Page == "admin" && message.GeneralHeaders?.UserTBL?.VerifyUserPermissions("manage_users") == true)
+            {
+                li = _db.SlideshowTBL.OrderByDescending(e => e.ID).Select(e => new MiniSlideShowJSON
+                {
+                    Href = e.Href,
+                    ID = e.ID,
+                    Link = Statics.CombinePath(Statics.URLFiles, e.Path),
+                    Type = e.Explain,
+                    Position=e.Status==MainEntity_Status.Enabled? e.Position:0,
+                    Title = e.Name
+                }).ToList();
+            }
+            else
+            {
+                li = _db.SlideshowTBL.Where(e => e.Status == MainEntity_Status.Enabled).OrderBy(e => e.Position).Select(e => new MiniSlideShowJSON
+                {
+                    Href = e.Href,
+                    ID = e.ID,
+                    Link = Statics.CombinePath(Statics.URLFiles, e.Path),
+                    Position=e.Status==MainEntity_Status.Enabled? e.Position:0,
+                    Type = e.Explain,
+                    Title = e.Name
+                }).ToList();
+            }
+
+
+            outputPort.Handle(new GenericResponse<GetSlideShowResponse>(new GetSlideShowResponse
+            {
+                Message = "ok",
+                Status = 200,
+                Data = li
+            }));
+
+        }
+    }
+    #endregion
+
+    #region EditSlideShow
+    public class EditSlideShowUseCase : IEditSlideShowUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        private IBBBGetMeetings IBBBGetMeetings { get; }
+        private IScpUploader IScpUploader { get; }
+        public EditSlideShowUseCase(IDBContext repository,
+            IConfiguration configuration,
+            IBBBGetMeetings bBBGetMeetings,
+            IScpUploader IScpUploader
+            )
+        {
+            _db = repository;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+            IBBBGetMeetings = bBBGetMeetings;
+            this.IScpUploader = IScpUploader;
+        }
+
+
+        public async Task handleAsync(EditSlideShowRequest message,
+            IOutPutPort<GenericResponse<EditSlideShowResponse>> outputPort)
+        {
+            List<MiniSlideShowJSON> li = [];
+            if (message.GeneralHeaders?.UserTBL?.VerifyUserPermissions("manage_users") == true)
+            {
+                if (!_db.SlideshowTBL.Any(e => e.ID == message.IDSlideshow))
+                {
+                    outputPort.Handle(new GenericResponse<EditSlideShowResponse>(new EditSlideShowResponse
+                    {
+                        Message = "empty",
+                        Status = 404,
+                        Data = new List<MiniSlideShowJSON>() { new MiniSlideShowJSON
+                    {
+                        Title="اقتصاد مقاومتی",
+                        Href="https://hekmateislami.com/21348",
+                        Type="image",
+                        Link = "https://hekmateislami.com/wp-content/uploads/2026/03/%D8%B4%D8%B9%D8%A7%D8%B1-%D8%B3%D8%A7%D9%84-1405.webp",
+                        ID=-1
+                    } }
+                    }));
+                    return;
+                }
+                var l = _db.SlideshowTBL.Find(message.IDSlideshow);
+                if (message.Position <= 0)
+                    l.Status = MainEntity_Status.Disable;
+                else
+                {
+                    l.Status = MainEntity_Status.Enabled;
+                    l.Position = message.Position;
+                    if (!string.IsNullOrEmpty(message.Href))
+                    {
+                        l.Href = message.Href;
+                    }
+                }
+                _db.Update(l);
+                _db.SaveChanges();
+
+                outputPort.Handle(new GenericResponse<EditSlideShowResponse>(new EditSlideShowResponse
+                {
+                    Message = "ok",
+                    Status = 200,
+                }));
+                return;
+            }
+
+
+
+            outputPort.Handle(new GenericResponse<EditSlideShowResponse>(new EditSlideShowResponse
+            {
+                Message = "not found",
+                Status = 400,
+            }));
+
+        }
+    }
+    #endregion
+
+    #region InsertSlideShow
+    public class InsertSlideShowUseCase : IInsertSlideShowUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        private IBBBGetMeetings IBBBGetMeetings { get; }
+        private IScpUploader IScpUploader { get; }
+        public InsertSlideShowUseCase(IDBContext repository,
+            IConfiguration configuration,
+            IBBBGetMeetings bBBGetMeetings,
+            IScpUploader IScpUploader
+            )
+        {
+            _db = repository;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+            IBBBGetMeetings = bBBGetMeetings;
+            this.IScpUploader = IScpUploader;
+        }
+
+
+        public async Task handleAsync(InsertSlideShowRequest message,
+     IOutPutPort<GenericResponse<InsertSlideShowResponse>> outputPort)
+        {
+            try
+            {
+                // بررسی دسترسی ادمین
+                if (message.GeneralHeaders?.UserTBL?.VerifyUserPermissions("manage_users") != true)
+                {
+                    outputPort.Handle(new GenericResponse<InsertSlideShowResponse>(new InsertSlideShowResponse
+                    {
+                        Message = "شما دسترسی لازم را ندارید",
+                        Status = 403,
+                    }));
+                    return;
+                }
+
+                // بررسی وجود فایل
+                if (message.File == null || message.File.Length == 0)
+                {
+                    outputPort.Handle(new GenericResponse<InsertSlideShowResponse>(new InsertSlideShowResponse
+                    {
+                        Message = "فایل اسلایدشو را انتخاب کنید",
+                        Status = 400,
+                    }));
+                    return;
+                }
+
+                // بررسی پسوند فایل
+                var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
+                var fileExtension = Path.GetExtension(message.File.FileName).ToLower();
+
+                if (!allowedExtensions.Contains(fileExtension))
+                {
+                    outputPort.Handle(new GenericResponse<InsertSlideShowResponse>(new InsertSlideShowResponse
+                    {
+                        Message = "فرمت فایل مجاز نیست. فقط تصاویر (jpg, jpeg, png, gif, webp) قابل قبول هستند",
+                        Status = 400,
+                    }));
+                    return;
+                }
+
+                // ایجاد نام یکتا برای فایل
+                var uniqueFileName = $"{Guid.NewGuid()}{fileExtension}";
+
+                // مسیر ذخیره فایل
+                var uploadPath = @"C:\hekmatFiles\img\slider";
+
+                // ایجاد پوشه اگر وجود ندارد
+                if (!Directory.Exists(uploadPath))
+                {
+                    Directory.CreateDirectory(uploadPath);
+                }
+
+                var filePath = Path.Combine(uploadPath, uniqueFileName);
+
+                // ذخیره فایل
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await message.File.CopyToAsync(stream);
+                }
+
+                // ایجاد لینک فایل
+                var fileLink =  $"/img/slider/{uniqueFileName}";
+
+                // ایجاد اسلایدشوی جدید
+                var slideShow = new SlideshowTBL
+                {
+                    Name = message.Title ?? "",
+                    Href = message.Href ?? "",
+                    Path = fileLink,
+                    Position = message.Position > 0 ? message.Position : 0,
+                    Status = message.Position > 0 ? MainEntity_Status.Enabled : MainEntity_Status.Disable,
+                    DateInsert = DateTime.Now,
+                    Type = MainEntity_Types.Normal,
+                    Explain="image",
+                };
+
+                // ذخیره در دیتابیس
+                await _db.SlideshowTBL.AddAsync(slideShow);
+                await _db.SaveChangesAsync();
+
+                // پاسخ موفقیت‌آمیز
+                outputPort.Handle(new GenericResponse<InsertSlideShowResponse>(new InsertSlideShowResponse
+                {
+                    Message = "اسلایدشو با موفقیت اضافه شد",
+                    Status = 200,
+                }));
+            }
+            catch (Exception ex)
+            {
+                // خطای سیستمی
+                outputPort.Handle(new GenericResponse<InsertSlideShowResponse>(new InsertSlideShowResponse
+                {
+                    Message = $"خطا در ذخیره اسلایدشو: {ex.Message}",
+                    Status = 500,
+                }));
+            }
+        }
+    }
+    #endregion
+
+    #region Contactus
+    public class ContactusUseCase : IContactusUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        private IBBBGetMeetings IBBBGetMeetings { get; }
+        private IScpUploader IScpUploader { get; }
+        public ContactusUseCase(IDBContext repository,
+            IConfiguration configuration,
+            IBBBGetMeetings bBBGetMeetings,
+            IScpUploader IScpUploader
+            )
+        {
+            _db = repository;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+            IBBBGetMeetings = bBBGetMeetings;
+            this.IScpUploader = IScpUploader;
+        }
+
+
+        public async Task handleAsync(ContactusRequest message,
+            IOutPutPort<GenericResponse<ContactusResponse>> outputPort)
+        {
+            if (_db.ContactUsTBL.Count(e => e.Explain == message.GeneralHeaders.RequestedIP && e.DateInsert > DateTime.Now.AddDays(-1)) > 5)
+            {
+                outputPort.Handle(new GenericResponse<ContactusResponse>(new ContactusResponse
+                {
+                    Message = "به دلیل تکرار بیش از حد، لطفا 24 ساعت بعد مجدد تلاش کنید یا با شماره زیر تماس بگیرید.",
+                    Status = 400,
+                }));
+                return;
+            }
+            _db.ContactUsTBL.Add(new ContactUsTBL
+            {
+                Email = message.Email,
+                Name = message.Name,
+                Phone = message.Phone,
+                Status = MainEntity_Status.CONTACTUS_SUBMITED,
+                Text = message.Text,
+                Type = MainEntity_Types.CONTACTUS_WEBSITE,
+                Explain = message.GeneralHeaders.RequestedIP
+            });
+            _db.SaveChanges();
+            outputPort.Handle(new GenericResponse<ContactusResponse>(new ContactusResponse
+            {
+                Message = "ok",
+                Status = 200,
+            }));
+
+        }
+    }
+    #endregion
+
+    #region GetProfileInfo
+    public class GetProfileInfoUseCase : IGetProfileInfoUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        private IBBBGetMeetings IBBBGetMeetings { get; }
+        private IScpUploader IScpUploader { get; }
+        public GetProfileInfoUseCase(IDBContext repository,
+            IConfiguration configuration,
+            IBBBGetMeetings bBBGetMeetings,
+            IScpUploader IScpUploader
+            )
+        {
+            _db = repository;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+            IBBBGetMeetings = bBBGetMeetings;
+            this.IScpUploader = IScpUploader;
+        }
+
+
+        public async Task handleAsync(GetProfileInfoRequest message,
+            IOutPutPort<GenericResponse<GetProfileInfoResponse>> outputPort)
+        {
+            message.Username = message.Username.TrimStart('@');
+
+            if (!_db.UserTBLs.Any(e => e.Username == message.Username))
+            {
+                outputPort.Handle(new GenericResponse<GetProfileInfoResponse>(new GetProfileInfoResponse
+                {
+                    Message = "Nouser",
+                    Status = 404,
+
+                }));
+                return;
+            }
+            if (message.GeneralHeaders.UserTBL != null)
+            {
+
+                var li = _db.UserTBLs.Where(e => e.Username == message.Username)
+                    .Include(e => e.Followers).Include(e => e.Followings).Select(e => new MiniProfileJSON
+                    {
+                        ID = e.ID,
+                        Avatar = string.IsNullOrEmpty(e.AvatarPath) ? "https://hekmateislami.com/wp-content/uploads/2025/12/logo-majma-low.png" : Statics.CombinePath(Statics.URLFiles, e.AvatarPath),
+                        Bio = e.GetRole(),
+                        FollowersCount = e.Followers.Count,
+                        IsFollowing = e.Followings.Any(r => r.IDFollower == message.GeneralHeaders.UserTBL.ID),
+                        Name = e.Firstname
+
+                    }).First();
+
+                outputPort.Handle(new GenericResponse<GetProfileInfoResponse>(new GetProfileInfoResponse
+                {
+                    Message = "ok",
+                    Status = 200,
+                    Data = li
+                }));
+            }
+            else
+            {
+
+                var li = _db.UserTBLs.Where(e => e.Status == MainEntity_Status.Enabled)
+                 .Include(e => e.Followers).Include(e => e.Followings).Select(e => new MiniProfileJSON
+                 {
+                     ID = e.ID,
+                     Avatar = Statics.CombinePath(Statics.URLFiles, e.AvatarPath),
+                     Bio = e.GetRole(),
+                     FollowersCount = e.Followers.Count,
+                     IsFollowing = false,
+                     Name = e.Firstname
+
+                 }).First();
+
+                outputPort.Handle(new GenericResponse<GetProfileInfoResponse>(new GetProfileInfoResponse
+                {
+                    Message = "ok",
+                    Status = 200,
+                    Data = li
+                }));
+            }
+
+        }
+    }
+    #endregion
+
+    #region FollowProfile
+    public class FollowProfileUseCase : IFollowProfileUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        private IBBBGetMeetings IBBBGetMeetings { get; }
+        private IScpUploader IScpUploader { get; }
+        public FollowProfileUseCase(IDBContext repository,
+            IConfiguration configuration,
+            IBBBGetMeetings bBBGetMeetings,
+            IScpUploader IScpUploader
+            )
+        {
+            _db = repository;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+            IBBBGetMeetings = bBBGetMeetings;
+            this.IScpUploader = IScpUploader;
+        }
+
+
+        public async Task handleAsync(FollowProfileRequest message,
+            IOutPutPort<GenericResponse<FollowProfileResponse>> outputPort)
+        {
+
+            message.Username = message.Username.TrimStart('@');
+            if (!_db.UserTBLs.Any(e => e.Username == message.Username))
+            {
+                outputPort.Handle(new GenericResponse<FollowProfileResponse>(new FollowProfileResponse
+                {
+                    Message = "Nouser",
+                    Status = 404,
+
+                }));
+                return;
+            }
+            var user = _db.UserTBLs.Where(e => e.Username == message.Username).First();
+            if (message.GeneralHeaders.UserTBL != null)
+            {
+
+                bool isFollowing = false;
+
+                if (_db.UserTBLToUserTBLs.Any(e => e.IDFollower == message.GeneralHeaders.UserTBL.ID && e.Following.Username == message.Username))
+                {
+                    _db.Database.ExecuteSqlRaw(
+                       "DELETE FROM Hekmat.UserTBLToUserTBL WHERE IDFollowing = {0} AND IDFollower = {1}",
+                        user.ID, message.GeneralHeaders.UserTBL.ID);
+                    isFollowing = false;
+                }
+                else
+                {
+                    _db.UserTBLToUserTBLs.Add(new UserTBLToUserTBL
+                    {
+                        IDFollower = message.GeneralHeaders.UserTBL.ID,
+                        IDFollowing = user.ID,
+                    });
+                    _db.SaveChanges();
+                    isFollowing = true;
+                }
+
+
+                outputPort.Handle(new GenericResponse<FollowProfileResponse>(new FollowProfileResponse
+                {
+                    Message = "ok",
+                    Status = 200,
+                    IsFollowing = isFollowing,
+                    NewFollowersCount = _db.UserTBLToUserTBLs.Count(e => e.IDFollowing == user.ID)
+                }));
+            }
+            else
+            {
+
+
+                outputPort.Handle(new GenericResponse<FollowProfileResponse>(new FollowProfileResponse
+                {
+                    Message = "Not allowed",
+                    Status = 403,
+                }));
+            }
+
+        }
+    }
+    #endregion
+
+    #region GetHekmatShobe
+    public class GetHekmatShobeUseCase : IGetHekmatShobeUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        private readonly IMemoryCache _memoryCache;
+        private readonly IConfiguration _configuration;
+
+        public GetHekmatShobeUseCase(IDBContext repository,
+            IConfiguration configuration,
+            IMemoryCache memoryCache)
+        {
+            _db = repository;
+            _configuration = configuration;
+            _memoryCache = memoryCache;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+        }
+
+        public async Task handleAsync(GetHekmatShobeRequest message,
+            IOutPutPort<GenericResponse<GetHekmatShobeResponse>> outputPort)
+        {
+            try
+            {
+
+
+                //Statics.Log("GetHekmatShobeUseCase", JsonConvert.SerializeObject(message.GeneralHeaders));
+
+                string cacheKey = "HekmatShobeList";
+
+                // Try to get data from cache
+                if (!_memoryCache.TryGetValue(cacheKey, out List<MiniShobeJSON> cachedData))
+                {
+                    // Data not in cache, retrieve from database
+                    Statics.Log("GetHekmatShobeUseCase", "Cache miss - retrieving from database");
+
+                    var list = _db.UserTBLs.Where(e => e.IsHekmatShobe)
+                        .Include(e => e.RoomTBLs)
+                        .ThenInclude(e => e.MeetingTBLs)
+                        .ThenInclude(e => e.UserTBLToMeetingTBLs)
+                        .ToList();
+
+                    cachedData = list.Select(e => new MiniShobeJSON
+                    {
+                        Avatar = Statics.CombinePath(Statics.URLFiles, e.AvatarPath),
+                        Fullname = e.GetName(),
+                        Room = e.RoomTBLs.Select(r => new MiniRoomJSON
+                        {
+                            Title = r.Title,
+                            Count = r.MeetingTBLs.Count(d => d.UserTBLToMeetingTBLs.Count > 1),
+                            RoomID = r.FriendlyID,
+                            CountPartis = r.MeetingTBLs.Sum(f => f.UserTBLToMeetingTBLs.Count),
+                            Avatar = Statics.CombinePath(Statics.URLFiles, r.Avatar)
+                        }).ToList(),
+                        ID = e.ID
+                    }).ToList();
+
+                    // Configure cache options
+                    var cacheOptions = new MemoryCacheEntryOptions()
+                        .SetSlidingExpiration(TimeSpan.FromMinutes(30))  // Reset expiration if accessed
+                        .SetAbsoluteExpiration(TimeSpan.FromHours(2))     // Absolute expiration time
+                        .SetPriority(CacheItemPriority.Normal)            // Cache priority
+                        .SetSize(1);                                      // Size for memory pressure management
+
+                    // Add data to cache
+                    _memoryCache.Set(cacheKey, cachedData, cacheOptions);
+
+                    Statics.Log("GetHekmatShobeUseCase", $"Data cached with {cachedData.Count} items");
+                }
+                else
+                {
+                    Statics.Log("GetHekmatShobeUseCase", $"Cache hit - returning {cachedData.Count} items from cache");
+                }
+
+                outputPort.Handle(new GenericResponse<GetHekmatShobeResponse>(new GetHekmatShobeResponse
+                {
+                    Message = "ok",
+                    Status = 200,
+                    Data = cachedData
+                }));
+            }
+            catch (Exception e)
+            {
+                Statics.Log("GetHekmatShobeUseCase", e);
+                outputPort.Handle(new GenericResponse<GetHekmatShobeResponse>(new GetHekmatShobeResponse
+                {
+                    Message = "ok",
+                    Status = 200,
+                    Data = []
+                }));
+            }
+        }
+    }
+    #endregion
+
+    #region NewPlanRoom
+    public class NewPlanRoomUseCase : INewPlanRoomUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        private IBBBGetMeetings bbb { get; }
+        private readonly IMediator _mediator;
+
+        public NewPlanRoomUseCase(IDBContext repository,
+            IConfiguration configuration,
+            IBBBGetMeetings bbb,
+            IMediator _mediator
+            )
+        {
+            _db = repository;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+            this.bbb = bbb;
+            this._mediator = _mediator;
+        }
+
+        public async Task handleAsync(NewPlanRoomRequest message,
+            IOutPutPort<GenericResponse<NewPlanRoomResponse>> outputPort)
+        {
+            try
+            {
+                if (!message.GeneralHeaders.UserTBL.VerifyUserPermissions("create_meeting"))
+                {
+                    outputPort.Handle(new GenericResponse<NewPlanRoomResponse>(new NewPlanRoomResponse
+                    {
+                        Message = "دسترسی ندارید",
+                        Status = 400
+                    }));
+                    return;
+                }
+                if (!_db.RoomTBLs.Any(e => e.IDOwnerTBL == message.GeneralHeaders.UserTBL.ID && e.FriendlyID == message.FriendlyID))
+                {
+                    outputPort.Handle(new GenericResponse<NewPlanRoomResponse>(new NewPlanRoomResponse
+                    {
+                        Message = "دسترسی ندارید",
+                        Status = 400
+                    }));
+                    return;
+                }
+                var room = _db.RoomTBLs.Where(e => e.FriendlyID == message.FriendlyID).First();
+
+                _db.RoomTBLPlanTBLs.Add(new RoomTBLPlanTBL
+                {
+                    IDRoomTBL = room.ID,
+                    StartDate = message.StartDate.AddHours(-17),
+                    Status = MainEntity_Status.Enabled,
+                    Type = MainEntity_Types.PLAN_NORMAL,
+                    Teachers = message.Teacher,
+                    Title = message.Title,
+                });
+                _db.SaveChanges();
+                await _mediator.Publish(new PlanUpdateEvent
+                {
+                    FriendlyID = room.FriendlyID,
+                    Action = "create",
+
+                });
+
+                outputPort.Handle(new GenericResponse<NewPlanRoomResponse>(new NewPlanRoomResponse
+                {
+                    Message = "fixed",
+                    Status = 200,
+                }));
+
+            }
+            catch (Exception e)
+            {
+                Statics.Log("NewPlanRoomUseCase", e.Message);
+            }
+
+        }
+    }
+    #endregion
+
+    #region GetPlanRoom
+    public class GetPlanRoomUseCase : IGetPlanRoomUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        private readonly IMemoryCache _memoryCache;
+        private readonly IConfiguration _configuration;
+        private readonly IMediator _mediator;
+        public GetPlanRoomUseCase(IDBContext repository,
+            IConfiguration configuration,
+            IMediator _mediator,
+            IMemoryCache memoryCache)
+        {
+            _db = repository;
+            _configuration = configuration;
+            this._mediator = _mediator;
+            _memoryCache = memoryCache;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+        }
+
+        public async Task handleAsync(GetPlanRoomRequest message,
+            IOutPutPort<GenericResponse<GetPlanRoomResponse>> outputPort)
+        {
+            try
+            {
+                if (!_db.RoomTBLs.Any(e => e.IDOwnerTBL == message.GeneralHeaders.UserTBL.ID && e.FriendlyID == message.FriendlyID) &&
+                                !message.GeneralHeaders.UserTBL.VerifyUserPermissions("manage_admins"))
+                {
+                    outputPort.Handle(new GenericResponse<GetPlanRoomResponse>(new GetPlanRoomResponse
+                    {
+                        Message = "دسترسی ندارید",
+                        Status = 400
+                    }));
+                    return;
+                }
+                //Statics.Log("GetPlanRoomUseCase", JsonConvert.SerializeObject(message.GeneralHeaders));
+
+                string cacheKey = @$"HekmatShobeList{message.FriendlyID}";
+
+                // Try to get data from cache
+                if (!_memoryCache.TryGetValue(cacheKey, out List<MiniPlanJSON> cachedData))
+                {
+                    // Data not in cache, retrieve from database
+                    Statics.Log("GetPlanRoomUseCase", "Cache miss - retrieving from database");
+
+                    var room = _db.RoomTBLs.Where(e => e.FriendlyID == message.FriendlyID).First();
+
+                    var list = _db.RoomTBLPlanTBLs.Where(e => e.IDRoomTBL == room.ID)
+                        .ToList();
+
+                    cachedData = list.OrderByDescending(e => e.StartDate).Select(e => new MiniPlanJSON
+                    {
+                        Id = e.ID,
+                        StartAt = e.StartDate,
+                        Teacher = e.Teachers,
+                        Title = e.Title
+                    }).ToList();
+
+                    // Configure cache options
+                    var cacheOptions = new MemoryCacheEntryOptions()
+                        .SetSlidingExpiration(TimeSpan.FromMinutes(5))  // Reset expiration if accessed
+                        .SetAbsoluteExpiration(TimeSpan.FromHours(1))     // Absolute expiration time
+                        .SetPriority(CacheItemPriority.Normal)            // Cache priority
+                        .SetSize(1);                                      // Size for memory pressure management
+
+                    // Add data to cache
+                    _memoryCache.Set(cacheKey, cachedData, cacheOptions);
+
+                    Statics.Log("GetPlanRoomUseCase", $"Data cached with {cachedData.Count} items");
+                }
+                else
+                {
+                    Statics.Log("GetPlanRoomUseCase", $"Cache hit - returning {cachedData.Count} items from cache");
+                }
+
+                outputPort.Handle(new GenericResponse<GetPlanRoomResponse>(new GetPlanRoomResponse
+                {
+                    Message = "ok",
+                    Status = 200,
+                    Data = cachedData
+                }));
+            }
+            catch (Exception e)
+            {
+                Statics.Log("GetPlanRoomUseCase", e);
+                outputPort.Handle(new GenericResponse<GetPlanRoomResponse>(new GetPlanRoomResponse
+                {
+                    Message = "ok",
+                    Status = 200,
+                    Data = []
+                }));
+            }
+        }
+    }
+    #endregion
+
+    #region GetPlanRoomPublic
+    public class GetPlanRoomPublicUseCase : IGetPlanRoomPublicUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        private readonly IMemoryCache _memoryCache;
+        private readonly IConfiguration _configuration;
+        private readonly IMediator _mediator;
+        public GetPlanRoomPublicUseCase(IDBContext repository,
+            IConfiguration configuration,
+            IMediator _mediator,
+            IMemoryCache memoryCache)
+        {
+            _db = repository;
+            _configuration = configuration;
+            this._mediator = _mediator;
+            _memoryCache = memoryCache;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+        }
+
+        public async Task handleAsync(GetPlanRoomPublicRequest message,
+            IOutPutPort<GenericResponse<GetPlanRoomPublicResponse>> outputPort)
+        {
+            try
+            {
+                //Statics.Log("GetPlanRoomPublicUseCase", JsonConvert.SerializeObject(message.GeneralHeaders));
+
+                string cacheKey = @$"PlanRoomPublic";
+
+                // Try to get data from cache
+                if (!_memoryCache.TryGetValue(cacheKey, out List<MiniPlanJSON> cachedData))
+                {
+                    // Data not in cache, retrieve from database
+                    Statics.Log("GetPlanRoomPublicUseCase", "Cache miss - retrieving from database");
+
+                    var list = _db.RoomTBLPlanTBLs.Where(e => e.StartDate.HasValue && e.StartDate.Value > DateTime.Now && e.RoomTBL.IsPublicRoom).Include(e => e.RoomTBL).ThenInclude(e => e.OwnerTBL)
+                        .ToList();
+
+                    cachedData = list.OrderByDescending(e => e.StartDate).Select(e => new MiniPlanJSON
+                    {
+                        Id = e.ID,
+                        StartAt = e.StartDate,
+                        Teacher = e.Teachers,
+                        Title = e.Title,
+                        RoomJSON = new MiniRoomJSON
+                        {
+                            RoomID = e.RoomTBL.FriendlyID,
+                            Title = e.RoomTBL.Title,
+                            Owner = new MiniUserJSON
+                            {
+                                Fullname = e.RoomTBL.OwnerTBL.GetName(),
+                                Username = e.RoomTBL.OwnerTBL.Username
+                            }
+                        }
+                    }).OrderBy(e => e.StartAt).ToList();
+
+                    // Configure cache options
+                    var cacheOptions = new MemoryCacheEntryOptions()
+                        .SetSlidingExpiration(TimeSpan.FromMinutes(5))  // Reset expiration if accessed
+                        .SetAbsoluteExpiration(TimeSpan.FromHours(1))     // Absolute expiration time
+                        .SetPriority(CacheItemPriority.Normal)            // Cache priority
+                        .SetSize(1);                                      // Size for memory pressure management
+
+                    // Add data to cache
+                    _memoryCache.Set(cacheKey, cachedData, cacheOptions);
+
+                    Statics.Log("GetPlanRoomPublicUseCase", $"Data cached with {cachedData.Count} items");
+                }
+                else
+                {
+                    Statics.Log("GetPlanRoomPublicUseCase", $"Cache hit - returning {cachedData.Count} items from cache");
+                }
+
+                outputPort.Handle(new GenericResponse<GetPlanRoomPublicResponse>(new GetPlanRoomPublicResponse
+                {
+                    Message = "ok",
+                    Status = 200,
+                    Data = cachedData
+                }));
+            }
+            catch (Exception e)
+            {
+                Statics.Log("GetPlanRoomPublicUseCase", e);
+                outputPort.Handle(new GenericResponse<GetPlanRoomPublicResponse>(new GetPlanRoomPublicResponse
+                {
+                    Message = "ok",
+                    Status = 200,
+                    Data = []
+                }));
+            }
+        }
+    }
+    #endregion
+
+    #region DeletePlanRoom
+    public class DeletePlanRoomUseCase : IDeletePlanRoomUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        private readonly IMemoryCache _memoryCache;
+        private readonly IConfiguration _configuration;
+        private readonly IMediator _mediator;
+
+        public DeletePlanRoomUseCase(IDBContext repository,
+            IConfiguration configuration,
+            IMediator _mediator,
+            IMemoryCache memoryCache)
+        {
+            _db = repository;
+            _configuration = configuration;
+            this._mediator = _mediator;
+            _memoryCache = memoryCache;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+        }
+
+        public async Task handleAsync(DeletePlanRoomRequest message,
+            IOutPutPort<GenericResponse<DeletePlanRoomResponse>> outputPort)
+        {
+            try
+            {
+                if (!_db.RoomTBLPlanTBLs.Any(e => e.RoomTBL.IDOwnerTBL == message.GeneralHeaders.UserTBL.ID && e.ID == message.IDPlan) &&
+                                !message.GeneralHeaders.UserTBL.VerifyUserPermissions("manage_admins"))
+                {
+                    outputPort.Handle(new GenericResponse<DeletePlanRoomResponse>(new DeletePlanRoomResponse
+                    {
+                        Message = "دسترسی ندارید",
+                        Status = 400
+                    }));
+                    return;
+                }
+                var room = _db.RoomTBLPlanTBLs.Where(e => e.ID == message.IDPlan).Include(e => e.RoomTBL).First();
+                _db.RoomTBLPlanTBLs.Remove(room);
+
+                _db.SaveChanges();
+                await _mediator.Publish(new PlanUpdateEvent
+                {
+                    FriendlyID = room.RoomTBL.FriendlyID,
+                    Action = "delete",
+
+                });
+                outputPort.Handle(new GenericResponse<DeletePlanRoomResponse>(new DeletePlanRoomResponse
+                {
+                    Message = "ok",
+                    Status = 200,
+                }));
+            }
+            catch (Exception e)
+            {
+                Statics.Log("DeletePlanRoomUseCase", e);
+                outputPort.Handle(new GenericResponse<DeletePlanRoomResponse>(new DeletePlanRoomResponse
+                {
+                    Message = "exc",
+                    Status = 400,
+                }));
+            }
+        }
+    }
+    #endregion
 }

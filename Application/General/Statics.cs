@@ -1,4 +1,5 @@
-﻿using Domain.Entity;
+﻿using Application.DTO.Generals;
+using Domain.Entity;
 using Microsoft.IdentityModel.Tokens;
 using System;
 using System.Collections.Generic;
@@ -12,17 +13,17 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Security.Cryptography;
 
 
 namespace Application.General
 {
     public static class Statics
     {
-        public static string URL = "https://vc.hekmateislami.com"; //
-        public static string BBB_BASE_URL = "https://vc.hekmateislami.com/bigbluebutton/api/";
-        public static string BBB_SECRET = "h9P7pqVucziDq2ulofof0q4E2UiubquthWPYedBTXA";
-        public static string BBB_MODERATOR_PW = "YRhv1515$j21w";
-        public static string BBB_ATTEND_PW = "HGf@tat;ae15190";
+        public static BBBConfig bbb { get; set; }
+
+        public static string URL = "https://core.hekmateislami.com/";
+        public static string URLFiles = "https://vcfile.hekmateislami.com/";
 
         private static readonly Regex ChromeRegex = new Regex(@"Chrome/(\d+)", RegexOptions.Compiled);
         private static readonly Regex FirefoxRegex = new Regex(@"Firefox/(\d+)", RegexOptions.Compiled);
@@ -110,6 +111,7 @@ namespace Application.General
             Alive = 2,
             Expired = 3
         }
+
         public static long CalculatePrice(long price, int decentPercent)
         {
             return price - ((price * decentPercent) / 100);
@@ -133,6 +135,33 @@ namespace Application.General
         {"بهمن", "۱۱"},
         {"اسفند", "۱۲"}
     };
+        public static string CombinePath(params string[] paths)
+        {
+            if (paths == null || paths.Length == 0)
+                return string.Empty;
+
+            // Start with the first part
+            string result = paths[0] ?? string.Empty;
+
+            for (int i = 1; i < paths.Length; i++)
+            {
+                string next = paths[i];
+                if (string.IsNullOrEmpty(next))
+                    continue;
+
+                // Determine separator based on the current result (if any)
+                char separator = result.Contains('/') ? '/' : '\\';
+
+                // Trim trailing separator from result and leading from next
+                result = result.TrimEnd('/', '\\');
+                next = next.TrimStart('/', '\\');
+
+                result = $"{result}{separator}{next}";
+            }
+
+            return result;
+        }
+
         public static string ConvertPersianMonthToNumber(string persianDate)
         {
             foreach (var month in MonthMap)
@@ -151,7 +180,7 @@ namespace Application.General
 
             char[] persianDigits = { '۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹' };
             char[] result = input.ToCharArray();
-            
+
             for (int i = 0; i < result.Length; i++)
             {
                 if (persianDigits.Contains(result[i]))
@@ -224,6 +253,28 @@ namespace Application.General
 
             return "کمتر از یک دقیقه";
         }
+        private static readonly Random _random = new Random();
+        private const string Chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+        public static string GenerateRandomRoomFriendlyID()
+        {
+            var parts = new string[4];
+            for (int i = 0; i < 4; i++)
+            {
+                parts[i] = GenerateSegment(3);
+            }
+            return string.Join("-", parts);
+        }
+
+        public static string GenerateSegment(int length)
+        {
+            var sb = new StringBuilder(length);
+            for (int i = 0; i < length; i++)
+            {
+                sb.Append(Chars[_random.Next(Chars.Length)]);
+            }
+            return sb.ToString();
+        }
+
         public static string GenerateRoomMeetID()
         {
             // Generate 20 random bytes (SHA-1 length)
@@ -338,24 +389,29 @@ namespace Application.General
                 return "unknown.png";
             }
         }
-        public static string GenerateJWTDoerToWork(int workid, string keyword, string guid)
+        public static string GenerateJWTLoginVC2(UserTBL user, IGeneralHeaders headers)
         {
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("34383f87-02fe-4484-9663-5f3975d9d0e9"));
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("a1b32c5e-8f1d-5a3c-8d5e-2f6a5b4c9d0e"));
             var cred = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
             var token = new JwtSecurityToken(
               //_configuration.GetSection("Appsettings:ValIssuerID").Value,
               //_configuration.GetSection("Appsettings:ValIudienceID").Value,
-              issuer: "etier.com",
-              audience: "etier.com",
-              notBefore: DateTime.Now,
-                expires: DateTime.Now.AddHours(1),
+              issuer: "core.hekmateislami.com",
+              audience: "vc2.hekmateislami.com",
+              notBefore: DateTime.Now.AddSeconds(-1),
+                expires: DateTime.Now.AddDays(10),
                 claims: new List<Claim>
                 {
-                    new Claim("date",DateTime.Now.ToString()),
-                    new Claim("UserID", guid),
-                    new Claim("keyword", keyword),
-                    new Claim("workid",workid.ToString()),
-
+                    new Claim("UserID", user.UUID),
+                    new Claim("Role", user.GetRole()),
+                    new Claim("IP", headers.RequestedIP),
+                    new Claim("Device", headers.RequestedDevice),
+                    new Claim("Agent", headers.Agent),
+                    new Claim("Guid",headers.IdentificationCode==null? "": headers.IdentificationCode.ToString()),
+                    new Claim("JMT",headers.JWTMeetingToken==null? "": headers.JWTMeetingToken),
+                    new Claim("JUT",headers.JWTUserToken==null? "": headers.JWTUserToken),
+                    new Claim("MIC",headers.MeetIdentificationCode==null? "": headers.MeetIdentificationCode),
+                    new Claim("Referer",headers.Referer==null? "": headers.Referer),
                 },
                 signingCredentials: cred);
 
@@ -551,7 +607,7 @@ namespace Application.General
             };
         }
     }
-public static class PdfCompressor
+    public static class PdfCompressor
     {
         //public static string CompressPdf(string inputPath)
         //{
@@ -631,5 +687,14 @@ public static class PdfCompressor
             return dayIndex == 6 ? PersianDayNames[6] : PersianDayNames[dayIndex + 1];
         }
     }
-
+    
+    public class BBBConfig
+    {
+        public string Url { get; set; }
+        public string UrlAPI { get; set; }
+        public string Secret { get; set; }
+        public string ModeratorPassword { get; set; }
+        public string AttendPassword { get; set; }
+        public string Last { get; set; }
+    }
 }
