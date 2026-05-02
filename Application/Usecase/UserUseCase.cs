@@ -1105,21 +1105,21 @@ namespace Application.Usecase
         {
             Statics.Log("GetTeacherListUseCase", JsonConvert.SerializeObject(message.GeneralHeaders));
 
-            var init = await _commonMethods.Initialize<GetTeacherListRequest>(message);
-            var user = init.Item1;
-            var meet = init.Item2;
-            if (!UserTBL.TYPE_ALLOWED_MEET_CREATE.Contains(user.Type))
-            {
-                outputPort.Handle(new GenericResponse<GetTeacherListResponse>(new GetTeacherListResponse
-                {
-                    Message = "You can't access it",
-                    Status = 200,
-                    Data = meet.Teacher == null ? [] : [new MiniUserJSON{
-                        Fullname=meet.Teacher.Firstname + " " + meet.Teacher.LastName,
-                    }]
-                }));
-                return;
-            }
+            //var init = await _commonMethods.Initialize<GetTeacherListRequest>(message);
+            //var user = init.Item1;
+            //var meet = init.Item2;
+            //if (!UserTBL.TYPE_ALLOWED_MEET_CREATE.Contains(user.Type))
+            //{
+            //    outputPort.Handle(new GenericResponse<GetTeacherListResponse>(new GetTeacherListResponse
+            //    {
+            //        Message = "You can't access it",
+            //        Status = 200,
+            //        Data = meet.Teacher == null ? [] : [new MiniUserJSON{
+            //            Fullname=meet.Teacher.Firstname + " " + meet.Teacher.LastName,
+            //        }]
+            //    }));
+            //    return;
+            //}
 
             outputPort.Handle(new GenericResponse<GetTeacherListResponse>(new GetTeacherListResponse
             {
@@ -1260,6 +1260,7 @@ namespace Application.Usecase
                             e.DateInsert,
                             plan = e.RoomTBLPlanTBLs.OrderBy(e => e.StartDate).ToList(),
                             e.OwnerTBL,
+                            e.Avatar,
                             Meetings = e.MeetingTBLs.Select(m => new
                             {
                                 m.ID,
@@ -1301,6 +1302,15 @@ namespace Application.Usecase
                             .Where(k => !string.IsNullOrWhiteSpace(k))
                             .Distinct()
                             .Count(),
+                        Avatar = room.Avatar,
+                        PlanJSONs = room.plan.Any() ? room.plan.Select(r => new MiniPlanJSON
+                        {
+                            Id = r.ID,
+                            StartAt = r.StartDate,
+                            Teacher = r.Teachers,
+                            Dabir = r.Dabir,
+                            Title = r.Title
+                        }).ToList() : [],
                         CountPartis = room.Meetings
                             .SelectMany(m => m.Participants)
                             .Where(p => p.Type != MainEntity_Types.USER_TEACHER)
@@ -1397,6 +1407,7 @@ namespace Application.Usecase
                     .Select(e => new
                     {
                         e.FriendlyID,
+                        e.Avatar,
                         e.Title,
                         e.DateInsert,
                         plan = e.RoomTBLPlanTBLs.OrderBy(e => e.StartDate).ToList(),
@@ -1425,6 +1436,7 @@ namespace Application.Usecase
                     RoomID = room.FriendlyID,
                     Title = room.Title,
                     Created = room.DateInsert,
+                    Avatar = room.Avatar,
 
                     // آخرین جلسه
                     LastMeet = room.Meetings
@@ -1500,23 +1512,35 @@ namespace Application.Usecase
         public async Task handleAsync(GetRoomByFriendlyIDRequest message,
             IOutPutPort<GenericResponse<GetRoomByFriendlyIDResponse>> outputPort)
         {
+            long id = 0;
+            try
+            {
+                if (message.GeneralHeaders?.UserTBL?.ID != null)
+                {
+                    id = message.GeneralHeaders.UserTBL.ID;
+                }
+            }
+            catch (Exception e) { }
+
             outputPort.Handle(new GenericResponse<GetRoomByFriendlyIDResponse>(new GetRoomByFriendlyIDResponse
             {
                 Message = "ok",
                 Status = 200,
-                Data = _db.RoomTBLs.Where(e => e.FriendlyID == message.Query).Include(e=>e.OwnerTBL).Include(e=>e.RoomTBLPlanTBLs.OrderBy(e=>e.StartDate))
+                Data = _db.RoomTBLs.Where(e => e.FriendlyID == message.Query).Include(e => e.OwnerTBL).Include(e => e.RoomTBLPlanTBLs.OrderBy(e => e.StartDate))
                 .Select(e => new DTO.Models.MiniRoomJSON
                 {
                     RoomID = e.FriendlyID,
                     Title = e.Title,
-                    NextMeet= e.RoomTBLPlanTBLs.Any(e => e.StartDate > DateTime.Now) ? e.RoomTBLPlanTBLs.Where(e => e.StartDate > DateTime.Now).First().StartDate : DateTime.MaxValue,
-                    LatestTitle= e.RoomTBLPlanTBLs.Any(e => e.StartDate > DateTime.Now) ? e.RoomTBLPlanTBLs.Where(e => e.StartDate > DateTime.Now).First().Title : "",
-                    Avatar=e.Avatar,
-                    Owner =new MiniUserJSON
+                    IsAdmin = e.IDOwnerTBL == id,
+                    NextMeet = e.RoomTBLPlanTBLs.Any(e => e.StartDate > DateTime.Now) ? e.RoomTBLPlanTBLs.Where(e => e.StartDate > DateTime.Now).First().StartDate : DateTime.MaxValue,
+                    LatestTitle = e.RoomTBLPlanTBLs.Any(e => e.StartDate > DateTime.Now) ? e.RoomTBLPlanTBLs.Where(e => e.StartDate > DateTime.Now).First().Title : "",
+                    Avatar = e.Avatar,
+
+                    Owner = new MiniUserJSON
                     {
-                        Fullname=e.OwnerTBL.GetName(),
-                        Username=e.OwnerTBL.Username,
-                    }
+                        Fullname = e.OwnerTBL.GetName(),
+                        Username = e.OwnerTBL.Username,
+                    },
                 }).First()
             }));
 
@@ -1708,7 +1732,7 @@ namespace Application.Usecase
             {
                 if (message.GeneralHeaders?.UserTBL?.ID != null)
                 {
-                    if (_db.RoomTBLs.Any(e => e.FriendlyID==message.MeetiID && e.IDOwnerTBL == message.GeneralHeaders.UserTBL.ID))
+                    if (_db.RoomTBLs.Any(e => e.FriendlyID == message.MeetiID && e.IDOwnerTBL == message.GeneralHeaders.UserTBL.ID))
                     {
                         modir = true;
                     }
@@ -1728,7 +1752,7 @@ namespace Application.Usecase
             var r = _db.RoomTBLs.Where(e => e.FriendlyID == message.MeetiID).First();
             string meetid = r.BBB_MeetID;
 
-            var meets = await IBBBGetMeetings.GetJoinUrlAsync(meetid, message.FullName, modir,await _commonMethods.ReturnPassword(message.MeetiID, modir));
+            var meets = await IBBBGetMeetings.GetJoinUrlAsync(meetid, message.FullName, modir, await _commonMethods.ReturnPassword(message.MeetiID, modir));
 
             outputPort.Handle(new GenericResponse<GetMeetingURLResponse>(new GetMeetingURLResponse
             {
@@ -2088,7 +2112,7 @@ namespace Application.Usecase
 
     }
     #endregion
-        
+
     #region EndTheMeeting
     public class EndTheMeetingUseCase : IEndTheMeetingUseCase
     {
@@ -2371,7 +2395,7 @@ namespace Application.Usecase
                     ID = e.ID,
                     Link = Statics.CombinePath(Statics.URLFiles, e.Path),
                     Type = e.Explain,
-                    Position=e.Status==MainEntity_Status.Enabled? e.Position:0,
+                    Position = e.Status == MainEntity_Status.Enabled ? e.Position : 0,
                     Title = e.Name
                 }).ToList();
             }
@@ -2382,7 +2406,7 @@ namespace Application.Usecase
                     Href = e.Href,
                     ID = e.ID,
                     Link = Statics.CombinePath(Statics.URLFiles, e.Path),
-                    Position=e.Status==MainEntity_Status.Enabled? e.Position:0,
+                    Position = e.Status == MainEntity_Status.Enabled ? e.Position : 0,
                     Type = e.Explain,
                     Title = e.Name
                 }).ToList();
@@ -2562,7 +2586,7 @@ namespace Application.Usecase
                 }
 
                 // ایجاد لینک فایل
-                var fileLink =  $"/img/slider/{uniqueFileName}";
+                var fileLink = $"/img/slider/{uniqueFileName}";
 
                 // ایجاد اسلایدشوی جدید
                 var slideShow = new SlideshowTBL
@@ -2574,7 +2598,7 @@ namespace Application.Usecase
                     Status = message.Position > 0 ? MainEntity_Status.Enabled : MainEntity_Status.Disable,
                     DateInsert = DateTime.Now,
                     Type = MainEntity_Types.Normal,
-                    Explain="image",
+                    Explain = "image",
                 };
 
                 // ذخیره در دیتابیس
@@ -2972,6 +2996,7 @@ namespace Application.Usecase
                     Status = MainEntity_Status.Enabled,
                     Type = MainEntity_Types.PLAN_NORMAL,
                     Teachers = message.Teacher,
+                    Dabir = message.Dabir,
                     Title = message.Title,
                 });
                 _db.SaveChanges();
@@ -3046,7 +3071,7 @@ namespace Application.Usecase
 
                     var room = _db.RoomTBLs.Where(e => e.FriendlyID == message.FriendlyID).First();
 
-                    var list = _db.RoomTBLPlanTBLs.Where(e => e.IDRoomTBL == room.ID)
+                    var list = _db.RoomTBLPlanTBLs.Where(e => e.IDRoomTBL == room.ID).Include(e => e.RoomTBL)
                         .ToList();
 
                     cachedData = list.OrderByDescending(e => e.StartDate).Select(e => new MiniPlanJSON
@@ -3054,7 +3079,9 @@ namespace Application.Usecase
                         Id = e.ID,
                         StartAt = e.StartDate,
                         Teacher = e.Teachers,
-                        Title = e.Title
+                        Dabir = e.Dabir,
+                        Title = e.Title,
+                        RoomJSON = new MiniRoomJSON { RoomID = e.RoomTBL.FriendlyID }
                     }).ToList();
 
                     // Configure cache options
@@ -3134,7 +3161,7 @@ namespace Application.Usecase
                     var list = _db.RoomTBLPlanTBLs.Where(e => e.StartDate.HasValue && e.StartDate.Value > DateTime.Now && e.RoomTBL.IsPublicRoom).Include(e => e.RoomTBL).ThenInclude(e => e.OwnerTBL)
                         .ToList();
 
-                    cachedData = list.OrderByDescending(e => e.StartDate).Select(e => new MiniPlanJSON
+                    cachedData = list.OrderBy(e => e.StartDate).Select(e => new MiniPlanJSON
                     {
                         Id = e.ID,
                         StartAt = e.StartDate,
@@ -3150,7 +3177,7 @@ namespace Application.Usecase
                                 Username = e.RoomTBL.OwnerTBL.Username
                             }
                         }
-                    }).OrderBy(e => e.StartAt).ToList();
+                    }).ToList();
 
                     // Configure cache options
                     var cacheOptions = new MemoryCacheEntryOptions()
@@ -3180,6 +3207,103 @@ namespace Application.Usecase
             {
                 Statics.Log("GetPlanRoomPublicUseCase", e);
                 outputPort.Handle(new GenericResponse<GetPlanRoomPublicResponse>(new GetPlanRoomPublicResponse
+                {
+                    Message = "ok",
+                    Status = 200,
+                    Data = []
+                }));
+            }
+        }
+    }
+    #endregion
+
+    #region GetLatestMeetings
+    public class GetLatestMeetingsUseCase : IGetLatestMeetingsUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        private readonly IMemoryCache _memoryCache;
+        private readonly IConfiguration _configuration;
+        private readonly IMediator _mediator;
+        public GetLatestMeetingsUseCase(IDBContext repository,
+            IConfiguration configuration,
+            IMediator _mediator,
+            IMemoryCache memoryCache)
+        {
+            _db = repository;
+            _configuration = configuration;
+            this._mediator = _mediator;
+            _memoryCache = memoryCache;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+        }
+
+        public async Task handleAsync(GetLatestMeetingsRequest message,
+            IOutPutPort<GenericResponse<GetLatestMeetingsResponse>> outputPort)
+        {
+            try
+            {
+                //Statics.Log("GetLatestMeetingsUseCase", JsonConvert.SerializeObject(message.GeneralHeaders));
+
+                string cacheKey = @$"LatestMeetings";
+
+                // Try to get data from cache
+                if (!_memoryCache.TryGetValue(cacheKey, out List<MiniPlanJSON> cachedData))
+                {
+                    // Data not in cache, retrieve from database
+                    Statics.Log("GetLatestMeetingsUseCase", "Cache miss - retrieving from database");
+
+                    var list = _db.RoomTBLPlanTBLs.Where(e => e.StartDate.HasValue && e.StartDate.Value <= DateTime.Now && e.RoomTBL.IsPublicRoom)
+                        .Include(e => e.RoomTBL).ThenInclude(e => e.OwnerTBL)
+                        .ToList();
+
+                    cachedData = list.OrderByDescending(e => e.StartDate).Select(e => new MiniPlanJSON
+                    {
+                        Id = e.ID,
+                        StartAt = e.StartDate,
+                        Teacher = e.Teachers,
+                        Title = e.Title,
+                        RoomJSON = new MiniRoomJSON
+                        {
+                            RoomID = e.RoomTBL.FriendlyID,
+                            Title = e.RoomTBL.Title,
+                            Avatar = e.RoomTBL.Avatar,
+                            Owner = new MiniUserJSON
+                            {
+                                Fullname = e.RoomTBL.OwnerTBL.GetName(),
+                                Username = e.RoomTBL.OwnerTBL.Username,
+                            }
+                        }
+                    }).Take(15).ToList();
+
+                    // Configure cache options
+                    var cacheOptions = new MemoryCacheEntryOptions()
+                        .SetSlidingExpiration(TimeSpan.FromHours(2))  // Reset expiration if accessed
+                        .SetAbsoluteExpiration(TimeSpan.FromDays(1))     // Absolute expiration time
+                        .SetPriority(CacheItemPriority.High)            // Cache priority
+                        .SetSize(1);                                      // Size for memory pressure management
+
+                    // Add data to cache
+                    _memoryCache.Set(cacheKey, cachedData, cacheOptions);
+
+                    Statics.Log("GetLatestMeetingsUseCase", $"Data cached with {cachedData.Count} items");
+                }
+                else
+                {
+                    Statics.Log("GetLatestMeetingsUseCase", $"Cache hit - returning {cachedData.Count} items from cache");
+                }
+
+                outputPort.Handle(new GenericResponse<GetLatestMeetingsResponse>(new GetLatestMeetingsResponse
+                {
+                    Message = "ok",
+                    Status = 200,
+                    Data = cachedData
+                }));
+            }
+            catch (Exception e)
+            {
+                Statics.Log("GetLatestMeetingsUseCase", e);
+                outputPort.Handle(new GenericResponse<GetLatestMeetingsResponse>(new GetLatestMeetingsResponse
                 {
                     Message = "ok",
                     Status = 200,

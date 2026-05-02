@@ -58,6 +58,8 @@ public class MappingProfile : Profile
           .ForMember(dest => dest.GeneralHeaders, opt => opt.Ignore());
         CreateMap<InsertSlideShowVM, InsertSlideShowRequest>()
           .ForMember(dest => dest.GeneralHeaders, opt => opt.Ignore());
+        CreateMap<ChangeAvatarOfRoomVM, ChangeAvatarOfRoomRequest>()
+          .ForMember(dest => dest.GeneralHeaders, opt => opt.Ignore());
 
     }
 }

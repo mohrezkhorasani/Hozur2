@@ -375,7 +375,7 @@ namespace Application.DTO
 
     //Get user meetings [ by national-code? | phone? | uuid? | email? | extId? | ]
 
-
+ 
 
     //CheckUser
 
@@ -385,6 +385,7 @@ namespace Application.DTO
         public string FriendlyID{ get; set; }
         public string? Title { get; set; }
         public string? Teacher { get; set; }
+        public string? Dabir { get; set; }
         public DateTime StartDate{ get; set; }
     }
 
@@ -508,6 +509,16 @@ namespace Application.DTO
         public List<MiniPlanJSON> Data = new List<MiniPlanJSON>();
     }
     #endregion
+    #region GetLatestMeetings
+    public class GetLatestMeetingsRequest : NewUserRequest, IUseCaseRequest<GenericResponse<GetLatestMeetingsResponse>>
+    {
+    }
+
+    public class GetLatestMeetingsResponse : BaseParentResponce
+    {
+        public List<MiniPlanJSON> Data = new List<MiniPlanJSON>();
+    }
+    #endregion
 
     #region DeletePlanRoom
     public class DeletePlanRoomRequest : NewUserRequest, IUseCaseRequest<GenericResponse<DeletePlanRoomResponse>>
@@ -560,6 +571,18 @@ namespace Application.DTO
         public MiniUserJSON Data = new MiniUserJSON();
     }
     #endregion
+    #region ChangeAvatarOfRoom
+    public class ChangeAvatarOfRoomRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<ChangeAvatarOfRoomResponse>>
+    {
+        public string RoomID { get; set; }
+        public string AvatarPath{ get; set; }
+    }
+
+    public class ChangeAvatarOfRoomResponse : BaseParentResponce
+    {
+    }
+    #endregion
+
     #region AdminCreateRoom
     public class AdminCreateRoomRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<AdminCreateRoomResponse>>
     {

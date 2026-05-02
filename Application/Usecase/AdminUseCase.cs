@@ -10,6 +10,7 @@ using DocumentFormat.OpenXml.Spreadsheet;
 using Domain.Entity;
 using MediatR;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
@@ -145,11 +146,11 @@ namespace Application.Usecase
             var user = await _db.UserTBLs.FindAsync(message.UserId);
             user.Type = message.Role;
             user.AllowedGUID.Add(Guid.NewGuid());
-            _db.Update(user);_db.SaveChanges();
+            _db.Update(user); _db.SaveChanges();
             await _mediator.Publish(new UserUpdatedEvent
             {
-                Action= "Update",
-                UserId=user.ID,
+                Action = "Update",
+                UserId = user.ID,
             });
             outputPort.Handle(new GenericResponse<AdminChangeRoleResponse>(new AdminChangeRoleResponse
             {
@@ -269,8 +270,8 @@ namespace Application.Usecase
 
                 await _mediator.Publish(new RoomUpdatedEvent
                 {
-                    RoomId= existingRoom.ID,
-                    Action="Update"
+                    RoomId = existingRoom.ID,
+                    Action = "Update"
                 });
                 outputPort.Handle(new GenericResponse<AdminCreateRoomResponse>(new AdminCreateRoomResponse
                 {
@@ -382,7 +383,7 @@ namespace Application.Usecase
             if (!message.Count.HasValue) message.Count = 15;
             if (!message.Page.HasValue) message.Page = 0;
             List<RoomTBL> users = new List<RoomTBL>();
-            IQueryable<RoomTBL> roomQuery=  _db.RoomTBLs.Where(e=>e.IDOwnerTBL==message.OwnerID);
+            IQueryable<RoomTBL> roomQuery = _db.RoomTBLs.Where(e => e.IDOwnerTBL == message.OwnerID);
             IOrderedQueryable<RoomTBL> orderedUsers;
             switch (message.OrderBy)
             {
@@ -415,11 +416,77 @@ namespace Application.Usecase
                 Status = 200,
                 Data = users.Select(e => new MiniRoomJSON
                 {
-                    Title=e.Title,
-                    BBB_MeetID=e.BBB_MeetID,
-                    RoomID=e.FriendlyID,
-                    Created=e.DateInsert
+                    Title = e.Title,
+                    BBB_MeetID = e.BBB_MeetID,
+                    RoomID = e.FriendlyID,
+                    Created = e.DateInsert
                 }).ToList()
+            }));
+
+        }
+    }
+    #endregion
+
+    #region ChangeAvatarOfRoom
+    public class ChangeAvatarOfRoomUseCase : IChangeAvatarOfRoomUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        private IBBBGetMeetings IBBBGetMeetings { get; }
+        private readonly IMediator _mediator;
+
+        private IScpUploader IScpUploader { get; }
+        public ChangeAvatarOfRoomUseCase(IDBContext repository,
+            IConfiguration configuration,
+            IBBBGetMeetings bBBGetMeetings,
+            IScpUploader IScpUploader,
+            IMediator m
+            )
+        {
+            _db = repository;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+            IBBBGetMeetings = bBBGetMeetings;
+            this.IScpUploader = IScpUploader;
+            this._mediator = m;
+        }
+
+
+        public async Task handleAsync(ChangeAvatarOfRoomRequest message,
+            IOutPutPort<GenericResponse<ChangeAvatarOfRoomResponse>> outputPort)
+        {
+            if (message.GeneralHeaders?.UserTBL?.ID == null)
+                return;
+            if (!message.GeneralHeaders.UserTBL.VerifyUserPermissions("create_meeting"))
+            {
+                throw new Exception("FORBIDDEN ! 403");
+            }
+            if (!_db.RoomTBLs.Any(e => e.FriendlyID == message.RoomID && e.IDOwnerTBL == message.GeneralHeaders.UserTBL.ID))
+            {
+                outputPort.Handle(new GenericResponse<ChangeAvatarOfRoomResponse>(new ChangeAvatarOfRoomResponse
+                {
+                    Message = "FORBIDDEN",
+                    Status = 403,
+                }));
+                return;
+            }
+
+            var room = await _db.RoomTBLs.FirstOrDefaultAsync(e => e.FriendlyID == message.RoomID);
+            room.Avatar = message.AvatarPath;
+            _db.Update(room); _db.SaveChanges();
+            await _mediator.Publish(new PlanUpdateEvent
+            {
+                Action = "Update",
+                FriendlyID = room.FriendlyID,
+            }); await _mediator.Publish(new RoomUpdatedEvent
+            {
+                Action = "Update",
+                RoomId = room.ID,
+            });
+            outputPort.Handle(new GenericResponse<ChangeAvatarOfRoomResponse>(new ChangeAvatarOfRoomResponse
+            {
+                Message = "ok",
+                Status = 200,
             }));
 
         }

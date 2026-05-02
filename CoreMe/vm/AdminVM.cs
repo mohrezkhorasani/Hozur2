@@ -46,4 +46,9 @@ namespace CoreMe.VM
         public int Position { get; set; } //0 = disable
         public string? Href { get; set; } //0 = disable
     }
+    public class ChangeAvatarOfRoomVM
+    {
+        public string RoomID { get; set; }
+        public string AvatarPath { get; set; }
+    }
 }

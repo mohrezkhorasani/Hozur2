@@ -17,6 +17,7 @@ namespace Domain.Entity
         public long IDRoomTBL { get; set; }
         public string? Title{ get; set; }
         public string? Teachers{ get; set; }
+        public string? Dabir{ get; set; }
         public DateTime? StartDate { get; set; }
     }
 }

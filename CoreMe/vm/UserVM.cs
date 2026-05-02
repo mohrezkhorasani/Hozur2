@@ -241,6 +241,7 @@ namespace CoreMe.VM
         public string? MeetTitle { get; set; }
         public string? Name { get; set; } = "مجمع عالی حکمت اسلامی";
         public List<string> Teachers { get; set; } = new List<string> { "استاد تستی", "استاد تستی 2" };
+        public string? Dabir { get; set; }
 
     }
 
@@ -266,6 +267,7 @@ namespace CoreMe.VM
         public string FriendlyID { get; set; }
         public string? Title { get; set; }
         public string? Teacher { get; set; }
+        public string? Dabir { get; set; }
         public DateTime StartDate { get; set; }
     }
 

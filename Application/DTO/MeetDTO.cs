@@ -185,6 +185,7 @@ namespace Application.DTO
         public string IDRoom { get; set; }
         public string? Name { get; set; } = "مجمع عالی حکمت اسلامی";
         public bool RequiredToEnterName { get; set; }
+        public string? Dabir { get; set; }
         public List<string> Teachers { get; set; }
     }
 

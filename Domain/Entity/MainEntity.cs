@@ -75,6 +75,7 @@
         USER_CREATOR = 506,
         USER_VIEWER = 507,
         USER_TEACHER = 508,
+        USER_DABIR = 509,
         
         //ROLE
         ROLE_MANAGER = 500,

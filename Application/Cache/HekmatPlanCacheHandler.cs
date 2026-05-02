@@ -29,6 +29,7 @@ namespace Application.Cache.Handlers
 
         public static string CACHE_KEY = "";
         public static string CACHE_KEY_PUBLIC = "PlanRoomPublic";
+        public static string CACHE_KEY_PUBLIC_MEETING = "LatestMeetings";
         public async Task DoCache(PlanUpdateEvent notification)
         {
             List<MiniPlanJSON> cachedData = null;
@@ -61,7 +62,7 @@ namespace Application.Cache.Handlers
         {
             List<MiniPlanJSON> cachedData = null;
 
-            var list = _db.RoomTBLPlanTBLs.Where(e => e.StartDate.HasValue && e.StartDate.Value>DateTime.Now && e.RoomTBL.IsPublicRoom).Include(e=>e.RoomTBL).ThenInclude(e=>e.RoomTBLPlanTBLs)
+            var list = _db.RoomTBLPlanTBLs.Where(e => e.StartDate.HasValue && e.StartDate.Value > DateTime.Now && e.RoomTBL.IsPublicRoom).Include(e => e.RoomTBL).ThenInclude(e => e.RoomTBLPlanTBLs)
                 .ToList();
 
             cachedData = list.OrderByDescending(e => e.StartDate).Select(e => new MiniPlanJSON
@@ -84,14 +85,51 @@ namespace Application.Cache.Handlers
 
             // Configure cache options
             var cacheOptions = new MemoryCacheEntryOptions()
-                .SetSlidingExpiration(TimeSpan.FromMinutes(24))  // Reset expiration if accessed
-                .SetAbsoluteExpiration(TimeSpan.FromHours(24*3))     // Absolute expiration time
+                .SetSlidingExpiration(TimeSpan.FromHours(48))  // Reset expiration if accessed
+                .SetAbsoluteExpiration(TimeSpan.FromDays(15))     // Absolute expiration time
                 .SetPriority(CacheItemPriority.High)            // Cache priority
                 .SetSize(1);                                      // Size for memory pressure management
 
 
             // Add data to cache
             _memoryCache.Set(CACHE_KEY_PUBLIC, cachedData, cacheOptions);
+
+        }
+        public async Task DoCacheMeeting()
+        {
+            List<MiniPlanJSON> cachedData = null;
+
+            var list = _db.RoomTBLPlanTBLs.Where(e => e.StartDate.HasValue && e.StartDate.Value <= DateTime.Now && e.RoomTBL.IsPublicRoom).Include(e => e.RoomTBL).ThenInclude(e => e.RoomTBLPlanTBLs)
+                .ToList();
+
+            cachedData = list.OrderByDescending(e => e.StartDate).Select(e => new MiniPlanJSON
+            {
+                Id = e.ID,
+                StartAt = e.StartDate,
+                Teacher = e.Teachers,
+                Title = e.Title,
+                RoomJSON = new MiniRoomJSON
+                {
+                    RoomID = e.RoomTBL.FriendlyID,
+                    Title = e.RoomTBL.Title,
+                    Owner = new MiniUserJSON
+                    {
+                        Fullname = e.RoomTBL.OwnerTBL.GetName(),
+                        Username = e.RoomTBL.OwnerTBL.Username
+                    }
+                }
+            }).ToList();
+
+            // Configure cache options
+            var cacheOptions = new MemoryCacheEntryOptions()
+                        .SetSlidingExpiration(TimeSpan.FromHours(2))  // Reset expiration if accessed
+                        .SetAbsoluteExpiration(TimeSpan.FromDays(1))     // Absolute expiration time
+                .SetPriority(CacheItemPriority.High)            // Cache priority
+                .SetSize(1);                                      // Size for memory pressure management
+
+
+            // Add data to cache
+            _memoryCache.Set(CACHE_KEY_PUBLIC_MEETING, cachedData, cacheOptions);
 
         }
 
@@ -101,12 +139,14 @@ namespace Application.Cache.Handlers
             CACHE_KEY = cacheKey;
             _memoryCache.Remove(CACHE_KEY);
             _memoryCache.Remove(CACHE_KEY_PUBLIC);
+            _memoryCache.Remove(CACHE_KEY_PUBLIC_MEETING);
             _logger.LogInformation($"Cache '{CACHE_KEY}' invalidated due to User {notification.Action}: UserId={notification.FriendlyID}");
             await _cacheLock.WaitAsync(cancellationToken);
             try
             {
                 await DoCache(notification);
                 await DoCache();
+                await DoCacheMeeting();
             }
             finally
             {

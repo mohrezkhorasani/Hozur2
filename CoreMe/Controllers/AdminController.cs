@@ -32,12 +32,14 @@ namespace CoreMe.Controllers
 
         public IAdminChangeRoleUseCase _IAdminChangeRoleUseCase { get; }
         public ApiPresenter<AdminChangeRoleResponse> _AdminChangeRoleResponse { get; }
+      public IChangeAvatarOfRoomUseCase _IChangeAvatarOfRoomUseCase { get; }
+        public ApiPresenter<ChangeAvatarOfRoomResponse> _ChangeAvatarOfRoomResponse { get; }
         public IInsertSlideShowUseCase _IInsertSlideShowUseCase { get; }
         public ApiPresenter<InsertSlideShowResponse> _InsertSlideShowResponse { get; }
         public IEditSlideShowUseCase _IEditSlideShowUseCase { get; }
         public ApiPresenter<EditSlideShowResponse> _EditSlideShowResponse { get; }
 
-        public AdminController(IMapper mapper, ILogger<TaskController> logger, IWebHostEnvironment hosting, IAdminGetUserListUseCase iAdminGetUserListUseCase, ApiPresenter<AdminGetUserListResponse> adminGetUserListResponse, IAdminGetUserRoomListUseCase iAdminGetUserRoomListUseCase, ApiPresenter<AdminGetUserRoomListResponse> adminGetUserRoomListResponse, IAdminCreateRoomUseCase iAdminCreateRoomUseCase, ApiPresenter<AdminCreateRoomResponse> adminCreateRoomResponse, IAdminChangeRoleUseCase iAdminChangeRoleUseCase, ApiPresenter<AdminChangeRoleResponse> adminChangeRoleResponse, IInsertSlideShowUseCase iInsertSlideShowUseCase, ApiPresenter<InsertSlideShowResponse> insertSlideShowResponse, IEditSlideShowUseCase iEditSlideShowUseCase, ApiPresenter<EditSlideShowResponse> editSlideShowResponse)
+        public AdminController(IMapper mapper, ILogger<TaskController> logger, IWebHostEnvironment hosting, IAdminGetUserListUseCase iAdminGetUserListUseCase, ApiPresenter<AdminGetUserListResponse> adminGetUserListResponse, IAdminGetUserRoomListUseCase iAdminGetUserRoomListUseCase, ApiPresenter<AdminGetUserRoomListResponse> adminGetUserRoomListResponse, IAdminCreateRoomUseCase iAdminCreateRoomUseCase, ApiPresenter<AdminCreateRoomResponse> adminCreateRoomResponse, IAdminChangeRoleUseCase iAdminChangeRoleUseCase, ApiPresenter<AdminChangeRoleResponse> adminChangeRoleResponse, IChangeAvatarOfRoomUseCase iChangeAvatarOfRoomUseCase, ApiPresenter<ChangeAvatarOfRoomResponse> changeAvatarOfRoomResponse, IInsertSlideShowUseCase iInsertSlideShowUseCase, ApiPresenter<InsertSlideShowResponse> insertSlideShowResponse, IEditSlideShowUseCase iEditSlideShowUseCase, ApiPresenter<EditSlideShowResponse> editSlideShowResponse)
         {
             _mapper = mapper;
             _logger = logger;
@@ -50,6 +52,8 @@ namespace CoreMe.Controllers
             _AdminCreateRoomResponse = adminCreateRoomResponse;
             _IAdminChangeRoleUseCase = iAdminChangeRoleUseCase;
             _AdminChangeRoleResponse = adminChangeRoleResponse;
+            _IChangeAvatarOfRoomUseCase = iChangeAvatarOfRoomUseCase;
+            _ChangeAvatarOfRoomResponse = changeAvatarOfRoomResponse;
             _IInsertSlideShowUseCase = iInsertSlideShowUseCase;
             _InsertSlideShowResponse = insertSlideShowResponse;
             _IEditSlideShowUseCase = iEditSlideShowUseCase;
@@ -103,6 +107,15 @@ namespace CoreMe.Controllers
             req.GeneralHeaders = HttpContext.GetGeneralHeaders();
             await _IAdminChangeRoleUseCase.handleAsync(req, _AdminChangeRoleResponse);
             return _AdminChangeRoleResponse.jsonContentResult;
+        }
+        [HttpPost("/user/ChangeAvatarOfRoom")]
+        [Authorize(AuthenticationSchemes = "vc2AuthNorm")]
+        public async Task<IActionResult> ChangeAvatarOfRoom(ChangeAvatarOfRoomVM vm)
+        {
+            ChangeAvatarOfRoomRequest req = _mapper.Map<ChangeAvatarOfRoomRequest>(vm);
+            req.GeneralHeaders = HttpContext.GetGeneralHeaders();
+            await _IChangeAvatarOfRoomUseCase.handleAsync(req, _ChangeAvatarOfRoomResponse);
+            return _ChangeAvatarOfRoomResponse.jsonContentResult;
         }
 
         [HttpPost("/user/InsertSlideShow")]

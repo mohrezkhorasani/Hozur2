@@ -868,7 +868,7 @@ namespace Application.Usecase
                     }
                 }
 
-                if(string.IsNullOrEmpty(room.ViewerCode) || string.IsNullOrEmpty(room.ModeratorCode))
+                if (string.IsNullOrEmpty(room.ViewerCode) || string.IsNullOrEmpty(room.ModeratorCode))
                 {
                     room.ModeratorCode = Statics.GenerateSegment(8);
                     room.ViewerCode = Statics.GenerateSegment(8);
@@ -917,11 +917,54 @@ namespace Application.Usecase
                 });
 
                 // 6. گرفتن لینک ورود
-                var link = await bbb.GetJoinUrlAsync(meetid, message.Name, true, await _commonMethods.ReturnPassword(message.IDRoom,true));
+                var link = await bbb.GetJoinUrlAsync(meetid, message.Name, true, await _commonMethods.ReturnPassword(message.IDRoom, true));
 
                 // 7. اضافه کردن معلمان
                 List<UserTBL> teachers = new List<UserTBL>();
+                UserTBL dabir = new UserTBL();
+                if (!string.IsNullOrEmpty(message.Dabir))
+                {
+                    if (_db.UserTBLs.Any(e => (e.Firstname + " " + e.LastName).Trim() == message.Dabir
+                                            && e.Status == MainEntity_Status.USER_ACTIVE
+                        && e.Type == MainEntity_Types.USER_TEACHER))
 
+                    {
+                        dabir = _db.UserTBLs.FirstOrDefault(e => (e.Firstname + " " + e.LastName).Trim() == message.Dabir
+                         && e.Status == MainEntity_Status.USER_ACTIVE
+                         && e.Type == MainEntity_Types.USER_TEACHER);
+                    }
+                    else
+                    {
+                        var d = new UserTBL
+                        {
+                            Firstname = message.Dabir,
+                            Type = MainEntity_Types.USER_TEACHER,
+                            Status = MainEntity_Status.USER_ACTIVE,
+                            Username = message.Dabir,
+                            UUID = new Random().NextInt64(-999999999999999999, -99999999999999999).ToString()
+                        };
+                        dabir = d;
+
+                    }
+
+
+                    if (!_db.UserTBLToMeetingTBLs.Any(e => e.UUID == dabir.UUID && e.MeetID == meetid))
+                    {
+                        _db.UserTBLToMeetingTBLs.Add(new UserTBLToMeetingTBL
+                        {
+                            MeetID = meetid,
+                            Type = MainEntity_Types.USER_DABIR,
+                            Status = MainEntity_Status.MEETING_STARTED_LATER,
+                            UUID = dabir.UUID,
+                            UserMeetID = "Dabir",
+                            Role = "Dabir",
+                            UserNickName = dabir.GetName(),
+                            IsCertificated = false,
+                            TokenJWT = "nope",
+                            TimeSpendSeconds = 0,
+                        });
+                    }
+                }
                 foreach (var t in message.Teachers)
                 {
                     UserTBL teacher = null;
@@ -960,7 +1003,7 @@ namespace Application.Usecase
                             UUID = teacher.UUID,
                             UserMeetID = "TEACHER",
                             Role = "Teacher",
-                            UserNickName = "Teacher",
+                            UserNickName = teacher.GetName(),
                             IsCertificated = false,
                             TokenJWT = "nope",
                             TimeSpendSeconds = 0,

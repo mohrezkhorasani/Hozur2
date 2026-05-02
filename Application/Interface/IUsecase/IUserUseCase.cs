@@ -38,6 +38,7 @@ namespace Application.Interface.IUsecase
     public interface IGetHekmatShobeUseCase : IUseCaseRequestHandler<GetHekmatShobeRequest, GenericResponse<GetHekmatShobeResponse>> { }
     public interface IGetPlanRoomUseCase : IUseCaseRequestHandler<GetPlanRoomRequest, GenericResponse<GetPlanRoomResponse>> { }
     public interface IGetPlanRoomPublicUseCase : IUseCaseRequestHandler<GetPlanRoomPublicRequest, GenericResponse<GetPlanRoomPublicResponse>> { }
+    public interface IGetLatestMeetingsUseCase : IUseCaseRequestHandler<GetLatestMeetingsRequest, GenericResponse<GetLatestMeetingsResponse>> { }
     public interface IDeletePlanRoomUseCase : IUseCaseRequestHandler<DeletePlanRoomRequest, GenericResponse<DeletePlanRoomResponse>> { }
     public interface INewPlanRoomUseCase : IUseCaseRequestHandler<NewPlanRoomRequest, GenericResponse<NewPlanRoomResponse>> { }
 
@@ -46,5 +47,6 @@ namespace Application.Interface.IUsecase
     public interface IAdminGetUserListUseCase : IUseCaseRequestHandler<AdminGetUserListRequest, GenericResponse<AdminGetUserListResponse>> { }
     public interface IAdminGetUserRoomListUseCase : IUseCaseRequestHandler<AdminGetUserRoomListRequest, GenericResponse<AdminGetUserRoomListResponse>> { }
     public interface IAdminChangeRoleUseCase : IUseCaseRequestHandler<AdminChangeRoleRequest, GenericResponse<AdminChangeRoleResponse>> { }
+    public interface IChangeAvatarOfRoomUseCase : IUseCaseRequestHandler<ChangeAvatarOfRoomRequest, GenericResponse<ChangeAvatarOfRoomResponse>> { }
     public interface IAdminCreateRoomUseCase : IUseCaseRequestHandler<AdminCreateRoomRequest, GenericResponse<AdminCreateRoomResponse>> { }
 }

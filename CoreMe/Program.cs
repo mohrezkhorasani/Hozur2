@@ -56,9 +56,10 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowOnlyVC", policy =>
         {
             policy
-                .WithOrigins("https://vc.hekmateislami.com") // دقیقا همین ساب‌دامین
+                .WithOrigins("https://vc.hekmateislami.com", "https://vc2.hekmateislami.com", "https://core.hekmateislami.com") // دقیقا همین ساب‌دامین
                 .AllowAnyHeader()
                 .AllowAnyMethod();
+
         });
     options.AddPolicy("AllowAllOrigins", builder =>
     {
@@ -163,7 +164,9 @@ builder.Services.AddScoped<IGetHekmatShobeUseCase, GetHekmatShobeUseCase>();
 builder.Services.AddScoped<IEditSlideShowUseCase, EditSlideShowUseCase>();
 builder.Services.AddScoped<IInsertSlideShowUseCase, InsertSlideShowUseCase>();
 builder.Services.AddScoped<INewPlanRoomUseCase, NewPlanRoomUseCase>();
+builder.Services.AddScoped<IGetLatestMeetingsUseCase, GetLatestMeetingsUseCase>();
 builder.Services.AddScoped<IDeletePlanRoomUseCase, DeletePlanRoomUseCase>();
+builder.Services.AddScoped<IChangeAvatarOfRoomUseCase, ChangeAvatarOfRoomUseCase>();
 builder.Services.AddScoped<IGetPlanRoomUseCase, GetPlanRoomUseCase>();
 builder.Services.AddScoped<IGetLiveWithIDUseCase, GetLiveWithIDUseCase>();
 

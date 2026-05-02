@@ -48,6 +48,7 @@ namespace Application.DTO.Models
         public long Id { get; set; }
         public string Title{ get; set; }
         public string Teacher{ get; set; }
+        public string Dabir { get; set; }
         public DateTime? StartAt{ get; set; }
         public MiniRoomJSON RoomJSON { get; set; }
     }
@@ -63,7 +64,7 @@ namespace Application.DTO.Models
     {
         public string RoomID { get; set; }  
         public string Title { get; set; }
-
+        public bool IsAdmin { get; set; }
         public string BBB_MeetID { get; set; }
         public string LatestTitle { get; set; }
         public string? Avatar { get; set; }
@@ -75,6 +76,7 @@ namespace Application.DTO.Models
         public int Count { get; set; }
         public int CountTeacher { get; set; }
         public int CountPartis { get; set; }
+        public List<MiniPlanJSON> PlanJSONs { get; set; } = [];
     }
     public class MiniSlideShowJSON
     {

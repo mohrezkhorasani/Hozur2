@@ -578,6 +578,9 @@ namespace Persistence.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("ID"));
 
+                    b.Property<string>("Dabir")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime>("DateInsert")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
