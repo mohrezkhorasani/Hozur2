@@ -11,6 +11,7 @@ namespace Application.DTO.Generals
     {
         public string Agent { get; set; }
         public string? JWTMeetingToken { get; set; }
+        public string? JWTMeetingUserToken { get; set; }
         public string? JWTUserToken { get; set; }
         public string RequestedPage { get; set; }
         public string RequestedIP { get; set; }
@@ -30,6 +31,7 @@ namespace Application.DTO.Generals
         public string? JWTUserToken { get; set; }
         public string RequestedPage { get; set; }
         public string RequestedIP { get; set; }
+        public string? JWTMeetingUserToken { get; set; }
         public string RequestedDevice { get; set; }
         public Guid IdentificationCode { get; set; }
         public string? MeetIdentificationCode { get; set; }

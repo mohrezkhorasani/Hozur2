@@ -516,7 +516,13 @@ namespace Persistence.Migrations
                     b.Property<long>("IDOwnerTBL")
                         .HasColumnType("bigint");
 
+                    b.Property<bool>("IsPrivateRoom")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("IsPublicRoom")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsSuperPrivateRoom")
                         .HasColumnType("bit");
 
                     b.Property<string>("ModeratorCode")
@@ -950,7 +956,7 @@ namespace Persistence.Migrations
 
                     b.HasIndex("RoomTBLID");
 
-                    b.HasIndex("UUID", "MeetID")
+                    b.HasIndex("UUID", "MeetID", "Type")
                         .IsUnique();
 
                     b.ToTable("UserTBLToMeetingTBL", (string)null);

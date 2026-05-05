@@ -39,10 +39,16 @@ namespace CoreMe.Controllers
         public ApiPresenter<GetRoomsResponse> _GetRoomsResponse { get; }
         public IGetRoomsPublicUseCase _IGetRoomsPublicUseCase { get; }
         public ApiPresenter<GetRoomsPublicResponse> _GetRoomsPublicResponse { get; }
+        public IGetLivesOfProfileUseCase _IGetLivesOfProfileUseCase { get; }
+        public ApiPresenter<GetLivesOfProfileResponse> _GetLivesOfProfileResponse { get; }
         public IGetLivesUseCase _IGetLivesUseCase { get; }
         public ApiPresenter<GetLivesResponse> _GetLivesResponse { get; }
         public IGetLiveWithIDUseCase _IGetLiveWithIDUseCase { get; }
         public ApiPresenter<GetLiveWithIDResponse> _GetLiveWithIDResponse { get; }
+        public IGetMembersOfMeetUseCase _IGetMembersOfMeetUseCase { get; }
+        public ApiPresenter<GetMembersOfMeetResponse> _GetMembersOfMeetResponse { get; }
+         public IGetRoomCalendarActivityUseCase _IGetRoomCalendarActivityUseCase { get; }
+        public ApiPresenter<GetRoomCalendarActivityResponse> _GetRoomCalendarActivityResponse { get; }
         public IGetLivesPublicUseCase _IGetLivesPublicUseCase { get; }
         public ApiPresenter<GetLivesPublicResponse> _GetLivesPublicResponse { get; }
         public IStartNewMeetUseCase _IStartNewMeetUseCase { get; }
@@ -92,7 +98,7 @@ namespace CoreMe.Controllers
         public IDeletePlanRoomUseCase _IDeletePlanRoomUseCase { get; }
         public ApiPresenter<DeletePlanRoomResponse> _DeletePlanRoomResponse { get; }
 
-        public BBBController(ILogger<BBBController> logger, IMapper mapper, INewUserUseCase iNewUserUseCase, ApiPresenter<NewUserResponse> newUserResponse, INewMeetingUseCase iNewMeetingUseCase, ApiPresenter<NewMeetingResponse> newMeetingResponse, IUpdateMeetingUseCase iUpdateMeetingUseCase, ApiPresenter<UpdateMeetingResponse> updateMeetingResponse, INewUserMettingsUseCase iNewUserMettingsUseCase, ApiPresenter<NewUserMettingsResponse> newUserMettingsResponse, INewUserMeetingLogUseCase iNewUserMeetingLogUseCase, ApiPresenter<NewUserMeetingLogResponse> newUserMeetingLogResponse, INewUserMeetingLogFromModeratorUseCase iNewUserMeetingLogFromModeratorUseCase, ApiPresenter<NewUserMeetingLogFromModeratorResponse> newUserMeetingLogFromModeratorResponse, IGetTeacherListUseCase iGetTeacherListUseCase, ApiPresenter<GetTeacherListResponse> getTeacherListResponse, IGetRoomsUseCase iGetRoomsUseCase, ApiPresenter<GetRoomsResponse> getRoomsResponse, IGetRoomsPublicUseCase iGetRoomsPublicUseCase, ApiPresenter<GetRoomsPublicResponse> getRoomsPublicResponse, IGetLivesUseCase iGetLivesUseCase, ApiPresenter<GetLivesResponse> getLivesResponse, IGetLiveWithIDUseCase iGetLiveWithIDUseCase, ApiPresenter<GetLiveWithIDResponse> getLiveWithIDResponse, IGetLivesPublicUseCase iGetLivesPublicUseCase, ApiPresenter<GetLivesPublicResponse> getLivesPublicResponse, IStartNewMeetUseCase iStartNewMeetUseCase, ApiPresenter<StartNewMeetResponse> startNewMeetResponse, IGetMeetingURLUseCase iGetMeetingURLUseCase, ApiPresenter<GetMeetingURLResponse> getMeetingURLResponse, IGetRoomByFriendlyIDUseCase iGetRoomByFriendlyIDUseCase, ApiPresenter<GetRoomByFriendlyIDResponse> getRoomByFriendlyIDResponse, INewRoomUseCase iNewRoomUseCase, ApiPresenter<NewRoomResponse> newRoomResponse, IGenerateCertificateUseCase iGenerateCertificateUseCase, ApiPresenter<GenerateCertificateResponse> generateCertificateResponse, IGuarantCertificateUseCase iGuarantCertificateUseCase, ApiPresenter<GuarantCertificateResponse> guarantCertificateResponse, IEndTheMeetingUseCase iEndTheMeetingUseCase, ApiPresenter<EndTheMeetingResponse> endTheMeetingResponse, INewQuestionUseCase iNewQuestionUseCase, ApiPresenter<NewQuestionResponse> newQuestionResponse, INewPlanRoomUseCase iNewPlanRoomUseCase, ApiPresenter<NewPlanRoomResponse> newPlanRoomResponse, IGetQuestionOfMeetUseCase iGetQuestionOfMeetUseCase, ApiPresenter<GetQuestionOfMeetResponse> getQuestionOfMeetResponse, IQuestionAnsweredUseCase iQuestionAnsweredUseCase, ApiPresenter<QuestionAnsweredResponse> questionAnsweredResponse, ISignInUserPanelUseCase iSignInUserPanelUseCase, ApiPresenter<SignInUserPanelResponse> signInUserPanelResponse, ILoginUserPanelUseCase iLoginUserPanelUseCase, ApiPresenter<LoginUserPanelResponse> loginUserPanelResponse, IVerifyTokenUseCase iVerifyTokenUseCase, ApiPresenter<VerifyTokenResponse> verifyTokenResponse, IGetSlideShowUseCase iGetSlideShowUseCase, ApiPresenter<GetSlideShowResponse> getSlideShowResponse, IContactusUseCase iContactusUseCase, ApiPresenter<ContactusResponse> contactusResponse, IGetProfileInfoUseCase iGetProfileInfoUseCase, ApiPresenter<GetProfileInfoResponse> getProfileInfoResponse, IFollowProfileUseCase iFollowProfileUseCase, ApiPresenter<FollowProfileResponse> followProfileResponse, IGetHekmatShobeUseCase iGetHekmatShobeUseCase, ApiPresenter<GetHekmatShobeResponse> getHekmatShobeResponse, IGetPlanRoomUseCase iGetPlanRoomUseCase, ApiPresenter<GetPlanRoomResponse> getPlanRoomResponse, IGetPlanRoomPublicUseCase iGetPlanRoomPublicUseCase, ApiPresenter<GetPlanRoomPublicResponse> getPlanRoomPublicResponse, IGetLatestMeetingsUseCase iGetLatestMeetingsUseCase, ApiPresenter<GetLatestMeetingsResponse> getLatestMeetingsResponse, IDeletePlanRoomUseCase iDeletePlanRoomUseCase, ApiPresenter<DeletePlanRoomResponse> deletePlanRoomResponse)
+        public BBBController(ILogger<BBBController> logger, IMapper mapper, INewUserUseCase iNewUserUseCase, ApiPresenter<NewUserResponse> newUserResponse, INewMeetingUseCase iNewMeetingUseCase, ApiPresenter<NewMeetingResponse> newMeetingResponse, IUpdateMeetingUseCase iUpdateMeetingUseCase, ApiPresenter<UpdateMeetingResponse> updateMeetingResponse, INewUserMettingsUseCase iNewUserMettingsUseCase, ApiPresenter<NewUserMettingsResponse> newUserMettingsResponse, INewUserMeetingLogUseCase iNewUserMeetingLogUseCase, ApiPresenter<NewUserMeetingLogResponse> newUserMeetingLogResponse, INewUserMeetingLogFromModeratorUseCase iNewUserMeetingLogFromModeratorUseCase, ApiPresenter<NewUserMeetingLogFromModeratorResponse> newUserMeetingLogFromModeratorResponse, IGetTeacherListUseCase iGetTeacherListUseCase, ApiPresenter<GetTeacherListResponse> getTeacherListResponse, IGetRoomsUseCase iGetRoomsUseCase, ApiPresenter<GetRoomsResponse> getRoomsResponse, IGetRoomsPublicUseCase iGetRoomsPublicUseCase, ApiPresenter<GetRoomsPublicResponse> getRoomsPublicResponse, IGetLivesOfProfileUseCase iGetLivesOfProfileUseCase, ApiPresenter<GetLivesOfProfileResponse> getLivesOfProfileResponse, IGetLivesUseCase iGetLivesUseCase, ApiPresenter<GetLivesResponse> getLivesResponse, IGetLiveWithIDUseCase iGetLiveWithIDUseCase, ApiPresenter<GetLiveWithIDResponse> getLiveWithIDResponse, IGetMembersOfMeetUseCase iGetMembersOfMeetUseCase, ApiPresenter<GetMembersOfMeetResponse> getMembersOfMeetResponse, IGetRoomCalendarActivityUseCase iGetRoomCalendarActivityUseCase, ApiPresenter<GetRoomCalendarActivityResponse> getRoomCalendarActivityResponse, IGetLivesPublicUseCase iGetLivesPublicUseCase, ApiPresenter<GetLivesPublicResponse> getLivesPublicResponse, IStartNewMeetUseCase iStartNewMeetUseCase, ApiPresenter<StartNewMeetResponse> startNewMeetResponse, IGetMeetingURLUseCase iGetMeetingURLUseCase, ApiPresenter<GetMeetingURLResponse> getMeetingURLResponse, IGetRoomByFriendlyIDUseCase iGetRoomByFriendlyIDUseCase, ApiPresenter<GetRoomByFriendlyIDResponse> getRoomByFriendlyIDResponse, INewRoomUseCase iNewRoomUseCase, ApiPresenter<NewRoomResponse> newRoomResponse, IGenerateCertificateUseCase iGenerateCertificateUseCase, ApiPresenter<GenerateCertificateResponse> generateCertificateResponse, IGuarantCertificateUseCase iGuarantCertificateUseCase, ApiPresenter<GuarantCertificateResponse> guarantCertificateResponse, IEndTheMeetingUseCase iEndTheMeetingUseCase, ApiPresenter<EndTheMeetingResponse> endTheMeetingResponse, INewQuestionUseCase iNewQuestionUseCase, ApiPresenter<NewQuestionResponse> newQuestionResponse, INewPlanRoomUseCase iNewPlanRoomUseCase, ApiPresenter<NewPlanRoomResponse> newPlanRoomResponse, IGetQuestionOfMeetUseCase iGetQuestionOfMeetUseCase, ApiPresenter<GetQuestionOfMeetResponse> getQuestionOfMeetResponse, IQuestionAnsweredUseCase iQuestionAnsweredUseCase, ApiPresenter<QuestionAnsweredResponse> questionAnsweredResponse, ISignInUserPanelUseCase iSignInUserPanelUseCase, ApiPresenter<SignInUserPanelResponse> signInUserPanelResponse, ILoginUserPanelUseCase iLoginUserPanelUseCase, ApiPresenter<LoginUserPanelResponse> loginUserPanelResponse, IVerifyTokenUseCase iVerifyTokenUseCase, ApiPresenter<VerifyTokenResponse> verifyTokenResponse, IGetSlideShowUseCase iGetSlideShowUseCase, ApiPresenter<GetSlideShowResponse> getSlideShowResponse, IContactusUseCase iContactusUseCase, ApiPresenter<ContactusResponse> contactusResponse, IGetProfileInfoUseCase iGetProfileInfoUseCase, ApiPresenter<GetProfileInfoResponse> getProfileInfoResponse, IFollowProfileUseCase iFollowProfileUseCase, ApiPresenter<FollowProfileResponse> followProfileResponse, IGetHekmatShobeUseCase iGetHekmatShobeUseCase, ApiPresenter<GetHekmatShobeResponse> getHekmatShobeResponse, IGetPlanRoomUseCase iGetPlanRoomUseCase, ApiPresenter<GetPlanRoomResponse> getPlanRoomResponse, IGetPlanRoomPublicUseCase iGetPlanRoomPublicUseCase, ApiPresenter<GetPlanRoomPublicResponse> getPlanRoomPublicResponse, IGetLatestMeetingsUseCase iGetLatestMeetingsUseCase, ApiPresenter<GetLatestMeetingsResponse> getLatestMeetingsResponse, IDeletePlanRoomUseCase iDeletePlanRoomUseCase, ApiPresenter<DeletePlanRoomResponse> deletePlanRoomResponse)
         {
             _logger = logger;
             _mapper = mapper;
@@ -114,10 +120,16 @@ namespace CoreMe.Controllers
             _GetRoomsResponse = getRoomsResponse;
             _IGetRoomsPublicUseCase = iGetRoomsPublicUseCase;
             _GetRoomsPublicResponse = getRoomsPublicResponse;
+            _IGetLivesOfProfileUseCase = iGetLivesOfProfileUseCase;
+            _GetLivesOfProfileResponse = getLivesOfProfileResponse;
             _IGetLivesUseCase = iGetLivesUseCase;
             _GetLivesResponse = getLivesResponse;
             _IGetLiveWithIDUseCase = iGetLiveWithIDUseCase;
             _GetLiveWithIDResponse = getLiveWithIDResponse;
+            _IGetMembersOfMeetUseCase = iGetMembersOfMeetUseCase;
+            _GetMembersOfMeetResponse = getMembersOfMeetResponse;
+            _IGetRoomCalendarActivityUseCase = iGetRoomCalendarActivityUseCase;
+            _GetRoomCalendarActivityResponse = getRoomCalendarActivityResponse;
             _IGetLivesPublicUseCase = iGetLivesPublicUseCase;
             _GetLivesPublicResponse = getLivesPublicResponse;
             _IStartNewMeetUseCase = iStartNewMeetUseCase;
@@ -357,12 +369,13 @@ namespace CoreMe.Controllers
             return _GetRoomByFriendlyIDResponse.jsonContentResult;
         }
         [HttpGet("/user/GetRooms")]
-        [Authorize(AuthenticationSchemes = "vc2AuthNorm")]
-        public async Task<IActionResult> GetRooms([FromQuery] string q = "")
+        //[Authorize(AuthenticationSchemes = "vc2AuthNorm")]
+        public async Task<IActionResult> GetRooms([FromQuery] string q = "", [FromQuery] string uname = "")
         {
             GetRoomsRequest req = new GetRoomsRequest
             {
-                Query = q
+                Query = q,
+                UserName=uname
             };
             req.GeneralHeaders = HttpContext.GetGeneralHeaders();
             await _IGetRoomsUseCase.handleAsync(req, _GetRoomsResponse);
@@ -405,6 +418,17 @@ namespace CoreMe.Controllers
             await _IGetLivesUseCase.handleAsync(req, _GetLivesResponse);
             return _GetLivesResponse.jsonContentResult;
         }
+        [HttpGet("/user/GetLivesOfProfile")]
+        public async Task<IActionResult> GetLivesOfProfile([FromQuery] string q = "")
+        {
+            GetLivesOfProfileRequest req = new GetLivesOfProfileRequest
+            {
+                Query = q
+            };
+            req.GeneralHeaders = HttpContext.GetGeneralHeaders();
+            await _IGetLivesOfProfileUseCase.handleAsync(req, _GetLivesOfProfileResponse);
+            return _GetLivesOfProfileResponse.jsonContentResult;
+        }
         [HttpGet("/user/GetLiveWithID")]
         public async Task<IActionResult> GetLiveWithID([FromQuery] string idRoom = "")
         {
@@ -415,6 +439,30 @@ namespace CoreMe.Controllers
             req.GeneralHeaders = HttpContext.GetGeneralHeaders();
             await _IGetLiveWithIDUseCase.handleAsync(req, _GetLiveWithIDResponse);
             return _GetLiveWithIDResponse.jsonContentResult;
+        }
+        [HttpGet("/user/GetMembersOfMeet")]
+        [Authorize(AuthenticationSchemes = "vc2AuthNorm")]
+        public async Task<IActionResult> GetMembersOfMeet([FromQuery] string idMeet = "")
+        {
+            GetMembersOfMeetRequest req = new GetMembersOfMeetRequest
+            {
+                ID = idMeet
+            };
+            req.GeneralHeaders = HttpContext.GetGeneralHeaders();
+            await _IGetMembersOfMeetUseCase.handleAsync(req, _GetMembersOfMeetResponse);
+            return _GetMembersOfMeetResponse.jsonContentResult;
+        }
+        [Authorize(AuthenticationSchemes = "vc2AuthNorm")]
+        [HttpGet("/user/GetRoomCalendarActivity")]
+        public async Task<IActionResult> GetRoomCalendarActivity([FromQuery] string friendlyID = "")
+        {
+            GetRoomCalendarActivityRequest req = new GetRoomCalendarActivityRequest
+            {
+                FriendlyID = friendlyID
+            };
+            req.GeneralHeaders = HttpContext.GetGeneralHeaders();
+            await _IGetRoomCalendarActivityUseCase.handleAsync(req, _GetRoomCalendarActivityResponse);
+            return _GetRoomCalendarActivityResponse.jsonContentResult;
         }
 
         [Authorize(AuthenticationSchemes = "vc2AuthNorm")]

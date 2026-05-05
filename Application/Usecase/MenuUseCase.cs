@@ -128,7 +128,7 @@ namespace Application.Usecase
                     else
                     {
                         var count = _db.UserTBLToMeetingTBLs.Count(e => e.MeetID == meetTBL.MeetID);
-                        var join = await bbb.GetJoinUrlAsync(meetTBL.MeetID, (1111111 + count).ToString(), false, "");
+                        var join = await bbb.GetJoinUrlAsync(meetTBL, (1111111 + count).ToString(), false, "");
                         outputPort.Handle(new GenericResponse<GetRedirectURLResponse>
    (new GetRedirectURLResponse
    {

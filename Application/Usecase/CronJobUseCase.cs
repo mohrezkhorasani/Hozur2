@@ -46,7 +46,7 @@ namespace Application.Usecase
             int rows = 0;
             _ = TelegramHelper.SendMessage($"کرونجاب پاکسازی میت اغاز شد⌛");
 
-            var lives = await bbb.GetLivesShort(new GetLivesRequest());
+            var lives = await bbb.RequestAll(new GetLivesRequest());
             if (!lives.Any())
             {
                 //do stop others

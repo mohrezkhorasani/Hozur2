@@ -262,6 +262,20 @@ namespace Application.DTO
         public List<MiniRoomJSON> Data = new List<MiniRoomJSON>();
     }
     #endregion
+    //Get Lives
+    #region GetLivesOfProfile
+    public class GetLivesOfProfileRequest : NewUserRequest, IUseCaseRequest<GenericResponse<GetLivesOfProfileResponse>>
+    {
+        public string Query { get; set; }
+        public string Username { get; set; }
+        public bool Public { get; set; } = true;
+    }
+
+    public class GetLivesOfProfileResponse : BaseParentResponce
+    {
+        public List<MiniRoomJSON> Data = new List<MiniRoomJSON>();
+    }
+    #endregion
 
     #region GetLivesPublic
     public class GetLivesPublicRequest : GetLivesRequest, IUseCaseRequest<GenericResponse<GetLivesPublicResponse>>
@@ -287,6 +301,18 @@ namespace Application.DTO
     }
     #endregion
 
+
+    #region GetRoomCalendarActivity
+    public class GetRoomCalendarActivityRequest : GetLivesRequest, IUseCaseRequest<GenericResponse<GetRoomCalendarActivityResponse>>
+    {
+        public string FriendlyID { get; set; }
+    }
+
+    public class GetRoomCalendarActivityResponse : BaseParentResponce
+    {
+        public List<MiniCalendarActivity> Data = new List<MiniCalendarActivity>();
+    }
+    #endregion
 
     #region NewQuestion
     public class NewQuestionRequest : NewUserRequest, IUseCaseRequest<GenericResponse<NewQuestionResponse>>

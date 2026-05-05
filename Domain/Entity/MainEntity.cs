@@ -1,4 +1,6 @@
-﻿namespace Domain.Entity
+﻿using System.ComponentModel.DataAnnotations.Schema;
+
+namespace Domain.Entity
 {
     public enum MainEntity_Status
     {
@@ -91,6 +93,8 @@
     }
     public interface MainEntity
     {
+        //[NotMapped]
+
         public long ID { get; set; }
         /** Statuses: >0 => ok 
          * Enable,Succedd:100

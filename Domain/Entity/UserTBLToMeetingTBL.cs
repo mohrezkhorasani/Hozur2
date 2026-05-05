@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Domain.Entity
 {
-    [Index(nameof(UUID), nameof(MeetID), IsUnique = true)]
+    [Index(nameof(UUID), nameof(MeetID),nameof(Type), IsUnique = true)]
     [Index(nameof(CodeUnique), IsUnique = true)]
     
     public class UserTBLToMeetingTBL : MainEntity

@@ -19,6 +19,7 @@ namespace Application.DTO.Models
         public string StartedTime { get; set; }
         public string Status { get; set; } //live - end
         public string JoinUrl { get; set; } // لینک ورود
+        public int CountPartis { get; set; } = 0;
         public MiniRoomJSON Room { get; set; }
         public List<MiniUserJSON> Teacher { get; set; }
         public MiniUserJSON Creator { get; set; }
@@ -46,10 +47,10 @@ namespace Application.DTO.Models
     public class MiniPlanJSON
     {
         public long Id { get; set; }
-        public string Title{ get; set; }
-        public string Teacher{ get; set; }
+        public string Title { get; set; }
+        public string Teacher { get; set; }
         public string Dabir { get; set; }
-        public DateTime? StartAt{ get; set; }
+        public DateTime? StartAt { get; set; }
         public MiniRoomJSON RoomJSON { get; set; }
     }
     public class RevokedTokenJSON
@@ -62,7 +63,7 @@ namespace Application.DTO.Models
     }
     public class MiniRoomJSON
     {
-        public string RoomID { get; set; }  
+        public string RoomID { get; set; }
         public string Title { get; set; }
         public bool IsAdmin { get; set; }
         public string BBB_MeetID { get; set; }
@@ -78,13 +79,25 @@ namespace Application.DTO.Models
         public int CountPartis { get; set; }
         public List<MiniPlanJSON> PlanJSONs { get; set; } = [];
     }
+    public class MiniCalendarActivity
+    {
+        public int Month { get; set; } //farvardin is 0
+        public int Year { get; set; } //Jalali = 1405
+        public List<ActivityItem> Activities{ get; set; }
+    }
+    public class ActivityItem
+    {
+        public int Day { get; set; }
+        public int Count { get; set; }
+        public List<MeetJSON> MeetJSONs { get; set; }
+    }
     public class MiniSlideShowJSON
     {
         public string Href { get; set; }
         public string Link { get; set; }
         public string Title { get; set; }
         public string Type { get; set; }
-        public int Position{ get; set; }
+        public int Position { get; set; }
         public long ID { get; set; }
 
     }
@@ -92,7 +105,7 @@ namespace Application.DTO.Models
     {
         public bool IsFollowing { get; set; }
         public int FollowersCount { get; set; }
-        public string Avatar{ get; set; }
+        public string Avatar { get; set; }
         public string Bio { get; set; }
         public string Name { get; set; }
         public long ID { get; set; }

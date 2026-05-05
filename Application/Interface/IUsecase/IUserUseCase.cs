@@ -17,9 +17,11 @@ namespace Application.Interface.IUsecase
     public interface IGetTeacherListUseCase : IUseCaseRequestHandler<GetTeacherListRequest, GenericResponse<GetTeacherListResponse>> { }
     public interface IGetRoomsUseCase : IUseCaseRequestHandler<GetRoomsRequest, GenericResponse<GetRoomsResponse>> { }
     public interface IGetRoomsPublicUseCase : IUseCaseRequestHandler<GetRoomsPublicRequest, GenericResponse<GetRoomsPublicResponse>> { }
+    public interface IGetLivesOfProfileUseCase : IUseCaseRequestHandler<GetLivesOfProfileRequest, GenericResponse<GetLivesOfProfileResponse>> { }
     public interface IGetLivesUseCase : IUseCaseRequestHandler<GetLivesRequest, GenericResponse<GetLivesResponse>> { }
     public interface IGetLivesPublicUseCase : IUseCaseRequestHandler<GetLivesPublicRequest, GenericResponse<GetLivesPublicResponse>> { }
     public interface IGetLiveWithIDUseCase : IUseCaseRequestHandler<GetLiveWithIDRequest, GenericResponse<GetLiveWithIDResponse>> { }
+    public interface IGetRoomCalendarActivityUseCase : IUseCaseRequestHandler<GetRoomCalendarActivityRequest, GenericResponse<GetRoomCalendarActivityResponse>> { }
     public interface IGetMeetingURLUseCase : IUseCaseRequestHandler<GetMeetingURLRequest, GenericResponse<GetMeetingURLResponse>> { }
     public interface IGuarantCertificateUseCase : IUseCaseRequestHandler<GuarantCertificateRequest, GenericResponse<GuarantCertificateResponse>> { }
     public interface IGetRoomByFriendlyIDUseCase : IUseCaseRequestHandler<GetRoomByFriendlyIDRequest, GenericResponse<GetRoomByFriendlyIDResponse>> { }

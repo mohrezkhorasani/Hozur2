@@ -311,6 +311,18 @@ namespace Application.Usecase
         public async Task handleAsync(GetMembersOfMeetRequest message,
             IOutPutPort<GenericResponse<GetMembersOfMeetResponse>> outputPort)
         {
+
+            if (!_db.MeetingTBLs.Any(e => e.RoomTBL.IDOwnerTBL == message.GeneralHeaders.UserTBL.ID && e.MeetID == message.ID) &&
+                               !message.GeneralHeaders.UserTBL.VerifyUserPermissions("manage_admins"))
+            {
+                outputPort.Handle(new GenericResponse<GetMembersOfMeetResponse>(new GetMembersOfMeetResponse
+                {
+                    Message = "دسترسی ندارید",
+                    Status = 400
+                }));
+                return;
+            }
+
             if (!message.Count.HasValue)
                 message.Count = 50;
             if (!message.Page.HasValue)
@@ -362,19 +374,20 @@ namespace Application.Usecase
                             return new SharedOBJ_PartisBiggest
                             {
                                 ID = e.ID,
-                                Name = e.UserNickName ?? "نامشخص",
+                                Name = e.UserNickName!=null? e.UserNickName=="Teacher"? e.UserTBL.GetName():e.UserNickName : "نامشخص",
                                 Timer = Statics.GetPrettyDateBySeconds(_commonMethods.GetTimerStayUserInMeet(e)),
                                 CanTakeCertificate = e.CertificateTBL != null &&
                                                     e.CertificateTBL.Status == MainEntity_Status.CERT_FULL &&
                                                     e.CertificateTBL.Validation,
                                 HasTakenCertificate = e.CertificateTBL?.FilePath != null,
                                 NationalCode = _commonMethods.GetNationalCode(e),
+                                Role=e.Role,
                                 Email = e.UserTBL?.Email ?? "",
                                 Phone = e.UserTBL?.PhoneNumber ?? "",
                                 Gender = e.CertificateTBL == null || !e.CertificateTBL.IsMale.HasValue
                                          ? "تعیین نشده"
                                          : e.CertificateTBL.IsMale.Value ? "آقا" : "خانم",
-
+                                
                                 // <<< اطلاعات دستگاه و مرورگر اضافه شده >>>
                                 Device = device,                    // مثلاً gl-006ad8b2-...
                                 Browser = browser,                  // مثلاً Firefox 146
@@ -816,7 +829,7 @@ namespace Application.Usecase
         {
             // شروع تراکنش برای جلوگیری از تداخل
             using var transaction = await _db.Database.BeginTransactionAsync();
-
+            string meetid = "";
             try
             {
                 // 1. پیدا کردن روم
@@ -890,7 +903,7 @@ namespace Application.Usecase
                     return;
                 }
 
-                string meetid = $"{meet.MeetID}";
+                meetid = $"{meet.MeetID}";
                 Console.WriteLine(@$"meetid : {meetid}");
 
                 // 4. ایجاد جلسه در دیتابیس (اولین SaveChanges)
@@ -905,9 +918,12 @@ namespace Application.Usecase
                     RequiredToEnterName = message.RequiredToEnterName,
                     IDCreator = -6000,
                 };
+                meetTBL.JWT = Statics.GenerateJWTMeet(meetTBL);
 
                 _db.MeetingTBLs.Add(meetTBL);
                 await _db.SaveChangesAsync(); // اولین SaveChanges - برای گرفتن Id
+
+
 
                 // 5. انتشار Event (حالا meetTBL.Id مقدار دارد)
                 await _mediator.Publish(new MeetingUpdatedEvent
@@ -915,9 +931,10 @@ namespace Application.Usecase
                     Action = "Create",
                     MeetingId = meetTBL.ID
                 });
+                meetTBL.RoomTBL = _db.RoomTBLs.First(e => e.FriendlyID == message.IDRoom);
 
                 // 6. گرفتن لینک ورود
-                var link = await bbb.GetJoinUrlAsync(meetid, message.Name, true, await _commonMethods.ReturnPassword(message.IDRoom, true));
+                var link = await bbb.GetJoinUrlAsync(meetTBL, message.Name, true, await _commonMethods.ReturnPassword(message.IDRoom, true));
 
                 // 7. اضافه کردن معلمان
                 List<UserTBL> teachers = new List<UserTBL>();
@@ -969,14 +986,14 @@ namespace Application.Usecase
                 {
                     UserTBL teacher = null;
 
-                    if (_db.UserTBLs.Any(e => (e.Firstname + " " + e.LastName).Trim() == t
+                    if (_db.UserTBLs.Any(e => ((e.Firstname + " " + e.LastName).Trim() == t || e.Username==t)
                         && e.Status == MainEntity_Status.USER_ACTIVE
-                        && e.Type == MainEntity_Types.USER_TEACHER))
+                        ))
                     {
                         Statics.Log("UpdateMeeting", $"{t} existed user!");
-                        teacher = _db.UserTBLs.FirstOrDefault(e => (e.Firstname + " " + e.LastName).Trim() == t
+                        teacher = _db.UserTBLs.FirstOrDefault(e => ((e.Firstname + " " + e.LastName).Trim() == t || e.Username == t)
                             && e.Status == MainEntity_Status.USER_ACTIVE
-                            && e.Type == MainEntity_Types.USER_TEACHER);
+                            );
                         teachers.Add(teacher);
                     }
                     else
@@ -1035,6 +1052,7 @@ namespace Application.Usecase
             {
                 // در صورت خطا، برگرداندن تراکنش
                 await transaction.RollbackAsync();
+                _ = bbb.EndMeetingAsync(meetid.Split("-")[0]);
 
                 Statics.Log("Start meet error:", e);
                 outputPort.Handle(new GenericResponse<StartNewMeetResponse>

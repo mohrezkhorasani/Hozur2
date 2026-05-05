@@ -12,11 +12,14 @@ namespace Application.Interface.IInfrastructure
 {
     public interface IBBBGetMeetings
     {
+        public Task<List<MiniRoomJSON>> Request(GetLivesRequest req, UserTBL user);
+        public Task<List<MiniRoomJSON>> Request(GetLivesOfProfileRequest req, UserTBL user, UserTBL currentUser);
         public Task<List<MiniRoomJSON>> Request(GetLivesRequest req);
+        public Task<List<MiniRoomJSON>> RequestAll(GetLivesRequest req);
         public Task<List<MiniRoomJSON>> Request(GetLiveWithIDRequest req);
         public Task<List<MiniRoomJSON>> GetLivesShort(GetLivesRequest req);
         public Task<MeetJSON> CreateMeetingAsync(RoomTBL room);
-        public Task<string> GetJoinUrlAsync(string meetingID, string fullName,bool asmoderator, string moderatorPassowrd);
+        public Task<string> GetJoinUrlAsync(MeetingTBL meet, string fullName,bool asmoderator, string moderatorPassowrd);
         public Task<List<RecordingInfo>> GetRecordingsByMeetingId(string meetingId);
         public Task GetMeeting(string meetingId);
         public Task<bool> EndMeetingAsync(string meetingId,string moderatorPass="");

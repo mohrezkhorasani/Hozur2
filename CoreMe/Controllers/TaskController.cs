@@ -31,7 +31,7 @@ namespace CoreMe.Controllers
             _BackupDBResponse = backupDBResponse;
         }
 
-        [HttpPost("/user/CronJobCheckLiveMeetingTask")]
+        [HttpGet("/user/CronJobCheckLiveMeetingTask")]
         public async Task<IActionResult> CronJobCheckLiveMeetingTask()
         {
             await _ICronJobCheckLiveMeetingTaskUseCase.handleAsync(new CronJobCheckLiveMeetingTaskRequest(), _CronJobCheckLiveMeetingTaskResponse);

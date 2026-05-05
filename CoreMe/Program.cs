@@ -168,6 +168,9 @@ builder.Services.AddScoped<IGetLatestMeetingsUseCase, GetLatestMeetingsUseCase>(
 builder.Services.AddScoped<IDeletePlanRoomUseCase, DeletePlanRoomUseCase>();
 builder.Services.AddScoped<IChangeAvatarOfRoomUseCase, ChangeAvatarOfRoomUseCase>();
 builder.Services.AddScoped<IGetPlanRoomUseCase, GetPlanRoomUseCase>();
+builder.Services.AddScoped<IGetLivesOfProfileUseCase, GetLivesOfProfileUseCase>();
+builder.Services.AddScoped<IGetRoomCalendarActivityUseCase, GetRoomCalendarActivityUseCase>();
+builder.Services.AddScoped<IGetMembersOfMeetUseCase, GetMembersOfMeetUseCase>();
 builder.Services.AddScoped<IGetLiveWithIDUseCase, GetLiveWithIDUseCase>();
 
 builder.Logging.ClearProviders();

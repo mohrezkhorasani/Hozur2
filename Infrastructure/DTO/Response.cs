@@ -62,7 +62,11 @@ namespace Infrastructure.DTO
         [XmlElement("roomid")]
         public string RoomID { get; set; }
         [XmlElement("public")]
-        public bool RoomPublic{ get; set; }
+        public bool RoomPublic { get; set; }
+        [XmlElement("supprivate")]
+        public bool IsSuperPrivate { get; set; }
+        [XmlElement("owner")]
+        public long OwnerID { get; set; }
 
     }
     [XmlRoot("response")]

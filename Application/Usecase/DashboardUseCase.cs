@@ -302,7 +302,7 @@ namespace Application.Usecase
     //    public async Task handleAsync(NewUserMettingsRequest message,
     //        IOutPutPort<GenericResponse<NewUserMettingsResponse>> outputPort)
     //    {
-    //        if (message.GeneralHeaders.JWTUserToken == null)
+    //        if (message.GeneralHeaders.JWTMeetingUserToken == null)
     //            return;
     //        UserTBL user = new UserTBL
     //        {
@@ -889,7 +889,7 @@ namespace Application.Usecase
 
     //            outputPort.Handle(new GenericResponse<GuarantCertificateResponse>(new GuarantCertificateResponse
     //            {
-    //                Message = $"ok{message.GeneralHeaders.JWTMeetingToken}\n {message.GeneralHeaders.JWTUserToken} \n {meet.MeetID} \n {user.UUID}",
+    //                Message = $"ok{message.GeneralHeaders.JWTMeetingToken}\n {message.GeneralHeaders.JWTMeetingUserToken} \n {meet.MeetID} \n {user.UUID}",
     //                Status = 200,
     //                Number = um.ID
     //            }));

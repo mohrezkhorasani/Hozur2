@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml;
 using System.Xml.Linq;
 using System.Xml.Serialization;
 
@@ -17,6 +18,60 @@ namespace Infrastructure.API
     public class BBBGetMeeting : IBBBGetMeetings
     {
         public const string URL = "https://vc.hekmateislami.com";
+        public async Task<List<MiniRoomJSON>> Request(GetLivesRequest req, UserTBL user)
+        {
+            string queryString = $"";
+            string apiCall = "getMeetings";
+            string checksumInput = apiCall + queryString + Statics.bbb.Secret;
+            string checksum = Statics.ComputeSha1(checksumInput);
+            // Full URL with checksum
+            string url = $"{Statics.bbb.UrlAPI}?{queryString}&checksum={checksum}";
+            string fullUrl = $"{Statics.bbb.UrlAPI}{apiCall}?{queryString}&checksum={checksum}";
+            using HttpClient client = new HttpClient();
+            string xmlResponse = await client.GetStringAsync(fullUrl);
+
+            // Deserialize XML → Object
+            XmlSerializer serializer = new XmlSerializer(typeof(BBBResponse));
+            using StringReader reader = new StringReader(xmlResponse);
+            BBBResponse result = (BBBResponse)serializer.Deserialize(reader);
+            return result.Meetings.MeetingList.Where(e => e.MetaDatas.OwnerID == user.ID).Select(e => new MiniRoomJSON
+            {
+                RoomID = e.MetaDatas.RoomID,
+                //RoomID = e.InternalMeetingID,
+                Title = e.MeetingName,
+                BBB_MeetID = e.MeetingID,
+                CountPartis = e.ParticipantCount,
+                Created = new DateTime(long.Parse(e.CreateTime))
+            }).ToList();
+        }
+        public async Task<List<MiniRoomJSON>> Request(GetLivesOfProfileRequest req, UserTBL user, UserTBL currentUser)
+        {
+            string queryString = $"";
+            string apiCall = "getMeetings";
+            string checksumInput = apiCall + queryString + Statics.bbb.Secret;
+            string checksum = Statics.ComputeSha1(checksumInput);
+            // Full URL with checksum
+            string url = $"{Statics.bbb.UrlAPI}?{queryString}&checksum={checksum}";
+            string fullUrl = $"{Statics.bbb.UrlAPI}{apiCall}?{queryString}&checksum={checksum}";
+            using HttpClient client = new HttpClient();
+            string xmlResponse = await client.GetStringAsync(fullUrl);
+
+            // Deserialize XML → Object
+            XmlSerializer serializer = new XmlSerializer(typeof(BBBResponse));
+            using StringReader reader = new StringReader(xmlResponse);
+            BBBResponse result = (BBBResponse)serializer.Deserialize(reader);
+            return result.Meetings.MeetingList.Where(e => ((!e.MetaDatas.IsSuperPrivate || e.MetaDatas.RoomPublic) && e.MetaDatas.OwnerID == user.ID) ||
+             (e.MetaDatas.OwnerID == user.ID && user.ID==currentUser.ID)
+            ).Select(e => new MiniRoomJSON
+            {
+                RoomID = e.MetaDatas.RoomID,
+                //RoomID = e.InternalMeetingID,
+                Title = e.MeetingName,
+                BBB_MeetID = e.MeetingID,
+                CountPartis = e.ParticipantCount,
+                Created = new DateTime(long.Parse(e.CreateTime))
+            }).ToList();
+        }
         public async Task<List<MiniRoomJSON>> Request(GetLivesRequest req)
         {
             string queryString = $"";
@@ -43,7 +98,32 @@ namespace Infrastructure.API
                 Created = new DateTime(long.Parse(e.CreateTime))
             }).ToList();
         }
+        public async Task<List<MiniRoomJSON>> RequestAll(GetLivesRequest req)
+        {
+            string queryString = $"";
+            string apiCall = "getMeetings";
+            string checksumInput = apiCall + queryString + Statics.bbb.Secret;
+            string checksum = Statics.ComputeSha1(checksumInput);
+            // Full URL with checksum
+            string url = $"{Statics.bbb.UrlAPI}?{queryString}&checksum={checksum}";
+            string fullUrl = $"{Statics.bbb.UrlAPI}{apiCall}?{queryString}&checksum={checksum}";
+            using HttpClient client = new HttpClient();
+            string xmlResponse = await client.GetStringAsync(fullUrl);
 
+            // Deserialize XML → Object
+            XmlSerializer serializer = new XmlSerializer(typeof(BBBResponse));
+            using StringReader reader = new StringReader(xmlResponse);
+            BBBResponse result = (BBBResponse)serializer.Deserialize(reader);
+            return result.Meetings.MeetingList.Select(e => new MiniRoomJSON
+            {
+                RoomID = e.MetaDatas.RoomID,
+                //RoomID = e.InternalMeetingID,
+                Title = e.MeetingName,
+                BBB_MeetID = e.MeetingID,
+                CountPartis = e.ParticipantCount,
+                Created = new DateTime(long.Parse(e.CreateTime))
+            }).ToList();
+        }
         public async Task<List<MiniRoomJSON>> Request(GetLiveWithIDRequest req)
         {
             string queryString = $"";
@@ -104,9 +184,9 @@ namespace Infrastructure.API
             string joinUrl = $"{URL}/rooms/{room.FriendlyID}/join";
 
             string metadataXml = $@"
-  <meta name=""bbb-context-name"">اتاق جدید</meta>
-  <meta name=""bbb-context-id"">y3x-nhd-imk-7wu</meta>
-  <meta name=""public"">{room.IsPublicRoom.ToString()}</meta>";
+<meta name=""bbb-context-name"">اتاق جدید</meta>
+<meta name=""bbb-context-id"">y3x-nhd-imk-7wu</meta>
+<meta name=""public"">{room.IsPublicRoom.ToString()}</meta>";
 
             // همه مقادیر باید UrlEncoded شوند
             string queryString = $"meetingID={Uri.EscapeDataString(room.BBB_MeetID)}" +
@@ -121,11 +201,16 @@ namespace Infrastructure.API
                                  $"&record={(room.RecordRoom ? "true" : "false")}" +
                                  $"&lockSettingsDisableCam=true" +
                                  $"&lockSettingsLockOnJoin=false" +
+                                 $"&endCallbackURL=https://core.hekmateislami.com/api/bbb-webhook" +
                                  $"&lockSettingsLockOnJoinConfigurable=true" +
+                                 $"&duration=300" +
                                  $"&logo={Uri.EscapeDataString($"{URL}/images/logo.png")}" +
+
                                  $"&metadata={Uri.EscapeDataString(metadataXml)}";
             queryString += $"&meta_public={Uri.EscapeDataString(room.IsPublicRoom.ToString().ToLower())}";
             queryString += $"&meta_roomID={Uri.EscapeDataString(room.FriendlyID)}";
+            queryString += $"&meta_owner={Uri.EscapeDataString(room.IDOwnerTBL.ToString())}";
+            queryString += $"&meta_supprivate={Uri.EscapeDataString(room.IsSuperPrivateRoom.ToString().ToLower())}";
             queryString += $"&bbb-context-id={Uri.EscapeDataString(room.FriendlyID)}";
 
 
@@ -149,6 +234,9 @@ namespace Infrastructure.API
                 {
                     return new MeetJSON { MeetID = room.BBB_MeetID, Status = "failed", JoinUrl = joinUrl };
                 }
+
+                // ✅ Register webhook for this meeting
+                await RegisterWebhookForMeetingAsync(room.BBB_MeetID);
 
                 return new MeetJSON
                 {
@@ -181,9 +269,11 @@ namespace Infrastructure.API
         }
 
 
-        public async Task<string> GetJoinUrlAsync(string meetingID, string fullName, bool asModerator = false, string moderatorPassowrd = "")
+
+        public async Task<string> GetJoinUrlAsync(MeetingTBL meet, string fullName, bool asModerator = false, string moderatorPassowrd = "")
         {
             string apiCall = "join";
+            string meetingID = meet.RoomTBL.BBB_MeetID;
             // Parameters
             string queryString =
                 $"fullName={Uri.EscapeDataString(fullName)}" +
@@ -191,6 +281,8 @@ namespace Infrastructure.API
                 //$"&guest=true" +
                 //$"&logoutURL={Uri.EscapeDataString("")}"+    
                 $"&meetingID={Uri.EscapeDataString(meetingID)}" +
+                                 $"&logoutURL={Uri.EscapeDataString($"https://vc2.hekmateislami.com/meeting/ended?roomid={meet.RoomFriendlyID}")}" +
+
                 $"&password={Uri.EscapeDataString(moderatorPassowrd)}" +
 
             //$"&avatarURL={Uri.EscapeDataString($"{URL}/images/avatar/ma2.jpg")}" +
@@ -388,6 +480,112 @@ namespace Infrastructure.API
                 // لاگ رو می‌تونی بعداً با Serilog یا هر چیزی بزنی
                 Console.WriteLine($"EndMeetingAsync failed for {meetingID}: {ex.Message}");
                 return false;
+            }
+        }
+
+
+        // Updated helper method to check if hook exists
+        private async Task<bool> HookExistsAsync(string meetingID, string callbackURL)
+        {
+            string apiCall = "hooks";
+            string queryString = $"meetingID={Uri.EscapeDataString(meetingID)}";
+            string checksumInput = apiCall + queryString + Statics.bbb.Secret;
+            string checksum = Statics.ComputeSha1(checksumInput);
+            string url = $"{Statics.bbb.UrlAPI}{apiCall}?{queryString}&checksum={checksum}";
+
+            using HttpClient client = new HttpClient();
+
+            try
+            {
+                string response = await client.GetStringAsync(url);
+                Statics.Log("BBBHookExists Request", url);
+                Statics.Log("BBBHookExists Response", response);
+
+                // Parse XML response to check if hook already exists
+                XmlDocument xmlDoc = new XmlDocument();
+                xmlDoc.LoadXml(response);
+
+                // Check for hooks with matching callbackURL
+                XmlNodeList hooks = xmlDoc.SelectNodes("//hook");
+                foreach (XmlNode hook in hooks)
+                {
+                    string existingCallbackURL = hook.SelectSingleNode("callbackURL")?.InnerText;
+                    if (existingCallbackURL == callbackURL)
+                    {
+                        Statics.Log("BBBHookExists", $"Hook already exists for meeting {meetingID}");
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+            catch (Exception e)
+            {
+                Statics.Log("BBBHookExists Error", e.Message);
+                return false;
+            }
+        }
+
+        // New method that checks and creates webhook if needed
+        private async Task RegisterWebhookForMeetingAsync(string meetingID)
+        {
+            string callbackURL = @$"{Statics.URL}/api/bbb-webhook";
+
+            try
+            {
+                // Check if webhook already exists
+                bool hookExists = await HookExistsAsync(meetingID, callbackURL);
+
+                if (!hookExists)
+                {
+                    // Create new webhook for all events
+                    await CreateAllEventsWebhookAsync(meetingID);
+                    Statics.Log("BBBWebhook", $"Webhook registered for meeting {meetingID}");
+                }
+                else
+                {
+                    Statics.Log("BBBWebhook", $"Webhook already exists for meeting {meetingID}, skipping creation");
+                }
+            }
+            catch (Exception e)
+            {
+                Statics.Log("BBBWebhook Error", $"Failed to register webhook for meeting {meetingID}: {e.Message}");
+                // Don't throw - webhook failure shouldn't break meeting creation
+            }
+        }
+
+        // Updated webhook creation method with production URL option
+        private async Task CreateAllEventsWebhookAsync(string meetingID)
+        {
+            string apiCall = "hooks/create";
+            // TODO: Change this to your production URL: https://core.hekmateislami.com/api/bbb-webhook
+            string callbackURL = @$"{Statics.URL}/api/bbb-webhook";
+
+            // No "&eventID=..." parameter to receive ALL events
+            string queryString = $"callbackURL={Uri.EscapeDataString(callbackURL)}" +
+                                 $"&meetingID={Uri.EscapeDataString(meetingID)}";
+
+            string checksumInput = apiCall + queryString + Statics.bbb.Secret;
+            string checksum = Statics.ComputeSha1(checksumInput);
+            string url = $"{Statics.bbb.UrlAPI}{apiCall}?{queryString}&checksum={checksum}";
+
+            using HttpClient client = new HttpClient();
+
+            try
+            {
+                string response = await client.GetStringAsync(url);
+                Statics.Log("BBBHookCreate Response", response);
+
+                // Optional: Parse the hook ID to save for potential deletion later
+                XmlDocument xmlDoc = new XmlDocument();
+                xmlDoc.LoadXml(response);
+                string hookId = xmlDoc.SelectSingleNode("//hookID")?.InnerText;
+                Statics.Log("BBBHookCreate", $"Webhook created with ID: {hookId} for meeting {meetingID}");
+            }
+            catch (Exception e)
+            {
+                Statics.Log("BBBHookCreate Error", e.Message);
+                throw; // Re-throw to let RegisterWebhookForMeetingAsync handle it
             }
         }
     }

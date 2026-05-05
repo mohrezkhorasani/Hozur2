@@ -28,6 +28,15 @@ namespace Application.General
         private static readonly Regex ChromeRegex = new Regex(@"Chrome/(\d+)", RegexOptions.Compiled);
         private static readonly Regex FirefoxRegex = new Regex(@"Firefox/(\d+)", RegexOptions.Compiled);
         private static readonly Regex SafariRegex = new Regex(@"Safari/(\d+)", RegexOptions.Compiled);
+        public static string DEF_AVATAR_PATH = "img/rooms/icons//Apple/bust-in-silhouette_1f464.png";
+
+        public static readonly List<MainEntity_Status> MeetingRunning =
+        [
+            MainEntity_Status.MEETING_STARTED_LATER,
+    MainEntity_Status.MEETING_LIVE
+        ];
+
+
         public static bool ParseLine(string line, out string device, out string browser, out string os)
         {
             device = "";
@@ -409,7 +418,7 @@ namespace Application.General
                     new Claim("Agent", headers.Agent),
                     new Claim("Guid",headers.IdentificationCode==null? "": headers.IdentificationCode.ToString()),
                     new Claim("JMT",headers.JWTMeetingToken==null? "": headers.JWTMeetingToken),
-                    new Claim("JUT",headers.JWTUserToken==null? "": headers.JWTUserToken),
+                    new Claim("JUT",headers.JWTMeetingUserToken==null? "": headers.JWTMeetingUserToken),
                     new Claim("MIC",headers.MeetIdentificationCode==null? "": headers.MeetIdentificationCode),
                     new Claim("Referer",headers.Referer==null? "": headers.Referer),
                 },
@@ -687,7 +696,7 @@ namespace Application.General
             return dayIndex == 6 ? PersianDayNames[6] : PersianDayNames[dayIndex + 1];
         }
     }
-    
+
     public class BBBConfig
     {
         public string Url { get; set; }

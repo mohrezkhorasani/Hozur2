@@ -36,6 +36,24 @@ public class GeneralHeadersService : IGeneralHeadersService
         headers.RefererGoogle = httpContext.Request.Headers["Referer-Google"].ToString();
         headers.JWTUserToken = httpContext.Request.Headers["vc2AuthNorm"].ToString();
 
+        try
+        {
+            headers.JWTMeetingUserToken = httpContext.Request.Headers["Authorization"].ToString();
+        }
+        catch (Exception e)
+        {
+            headers.JWTMeetingUserToken = "";
+        }
+        try
+        {
+            headers.JWTMeetingToken = httpContext.Request.Headers["Meet-Secret"].ToString();
+        }
+        catch (Exception e)
+        {
+            headers.JWTMeetingToken = "";
+        }
+
+
         // مقداردهی Guid
         if (Guid.TryParse(httpContext.Request.Headers["Identification-Code"].ToString(), out Guid guid))
         {

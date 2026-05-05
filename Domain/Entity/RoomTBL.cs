@@ -28,7 +28,12 @@ namespace Domain.Entity
         public bool RequiredLoginToView { get; set; } = false;
         //اجازه دهید اتاق ضبط شود
         public bool RecordRoom { get; set; } = true;
+        // این یعنی بره صفحه اصلی. تو صفحه اصلی نشونش میده. یوزر به این دسترسی نداره مدیریت فقط میتونه اینو تنظیم کنه
         public bool IsPublicRoom { get; set; } = false;
+        //اینجا حتی تو پروفایل یوزر هم نشونش نمیده
+        public bool IsSuperPrivateRoom { get; set; } = false;
+        //یعنی صفحه روم باز میشه درخواست ثبت نام داره ولی هیچوقت نمیتونه تا ثبت نام نکرده وارد شه
+        public bool IsPrivateRoom { get; set; } = false;
         public string? PresentationPath { get; set; }
         public ICollection<MeetingTBL> MeetingTBLs { get; set; }
         public ICollection<UserTBLToMeetingTBL> UserTBLToMeetingTBLs { get; set; }

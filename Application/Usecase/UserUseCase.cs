@@ -778,7 +778,7 @@ namespace Application.Usecase
         public async Task handleAsync(NewUserMettingsRequest message,
             IOutPutPort<GenericResponse<NewUserMettingsResponse>> outputPort)
         {
-            if (message.GeneralHeaders.JWTUserToken == null)
+            if (message.GeneralHeaders.JWTMeetingUserToken == null)
                 return;
             UserTBL user = new UserTBL
             {
@@ -1103,7 +1103,7 @@ namespace Application.Usecase
         public async Task handleAsync(GetTeacherListRequest message,
             IOutPutPort<GenericResponse<GetTeacherListResponse>> outputPort)
         {
-            Statics.Log("GetTeacherListUseCase", JsonConvert.SerializeObject(message.GeneralHeaders));
+            //Statics.Log("GetTeacherListUseCase", JsonConvert.SerializeObject(message.GeneralHeaders));
 
             //var init = await _commonMethods.Initialize<GetTeacherListRequest>(message);
             //var user = init.Item1;
@@ -1213,13 +1213,30 @@ namespace Application.Usecase
             try
             {
                 List<DTO.Models.MiniRoomJSON>? result = null;
-                string cacheKey = $"GetRooms_User_{message.GeneralHeaders.UserTBL.ID}_Query_{message.Query ?? ""}";
+                long idUser = 0;
+                if (message.GeneralHeaders?.UserTBL?.ID != null)
+                {
+                    idUser = message.GeneralHeaders.UserTBL.ID;
+                }
+                if (idUser == 0 && string.IsNullOrEmpty(message.UserName))
+                {
+                    outputPort.Handle(new GenericResponse<GetRoomsResponse>(new GetRoomsResponse
+                    {
+                        Message = "نام کاربری مورد نیاز است",
+                        Status = 400,
+                        Data = null
+                    }));
+                    return;
+                }
+                string cacheKey = $"GetRooms_User_{idUser}_Query_{message.Query ?? ""}";
+
                 if (message.UseCache)
                 {
 
                     // Build a unique cache key per user and query
                     if (message.GeneralHeaders.UserTBL == null)
                     {
+
                         return;
                     }
 
@@ -1238,15 +1255,32 @@ namespace Application.Usecase
                         Statics.Log("GetRooms_CacheRead", cacheEx);
                     }
                 }
+                if (!await _db.RoomTBLs.AnyAsync((e => (
+                            string.IsNullOrEmpty(message.Query) ||
+                                e.Title.Contains(message.Query)) && e.IDOwnerTBL == idUser
+                            //((e.IDOwnerTBL != idUser && e.OwnerTBL.Username == message.UserName) || (e.IDOwnerTBL == idUser && message.UserName == null) ||
+                            //(e.IDOwnerTBL == idUser && message.UserName == e.OwnerTBL.Username))
+                            )))
+                {
 
+                    outputPort.Handle(new GenericResponse<GetRoomsResponse>(new GetRoomsResponse
+                    {
+                        Message = "این کاربر گروهی ندارد",
+                        Status = 404,
+                        Data = []
+                    }));
+                    return;
+                }
                 if (result == null)
                 {
                     // Cache miss – compute data as before
                     var rooms = await _db.RoomTBLs
                         .Where(e => (
                             string.IsNullOrEmpty(message.Query) ||
-                                e.Title.Contains(message.Query)) &&
-                            e.IDOwnerTBL == message.GeneralHeaders.UserTBL.ID
+                                e.Title.Contains(message.Query)) && e.IDOwnerTBL == idUser
+                        //((e.IDOwnerTBL != idUser && e.OwnerTBL.Username == message.UserName) || 
+                        //(e.IDOwnerTBL == idUser && message.UserName == null) ||
+                        //(e.IDOwnerTBL == idUser && message.UserName == e.OwnerTBL.Username)) 
                         )
                         .Include(e => e.MeetingTBLs)
                             .ThenInclude(m => m.UserTBLToMeetingTBLs)
@@ -1287,6 +1321,7 @@ namespace Application.Usecase
                         Owner = new MiniUserJSON
                         {
                             UID = room.OwnerTBL.UUID,
+                            Username = room.OwnerTBL.Username,
                             Fullname = room.OwnerTBL.Firstname
                         },
                         LastMeet = room.Meetings
@@ -1450,7 +1485,8 @@ namespace Application.Usecase
                     Owner = new MiniUserJSON
                     {
                         UID = room.OwnerTBL.UUID,
-                        Fullname = room.OwnerTBL.Firstname
+                        Fullname = room.OwnerTBL.Firstname,
+                        Username = room.OwnerTBL.Username
                     },
                     // تعداد معلم‌های یکتا
                     CountTeacher = room.Meetings
@@ -1572,7 +1608,17 @@ namespace Application.Usecase
         public async Task handleAsync(GetLivesRequest message,
             IOutPutPort<GenericResponse<GetLivesResponse>> outputPort)
         {
-            var meets = await IBBBGetMeetings.Request(message);
+            UserTBL user = new UserTBL
+            {
+                ID = 0
+            };
+            if (message.GeneralHeaders?.UserTBL?.ID != null)
+            {
+                user = message.GeneralHeaders.UserTBL;
+            }
+
+
+            var meets = await IBBBGetMeetings.Request(message, user);
             foreach (var m in meets)
             {
                 var r = _db.RoomTBLs.First(e => e.BBB_MeetID == m.BBB_MeetID);
@@ -1583,6 +1629,80 @@ namespace Application.Usecase
             //var resp = IScpUploader.ExecuteRemoteCommand("ls -lht");
 
             outputPort.Handle(new GenericResponse<GetLivesResponse>(new GetLivesResponse
+            {
+                Message = "ok",
+                Status = 200,
+                Data = meets.Select(e => new MiniRoomJSON
+                {
+                    RoomID = e.RoomID,
+                    Title = e.Title,
+                    Created = e.Created,
+                    BBB_MeetID = e.BBB_MeetID,
+                    CountPartis = e.CountPartis,
+
+                }).ToList()
+            }));
+
+        }
+    }
+    #endregion
+
+    #region GetLivesOfProfile
+    public class GetLivesOfProfileUseCase : IGetLivesOfProfileUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        private IBBBGetMeetings IBBBGetMeetings { get; }
+        private IScpUploader IScpUploader { get; }
+        public GetLivesOfProfileUseCase(IDBContext repository,
+            IConfiguration configuration,
+            IBBBGetMeetings bBBGetMeetings,
+            IScpUploader IScpUploader
+            )
+        {
+            _db = repository;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+            IBBBGetMeetings = bBBGetMeetings;
+            this.IScpUploader = IScpUploader;
+        }
+
+
+        public async Task handleAsync(GetLivesOfProfileRequest message,
+            IOutPutPort<GenericResponse<GetLivesOfProfileResponse>> outputPort)
+        {
+            UserTBL user = new UserTBL
+            {
+                ID = 0
+            };
+            if (message.GeneralHeaders?.UserTBL?.ID != null)
+            {
+                user = message.GeneralHeaders.UserTBL;
+            }
+            if (!await _db.UserTBLs.AnyAsync(e => e.Username == message.Username))
+            {
+                outputPort.Handle(new GenericResponse<GetLivesOfProfileResponse>(new GetLivesOfProfileResponse
+                {
+                    Message = "نام کاربری یافت نشد",
+                    Status = 404,
+                    Data = null
+                }));
+
+                return;
+            }
+            var puser = await _db.UserTBLs.FirstOrDefaultAsync(e => e.Username == message.Username);
+
+            var meets = await IBBBGetMeetings.Request(message, puser, user);
+            foreach (var m in meets)
+            {
+                var r = _db.RoomTBLs.First(e => e.BBB_MeetID == m.BBB_MeetID);
+                m.RoomID = r.FriendlyID;
+            }
+            //var r = await IBBBGetMeetings.GetRecordingsByMeetingId("1khe4quugbx7ziilyojrvapwebknxbn1jydcjozl");
+
+            //var resp = IScpUploader.ExecuteRemoteCommand("ls -lht");
+
+            outputPort.Handle(new GenericResponse<GetLivesOfProfileResponse>(new GetLivesOfProfileResponse
             {
                 Message = "ok",
                 Status = 200,
@@ -1707,6 +1827,251 @@ namespace Application.Usecase
     }
     #endregion
 
+    #region GetRoomCalendarActivity
+    public class GetRoomCalendarActivityUseCase : IGetRoomCalendarActivityUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        private IBBBGetMeetings IBBBGetMeetings { get; }
+        private IScpUploader IScpUploader { get; }
+        public GetRoomCalendarActivityUseCase(IDBContext repository,
+            IConfiguration configuration,
+            IBBBGetMeetings bBBGetMeetings,
+            IScpUploader IScpUploader
+            )
+        {
+            _db = repository;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+            IBBBGetMeetings = bBBGetMeetings;
+            this.IScpUploader = IScpUploader;
+        }
+
+
+        public async Task handleAsync(GetRoomCalendarActivityRequest message,
+            IOutPutPort<GenericResponse<GetRoomCalendarActivityResponse>> outputPort)
+        {
+            if (!message.GeneralHeaders.UserTBL.VerifyUserPermissions("create_meeting"))
+            {
+                outputPort.Handle(new GenericResponse<GetRoomCalendarActivityResponse>(new GetRoomCalendarActivityResponse
+                {
+                    Message = "دسترسی ندارید",
+                    Status = 400
+                }));
+                return;
+            }
+            if (!_db.RoomTBLs.Any(e => e.IDOwnerTBL == message.GeneralHeaders.UserTBL.ID && e.FriendlyID == message.FriendlyID || (message.GeneralHeaders.UserTBL.Type == MainEntity_Types.USER_ADMINSTRATOR)))
+            {
+                outputPort.Handle(new GenericResponse<GetRoomCalendarActivityResponse>(new GetRoomCalendarActivityResponse
+                {
+                    Message = "دسترسی ندارید",
+                    Status = 400
+                }));
+                return;
+            }
+            //var room = _db.RoomTBLs.Where(e => e.FriendlyID == message.FriendlyID)
+            //    .Include(e => e.MeetingTBLs).ThenInclude(e => e.UserTBLToMeetingTBLs).ThenInclude(e => e.CertificateTBL)
+            //    .Include(e => e.MeetingTBLs).ThenInclude(e => e.UserTBLToMeetingTBLs).ThenInclude(e => e.MeetQuestionTBLs)
+            //    .Include(e => e.MeetingTBLs).ThenInclude(e => e.UserTBLToMeetingTBLs).ThenInclude(e => e.MeetCommentTBLs)
+            //    .Include(e => e.MeetingTBLs).ThenInclude(e => e.UserTBLToMeetingTBLs).ThenInclude(e => e.UserTBL)
+            //    .Include(e => e.MeetingTBLs).ThenInclude(e => e.UserTBLToMeetingTBLs).ThenInclude(e => e.UserTBLToMeetingTBLLogs)
+            //    .Include(e => e.RoomTBLPlanTBLs)
+            //    .Include(e => e.OwnerTBL)
+            //    .First();
+
+
+
+            outputPort.Handle(new GenericResponse<GetRoomCalendarActivityResponse>(new GetRoomCalendarActivityResponse
+            {
+                Message = "ok",
+                Status = 200,
+                Data = GetRoomCalendarActivities(message.FriendlyID)
+            }));
+
+        }
+
+        public List<MiniCalendarActivity> GetRoomCalendarActivities(string friendlyId)
+        {
+            // 1. واکشی اتاق با تمام جلسات و ارتباطات لازم
+            var room = _db.RoomTBLs
+           .Where(e => e.FriendlyID == friendlyId)
+           // شاخه اول: CertificateTBL
+           .Include(e => e.MeetingTBLs.Where(m => m.UserTBLToMeetingTBLs.Count(r =>
+               r.Type != MainEntity_Types.USER_TEACHER && r.Type != MainEntity_Types.USER_DABIR) > 1))
+               .ThenInclude(m => m.UserTBLToMeetingTBLs)
+                   .ThenInclude(u => u.CertificateTBL)
+           // شاخه دوم: MeetQuestionTBLs
+           .Include(e => e.MeetingTBLs.Where(m => m.UserTBLToMeetingTBLs.Count(r =>
+               r.Type != MainEntity_Types.USER_TEACHER && r.Type != MainEntity_Types.USER_DABIR) > 1))
+               .ThenInclude(m => m.UserTBLToMeetingTBLs)
+                   .ThenInclude(u => u.MeetQuestionTBLs)
+           // شاخه سوم: MeetCommentTBLs
+           .Include(e => e.MeetingTBLs.Where(m => m.UserTBLToMeetingTBLs.Count(r =>
+               r.Type != MainEntity_Types.USER_TEACHER && r.Type != MainEntity_Types.USER_DABIR) > 1))
+               .ThenInclude(m => m.UserTBLToMeetingTBLs)
+                   .ThenInclude(u => u.MeetCommentTBLs)
+           // شاخه چهارم: UserTBL
+           .Include(e => e.MeetingTBLs.Where(m => m.UserTBLToMeetingTBLs.Count(r =>
+               r.Type != MainEntity_Types.USER_TEACHER && r.Type != MainEntity_Types.USER_DABIR) > 1))
+               .ThenInclude(m => m.UserTBLToMeetingTBLs)
+                   .ThenInclude(u => u.UserTBL)
+           // شاخه پنجم: UserTBLToMeetingTBLLogs
+           .Include(e => e.MeetingTBLs.Where(m => m.UserTBLToMeetingTBLs.Count(r =>
+               r.Type != MainEntity_Types.USER_TEACHER && r.Type != MainEntity_Types.USER_DABIR) > 1))
+               .ThenInclude(m => m.UserTBLToMeetingTBLs)
+                   .ThenInclude(u => u.UserTBLToMeetingTBLLogs)
+           .Include(e => e.RoomTBLPlanTBLs)
+           .Include(e => e.OwnerTBL)
+           .First();
+
+            if (room == null) return new List<MiniCalendarActivity>();
+
+            // 2. ساخت MiniRoomJSON (یک بار برای همه جلسات)
+            var miniRoom = MapToMiniRoomJSON(room);
+
+            // 3. تبدیل تمام جلسات به MeetJSON
+            var allMeets = room.MeetingTBLs
+                .Select(meeting => MapToMeetJSON(meeting, miniRoom))
+                .ToList();
+
+            // 4. گروه‌بندی بر اساس سال و ماه شمسی (از JalaliDate)
+            var calendarGroups = allMeets
+      .GroupBy(meet =>
+      {
+          var parts = meet.JalaliDate.Split('-');
+          if (parts.Length == 3 && int.TryParse(parts[0], out int year))
+          {
+              // تبدیل نام ماه شمسی به عدد
+              int month = ConvertPersianMonthNameToNumber(parts[1]);
+              if (month > 0)
+                  return new { Year = year, Month = month - 1 }; // month 0-based
+          }
+          return new { Year = 0, Month = -1 };
+      })
+      .Where(g => g.Key.Year > 0 && g.Key.Month >= 0)
+      .Select(g => new MiniCalendarActivity
+      {
+          Year = g.Key.Year,
+          Month = g.Key.Month,
+          Activities = g.GroupBy(m => ExtractDayFromJalaliDate(m.JalaliDate))
+                        .Select(dayGroup => new ActivityItem
+                        {
+                            Day = dayGroup.Key,
+                            Count = dayGroup.Count(),
+                            MeetJSONs = dayGroup.ToList()
+                        })
+                        .OrderBy(a => a.Day)
+                        .ToList()
+      })
+      .OrderBy(c => c.Year)
+      .ThenBy(c => c.Month)
+      .ToList();
+            return calendarGroups;
+        }
+
+        // توابع کمکی (Mapping)
+        private MiniRoomJSON MapToMiniRoomJSON(RoomTBL room)
+        {
+            return new MiniRoomJSON
+            {
+                RoomID = room.FriendlyID,
+                Title = room.Title,
+                IsAdmin = false,
+                BBB_MeetID = room.BBB_MeetID,
+                Avatar = room.Avatar,
+                Created = room.DateInsert,
+                Count = room.MeetingTBLs?.Count ?? 0,
+            };
+        }
+        private int ConvertPersianMonthNameToNumber(string monthName)
+        {
+            var persianMonths = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+    {
+        {"فروردین", 1},
+        {"اردیبهشت", 2},
+        {"خرداد", 3},
+        {"تیر", 4},
+        {"مرداد", 5},
+        {"شهریور", 6},
+        {"مهر", 7},
+        {"آبان", 8},
+        {"آذر", 9},
+        {"دی", 10},
+        {"بهمن", 11},
+        {"اسفند", 12}
+    };
+
+            return persianMonths.ContainsKey(monthName) ? persianMonths[monthName] : 0;
+        }
+
+        private int ExtractDayFromJalaliDate(string jalaliDate)
+        {
+            if (string.IsNullOrEmpty(jalaliDate)) return 0;
+            var parts = jalaliDate.Split('-');
+            if (parts.Length == 3 && int.TryParse(parts[2], out int day))
+                return day;
+            return 0;
+        }
+
+        private MeetJSON MapToMeetJSON(MeetingTBL meeting, MiniRoomJSON miniRoom)
+        {
+            return new MeetJSON
+            {
+                MeetID = meeting.MeetID,
+                JWT = new JWTTokenJSON { Token = meeting.JWT },
+                Title = meeting.Title,
+                JalaliDate = meeting.JalaliDate,
+                StartedTime = meeting.DateInsert.ToString("HH:mm"),
+                Status = meeting.Status == MainEntity_Status.MEETING_LIVE ? "live" : "end",
+                CountPartis = meeting.UserTBLToMeetingTBLs.Count,
+                JoinUrl = $"/meeting/join/{meeting.MeetID}", // آدرس نسبی یا کامل
+                Room = miniRoom,
+                Teacher = meeting.UserTBLToMeetingTBLs.Any(e => e.Type == MainEntity_Types.USER_TEACHER) ?
+                    MapToMiniUserJSON(meeting.UserTBLToMeetingTBLs.Where(e => e.Type == MainEntity_Types.USER_TEACHER).ToList()) : new(),
+                Creator = MapToMiniUserJSON(meeting.Creator)
+            };
+        }
+
+        private List<MiniUserJSON> MapToMiniUserJSON(ICollection<UserTBLToMeetingTBL> users)
+        {
+            if (users == null || !users.Any()) return null;
+            var min = new List<MiniUserJSON>();
+            return users.Select(e => MapToMiniUserJSON(e)).ToList();
+        }
+        private MiniUserJSON MapToMiniUserJSON(UserTBL user)
+        {
+            if (user == null) return null;
+            return new MiniUserJSON
+            {
+                ID = user.ID,
+                UID = user.UUID,
+                Fullname = user.GetName(),
+                Username = user.Username,
+                Email = user.Email,
+                Role = user.GetRole(),
+            };
+        }
+        private MiniUserJSON MapToMiniUserJSON(UserTBLToMeetingTBL u)
+        {
+            if (u == null || u.UserTBL == null) return null;
+            var user = u.UserTBL;
+            return new MiniUserJSON
+            {
+                ID = user.ID,
+                UID = user.UUID,
+                Fullname = u.UserNickName,
+                Username = user.Username,
+                Email = user.Email,
+                Role = user.GetRole(),
+            };
+        }
+
+
+
+    }
+    #endregion
+
+
     #region GetMeetingURL
     public class GetMeetingURLUseCase : IGetMeetingURLUseCase
     {
@@ -1740,7 +2105,7 @@ namespace Application.Usecase
                 }
             }
 
-            var listmeet = await IBBBGetMeetings.Request(new GetLivesRequest
+            var listmeet = await IBBBGetMeetings.RequestAll(new GetLivesRequest
             {
                 GeneralHeaders = message.GeneralHeaders,
                 AllowedGUID = message.AllowedGUID,
@@ -1750,9 +2115,12 @@ namespace Application.Usecase
             });
             listmeet.ForEach(e => e.RoomID = _db.MeetingTBLs.Any(r => r.MeetID.EndsWith(e.RoomID)) ? _db.MeetingTBLs.FirstOrDefault(r => r.MeetID.EndsWith(e.RoomID)).RoomFriendlyID : e.RoomID);
             var r = _db.RoomTBLs.Where(e => e.FriendlyID == message.MeetiID).First();
+            var meet = _db.MeetingTBLs.Where(e => e.RoomFriendlyID == message.MeetiID && Statics.MeetingRunning.Contains(e.Status)).OrderByDescending(e => e.ID)
+                .Include(e => e.RoomTBL).First();
+
             string meetid = r.BBB_MeetID;
 
-            var meets = await IBBBGetMeetings.GetJoinUrlAsync(meetid, message.FullName, modir, await _commonMethods.ReturnPassword(message.MeetiID, modir));
+            var meets = await IBBBGetMeetings.GetJoinUrlAsync(meet, message.FullName, modir, await _commonMethods.ReturnPassword(message.MeetiID, modir));
 
             outputPort.Handle(new GenericResponse<GetMeetingURLResponse>(new GetMeetingURLResponse
             {
@@ -1865,7 +2233,7 @@ namespace Application.Usecase
 
                 outputPort.Handle(new GenericResponse<GuarantCertificateResponse>(new GuarantCertificateResponse
                 {
-                    Message = $"ok{message.GeneralHeaders.JWTMeetingToken}\n {message.GeneralHeaders.JWTUserToken} \n {meet.MeetID} \n {user.UUID}",
+                    Message = $"ok{message.GeneralHeaders.JWTMeetingToken}\n {message.GeneralHeaders.JWTMeetingUserToken} \n {meet.MeetID} \n {user.UUID}",
                     Status = 200,
                     Number = um.ID
                 }));
@@ -2136,7 +2504,7 @@ namespace Application.Usecase
             var init = await _commonMethods.Initialize<EndTheMeetingRequest>(message);
             var user = init.Item1;
             var meet = init.Item2;
-            if (!await _commonMethods.CheckUserAccessibilityToMeet(user, meet, "EndTheMeeting"))
+            if (meet == null || user == null)
             {
                 outputPort.Handle(new GenericResponse<EndTheMeetingResponse>(new EndTheMeetingResponse
                 {
@@ -2145,12 +2513,13 @@ namespace Application.Usecase
                 }));
                 return;
             }
-            if (meet == null || user == null)
+            if (!_db.UserTBLToMeetingTBLs.Any(e => e.UUID == user.UUID && e.MeetID == meet.MeetID) &&
+               !user.VerifyUserPermissions("manage_admins"))
             {
                 outputPort.Handle(new GenericResponse<EndTheMeetingResponse>(new EndTheMeetingResponse
                 {
-                    Message = "forbidden",
-                    Status = 403,
+                    Message = "دسترسی ندارید",
+                    Status = 400
                 }));
                 return;
             }
@@ -2722,7 +3091,7 @@ namespace Application.Usecase
                     .Include(e => e.Followers).Include(e => e.Followings).Select(e => new MiniProfileJSON
                     {
                         ID = e.ID,
-                        Avatar = string.IsNullOrEmpty(e.AvatarPath) ? "https://hekmateislami.com/wp-content/uploads/2025/12/logo-majma-low.png" : Statics.CombinePath(Statics.URLFiles, e.AvatarPath),
+                        Avatar = string.IsNullOrEmpty(e.AvatarPath) ? Statics.CombinePath(Statics.URLFiles, Statics.DEF_AVATAR_PATH) : Statics.CombinePath(Statics.URLFiles, e.AvatarPath),
                         Bio = e.GetRole(),
                         FollowersCount = e.Followers.Count,
                         IsFollowing = e.Followings.Any(r => r.IDFollower == message.GeneralHeaders.UserTBL.ID),
@@ -2740,15 +3109,15 @@ namespace Application.Usecase
             else
             {
 
-                var li = _db.UserTBLs.Where(e => e.Status == MainEntity_Status.Enabled)
+                var li = _db.UserTBLs.Where(e => ((int)e.Status) >= 500)
                  .Include(e => e.Followers).Include(e => e.Followings).Select(e => new MiniProfileJSON
                  {
                      ID = e.ID,
-                     Avatar = Statics.CombinePath(Statics.URLFiles, e.AvatarPath),
+                     Avatar = Statics.CombinePath(Statics.URLFiles, string.IsNullOrEmpty(e.AvatarPath) ? Statics.DEF_AVATAR_PATH : e.AvatarPath),
                      Bio = e.GetRole(),
                      FollowersCount = e.Followers.Count,
                      IsFollowing = false,
-                     Name = e.Firstname
+                     Name = string.IsNullOrEmpty(e.Firstname) ? "" : e.Firstname
 
                  }).First();
 

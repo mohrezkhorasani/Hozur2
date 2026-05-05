@@ -41,7 +41,7 @@ namespace Application.General
         where T : NewUserRequest
         {
             UserTBL user = null;
-            if (string.IsNullOrEmpty(message.GeneralHeaders.JWTUserToken))
+            if (string.IsNullOrEmpty(message.GeneralHeaders.JWTMeetingUserToken))
             {
                 user = new UserTBL
                 {
@@ -56,7 +56,7 @@ namespace Application.General
             }
             else
             {
-                user = await GetUser(message.GeneralHeaders.JWTUserToken);
+                user = await GetUser(message.GeneralHeaders.JWTMeetingUserToken);
                 Statics.Log("Initialize", "user is " + (user.UUID));
 
             }
@@ -73,13 +73,13 @@ namespace Application.General
         where T : BaseParentRequest
         {
             UserTBL user = null;
-            if (string.IsNullOrEmpty(message.GeneralHeaders.JWTUserToken))
+            if (string.IsNullOrEmpty(message.GeneralHeaders.JWTMeetingUserToken))
             {
                 return (null, null);
             }
             else
             {
-                user = await GetUser(message.GeneralHeaders.JWTUserToken);
+                user = await GetUser(message.GeneralHeaders.JWTMeetingUserToken);
                 Statics.Log("Initialize", "user is " + (user.UUID));
 
             }

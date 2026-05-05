@@ -100,6 +100,7 @@ namespace Application.DTO
         public string Email { get; set; }
         public string Device { get; set; }
         public string Browser { get; set; }
+        public string Role { get; set; }
         public string OS { get; set; }
         public string Gender { get; set; }
         public bool CanTakeCertificate { get; set; }
