@@ -11,7 +11,7 @@ export default function ContactUsFieldIconOnly({ svgPath, href, className }) {
             w-10 h-10
             flex items-center justify-center
             transition-all duration-300
-            text-[#2B3992]
+            text-[#0b3f32]
             hover:text-white hover:fill-white
             cursor-pointer
             ${className || ""}
@@ -20,7 +20,7 @@ export default function ContactUsFieldIconOnly({ svgPath, href, className }) {
           <svg
             aria-hidden="true"
             className="w-5 h-5"
-            viewBox="0 0 512 512"
+            viewBox="0 0 512 512" 
             xmlns="http://www.w3.org/2000/svg"
             fill="currentColor"
           >

@@ -44,6 +44,23 @@
   url('assets/fonts/icons/Iconly-Bold.ttf') format('truetype'),
   url('assets/fonts/icons/Iconly-Bold.svg#Iconly-Bold') format('svg');;
 }
+@font-face {
+  font-family: star;
+  src: url('assets/fonts/icons/WooCommerce.woff2') format("woff2"),
+    url('assets/fonts/icons/WooCommerce.woff') format("woff"),
+    url('assets/fonts/icons/WooCommerce.ttf') format("truetype");
+  font-weight: 400;
+  font-style: normal
+}
+
+@font-face {
+  font-family: WooCommerce;
+  src: url('assets/fonts/icons/WooCommerce.woff2') format("woff2"),
+    url('assets/fonts/icons/WooCommerce.woff') format("woff"),
+    url('assets/fonts/icons/WooCommerce.ttf') format("truetype");
+  font-weight: 400;
+  font-style: normal
+}
 
 @font-face {
   font-family: iconly;

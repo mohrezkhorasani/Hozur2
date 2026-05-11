@@ -4,8 +4,12 @@ import Footer from "../Component/Footer";
 import FooterUpper from "../Component/FooterUpper";
 import BreadCrumbParent from "@/Component/BreadCrumbParent";
 import { useState } from "react";
+import { useNavigate, useOutletContext } from "react-router-dom";
 
 const AccountLayout = () => {
+
+
+
     const [breadcrumb, setBreadcrumb] = useState(null);
     return (
         <div className="min-h-screen bg-white"
@@ -48,21 +52,21 @@ const AccountLayout = () => {
                         ">
 
                             {/* item */}
-                            <a href="#" className="group relative flex flex-col items-center justify-center text-center py-3 lg:w-[100px] flex-shrink-0">
+                            <a href="/me/my-account" className="group relative flex flex-col items-center justify-center text-center py-3 lg:w-[100px] flex-shrink-0">
                                 <span className="profile-nav-item-icon iconlyBulk-Discovery text-[28px] mb-1 transition-colors group-hover:text-[#11207A]">
                                     <span className="path1"></span>
                                     <span className="path2"></span>
                                 </span>
-                                <span className={`text-sm  ${window.location.pathname === "/my-account" ? "text-myb" : "text-black"}`}>پیشخوان</span>
+                                <span className={`text-sm  ${window.location.pathname.includes("/my-account") ? "text-myb" : "text-black"}`}>پیشخوان</span>
                                 <span className="pointer-events-none absolute bottom-0 left-1/2 h-[2px] w-0 bg-current -translate-x-1/2 transition-all duration-300 group-hover:w-10"></span>
                             </a>
 
-                            <a href="#" className="group relative flex flex-col items-center justify-center text-center py-3 lg:w-[100px] flex-shrink-0">
+                            <a href="/me/orders" className="group relative flex flex-col items-center justify-center text-center py-3 lg:w-[100px] flex-shrink-0">
                                 <span className="profile-nav-item-icon iconlyBulk-Document text-[28px] mb-1 transition-colors">
                                     <span className="path1"></span>
                                     <span className="path2"></span>
                                 </span>
-                                <span className={`text-sm  ${window.location.pathname === "/orders" ? "text-myb" : "text-black"}`}>سفارش‌ها</span>
+                                <span className={`text-sm   ${window.location.pathname.includes("/orders") ? "text-myb" : "text-black"}`}>سفارش‌ها</span>
                                 <span className="pointer-events-none absolute bottom-0 left-1/2 h-[2px] w-0 bg-current -translate-x-1/2 transition-all duration-300 group-hover:w-10"></span>
                             </a>
 
@@ -115,7 +119,7 @@ const AccountLayout = () => {
 
                         </div>
                     </div>
-                    <div className="flex">
+                    <div className="flex mx-4 my-7">
                         <Outlet context={{ setBreadcrumb }} />
                     </div>
                 </div>

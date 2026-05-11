@@ -4,6 +4,17 @@ import tailwindcss from '@tailwindcss/vite'
 import path from 'path'   // ← این خط مهمه
 // https://vite.dev/config/
 export default defineConfig({
+
+  server: {
+    allowedHosts: [
+      'localhost',
+      '127.0.0.1',
+      'vc5.hekmateislami.com'
+    ],
+    host: true, // This will listen on all addresses
+    port: 3000, // You can specify the port here too
+    historyApiFallback: true,
+  },
   plugins: [
     react(),
     tailwindcss(),

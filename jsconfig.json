@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "baseUrl": ".",
+    "baseUrl": "https://vc2.hekmateislami.com",
     "paths": {
       "@/*": ["src/*"]
     },

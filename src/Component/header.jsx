@@ -41,7 +41,7 @@ function Header() {
                 <Search size={22} />
               </button>
 
-              <a href="/account" aria-label="حساب کاربری" className="hover:text-green-400 transition">
+              <a href="/my-account" aria-label="حساب کاربری" className="hover:text-green-400 transition">
                 <User size={22} />
               </a>
 

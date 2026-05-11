@@ -7,7 +7,7 @@ export default function ContactusField({ title, svgPath, href }) {
           flex-shrink-0
           bg-gray-100
           rounded-md
-          text-myb
+          text-[#0b3f32]
           w-8 h-8
           flex items-center justify-center
         "
