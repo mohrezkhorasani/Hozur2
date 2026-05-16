@@ -48,7 +48,7 @@ namespace Presistence.Entities
             builder.Property(e => e.Token).HasMaxLength(3500);
 
             builder.HasOne(e => e.UserTBL).WithMany(c => c.UserRevokeTokenTBLs)
-            .HasForeignKey(x => x.IDUserTBL).OnDelete(DeleteBehavior.Cascade);
+            .HasForeignKey(x => x.IDUserTBL).OnDelete(DeleteBehavior.Restrict);
         }
 
     }

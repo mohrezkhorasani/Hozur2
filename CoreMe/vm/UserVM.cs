@@ -209,6 +209,10 @@ namespace CoreMe.VM
     public class EndTheMeetingViewModel : UserMainVM
     {
     }
+    public class EndTheMeetingWithAPIViewModel
+    {
+        public string FriendlyID { get; set; }
+    }
 
     public class NewUserMeetingLogViewModel : UserMainVM
     {
@@ -240,7 +244,9 @@ namespace CoreMe.VM
         public bool RequiredToEnterName { get; set; } = false;
         public string? MeetTitle { get; set; }
         public string? Name { get; set; } = "مجمع عالی حکمت اسلامی";
-        public List<string> Teachers { get; set; } = new List<string> { "استاد تستی", "استاد تستی 2" };
+        public long? IDPlan{ get; set; }
+        public List<string> Teachers { get; set; } = new List<string>();
+        public bool HasCertificate { get; set; } = false;
         public string? Dabir { get; set; }
 
     }
@@ -268,6 +274,7 @@ namespace CoreMe.VM
         public string? Title { get; set; }
         public string? Teacher { get; set; }
         public string? Dabir { get; set; }
+        public bool HasCert { get; set; } = true;
         public DateTime StartDate { get; set; }
     }
 

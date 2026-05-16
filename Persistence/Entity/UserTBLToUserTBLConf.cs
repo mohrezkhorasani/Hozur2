@@ -53,7 +53,7 @@ namespace Presistence.Entities
             builder.HasOne(e => e.Following).WithMany(c => c.Followings)
             .HasForeignKey(x => x.IDFollowing)
             .OnDelete(DeleteBehavior.Restrict);
-            
+
         }
 
     }

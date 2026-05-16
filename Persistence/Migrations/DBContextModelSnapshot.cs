@@ -399,6 +399,9 @@ namespace Persistence.Migrations
                     b.Property<long>("IDCreator")
                         .HasColumnType("bigint");
 
+                    b.Property<long?>("IDRoomTBLPlanTBL")
+                        .HasColumnType("bigint");
+
                     b.Property<long?>("IDTeacher")
                         .HasColumnType("bigint");
 
@@ -435,6 +438,8 @@ namespace Persistence.Migrations
                     b.HasKey("ID");
 
                     b.HasIndex("IDCreator");
+
+                    b.HasIndex("IDRoomTBLPlanTBL");
 
                     b.HasIndex("IDTeacher");
 
@@ -598,6 +603,9 @@ namespace Persistence.Migrations
 
                     b.Property<long>("IDRoomTBL")
                         .HasColumnType("bigint");
+
+                    b.Property<bool>("RequiredToEnterName")
+                        .HasColumnType("bit");
 
                     b.Property<DateTime?>("StartDate")
                         .HasColumnType("datetime2");
@@ -1128,7 +1136,7 @@ namespace Persistence.Migrations
                     b.HasOne("Domain.Entity.UserTBLToMeetingTBL", "UserTBLToMeetingTBL")
                         .WithOne("CertificateTBL")
                         .HasForeignKey("Domain.Entity.CertificateTBL", "IDUserTBLToMeetingTBL")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("UserTBLToMeetingTBL");
@@ -1164,6 +1172,11 @@ namespace Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Domain.Entity.RoomTBLPlanTBL", "RoomTBLPlanTBL")
+                        .WithMany("MeetingTBLs")
+                        .HasForeignKey("IDRoomTBLPlanTBL")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Domain.Entity.UserTBL", "Teacher")
                         .WithMany("TeacherMeetings")
                         .HasForeignKey("IDTeacher")
@@ -1179,6 +1192,8 @@ namespace Persistence.Migrations
                     b.Navigation("Creator");
 
                     b.Navigation("RoomTBL");
+
+                    b.Navigation("RoomTBLPlanTBL");
 
                     b.Navigation("Teacher");
                 });
@@ -1231,7 +1246,7 @@ namespace Persistence.Migrations
                     b.HasOne("Domain.Entity.UserTBL", "UserTBL")
                         .WithMany("UserRevokeTokenTBLs")
                         .HasForeignKey("IDUserTBL")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("UserTBL");
@@ -1267,7 +1282,7 @@ namespace Persistence.Migrations
                     b.HasOne("Domain.Entity.UserTBLToMeetingTBL", "UserTBLToMeetingTBL")
                         .WithMany("UserTBLToMeetingTBLLogs")
                         .HasForeignKey("IDUserTBLToMeetingTBL")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("UserTBLToMeetingTBL");
@@ -1337,6 +1352,11 @@ namespace Persistence.Migrations
                     b.Navigation("RoomTBLToUserTBLs");
 
                     b.Navigation("UserTBLToMeetingTBLs");
+                });
+
+            modelBuilder.Entity("Domain.Entity.RoomTBLPlanTBL", b =>
+                {
+                    b.Navigation("MeetingTBLs");
                 });
 
             modelBuilder.Entity("Domain.Entity.UserTBL", b =>

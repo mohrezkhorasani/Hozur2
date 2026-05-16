@@ -54,7 +54,7 @@ namespace Presistence.Entities
             builder.HasOne(c => c.UserTBLToMeetingTBL)
                .WithMany(u => u.UserTBLToMeetingTBLLogs)
                .HasForeignKey(c => c.IDUserTBLToMeetingTBL)
-               .OnDelete(DeleteBehavior.Cascade);
+               .OnDelete(DeleteBehavior.Restrict);
 
         }
 

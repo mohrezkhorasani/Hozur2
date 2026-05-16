@@ -190,7 +190,7 @@ namespace Application.DTO
 
     public class GuarantCertificateResponse : BaseParentResponce
     {
-        public long Number{ get; set; }
+        public long Number { get; set; }
     }
     #endregion
 
@@ -360,7 +360,7 @@ namespace Application.DTO
         public string MeetiID { get; set; }
         public string FullName { get; set; }
         public bool AsModerator { get; set; } = false;
-        public string Password{ get; set; } = "";
+        public string Password { get; set; } = "";
     }
 
     public class GetMeetingURLResponse : BaseParentResponce
@@ -393,6 +393,17 @@ namespace Application.DTO
 
     }
     #endregion
+    #region EndTheMeetingWithAPI
+    public class EndTheMeetingWithAPIRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<EndTheMeetingWithAPIResponse>>
+    {
+        public string FriendlyID { get; set; }
+    }
+
+    public class EndTheMeetingWithAPIResponse : BaseParentResponce
+    {
+
+    }
+    #endregion
 
 
     //GetMeetings [ by title?,teacher-name?,jalali-date?, room-id? ]
@@ -401,18 +412,19 @@ namespace Application.DTO
 
     //Get user meetings [ by national-code? | phone? | uuid? | email? | extId? | ]
 
- 
+
 
     //CheckUser
 
     #region NewPlanRoom
     public class NewPlanRoomRequest : NewUserRequest, IUseCaseRequest<GenericResponse<NewPlanRoomResponse>>
     {
-        public string FriendlyID{ get; set; }
+        public string FriendlyID { get; set; }
         public string? Title { get; set; }
         public string? Teacher { get; set; }
         public string? Dabir { get; set; }
-        public DateTime StartDate{ get; set; }
+        public bool HasCert { get; set; } = true;
+        public DateTime StartDate { get; set; }
     }
 
     public class NewPlanRoomResponse : BaseParentResponce
@@ -424,7 +436,7 @@ namespace Application.DTO
     public class GetSlideShowRequest : NewUserRequest, IUseCaseRequest<GenericResponse<GetSlideShowResponse>>
     {
         public string Page { get; set; }
-        
+
     }
 
     public class GetSlideShowResponse : BaseParentResponce
@@ -436,10 +448,10 @@ namespace Application.DTO
     #region EditSlideShow
     public class EditSlideShowRequest : NewUserRequest, IUseCaseRequest<GenericResponse<EditSlideShowResponse>>
     {
-        public long IDSlideshow{ get; set; }
-        public int Position{ get; set; } //0 = disable
-        public string? Href{ get; set; } //0 = disable
-        
+        public long IDSlideshow { get; set; }
+        public int Position { get; set; } //0 = disable
+        public string? Href { get; set; } //0 = disable
+
     }
 
     public class EditSlideShowResponse : BaseParentResponce
@@ -450,10 +462,10 @@ namespace Application.DTO
     #region InsertSlideShow
     public class InsertSlideShowRequest : NewUserRequest, IUseCaseRequest<GenericResponse<InsertSlideShowResponse>>
     {
-        public int Position{ get; set; } //0 = disable
-        public string? Title{ get; set; } //0 = disable
-        public string? Href{ get; set; } //0 = disable
-        public IFormFile? File{ get; set; } //0 = disable
+        public int Position { get; set; } //0 = disable
+        public string? Title { get; set; } //0 = disable
+        public string? Href { get; set; } //0 = disable
+        public IFormFile? File { get; set; } //0 = disable
 
     }
 
@@ -467,7 +479,7 @@ namespace Application.DTO
     public class ContactusRequest : NewUserRequest, IUseCaseRequest<GenericResponse<ContactusResponse>>
     {
         public string Name { get; set; }
-        public string Email{ get; set; }
+        public string Email { get; set; }
         public string? Phone { get; set; }
         public string Text { get; set; }
     }
@@ -498,7 +510,7 @@ namespace Application.DTO
     public class FollowProfileResponse : BaseParentResponce
     {
         public int NewFollowersCount { get; set; }
-        public bool IsFollowing{ get; set; }
+        public bool IsFollowing { get; set; }
     }
     #endregion
 
@@ -513,7 +525,7 @@ namespace Application.DTO
         public List<MiniShobeJSON> Data = new List<MiniShobeJSON>();
     }
     #endregion
-    
+
     #region GetPlanRoom
     public class GetPlanRoomRequest : NewUserRequest, IUseCaseRequest<GenericResponse<GetPlanRoomResponse>>
     {
@@ -555,7 +567,7 @@ namespace Application.DTO
     public class DeletePlanRoomResponse : BaseParentResponce
     {
     }
-#endregion
+    #endregion
 
     //Admins
     #region AdminGetUserList
@@ -575,7 +587,7 @@ namespace Application.DTO
     public class AdminGetUserRoomListRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<AdminGetUserRoomListResponse>>
     {
         public string Query { get; set; }
-        public long OwnerID{ get; set; }
+        public long OwnerID { get; set; }
         public OrderBy OrderBy { get; set; }
 
     }
@@ -588,7 +600,7 @@ namespace Application.DTO
     #region AdminChangeRole
     public class AdminChangeRoleRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<AdminChangeRoleResponse>>
     {
-        public MainEntity_Types Role{ get; set; }
+        public MainEntity_Types Role { get; set; }
         public long UserId { get; set; }
     }
 
@@ -601,7 +613,7 @@ namespace Application.DTO
     public class ChangeAvatarOfRoomRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<ChangeAvatarOfRoomResponse>>
     {
         public string RoomID { get; set; }
-        public string AvatarPath{ get; set; }
+        public string AvatarPath { get; set; }
     }
 
     public class ChangeAvatarOfRoomResponse : BaseParentResponce
@@ -613,9 +625,9 @@ namespace Application.DTO
     public class AdminCreateRoomRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<AdminCreateRoomResponse>>
     {
         public long? ID { get; set; }
-        public string Title{ get; set; }
-        public long UserID{ get; set; }
-        public bool IsPublic { get; set; } = false; 
+        public string Title { get; set; }
+        public long UserID { get; set; }
+        public bool IsPublic { get; set; } = false;
         public bool IsRequiredLogin { get; set; } = false;
         public bool IsRequiredAccept { get; set; } = false;
         public bool IsRecordable { get; set; } = false;

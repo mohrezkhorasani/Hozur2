@@ -50,17 +50,17 @@ namespace Application.Usecase
             if (!lives.Any())
             {
                 //do stop others
-                rows +=_db.MeetingTBLs.Where(e => (e.Status == MainEntity_Status.MEETING_LIVE || e.Status == MainEntity_Status.MEETING_STARTED_LATER))
+                rows += _db.MeetingTBLs.Where(e => (e.Status == MainEntity_Status.MEETING_LIVE || e.Status == MainEntity_Status.MEETING_STARTED_LATER))
                     .ExecuteUpdate(e => e.SetProperty(r => r.Status, MainEntity_Status.MEETING_END_BY_CRON_JOB).SetProperty(r => r.EndDate, DateTime.Now));
             }
             else
             {
                 var ids = lives.Select(e => e.RoomID).ToList();
-                _ = BackgroundRun(lives);
-                if (_db.MeetingTBLs.Any(e => !ids.Contains(e.MeetID) && (e.Status == MainEntity_Status.MEETING_LIVE || e.Status == MainEntity_Status.MEETING_STARTED_LATER)))
+                //_ = BackgroundRun(lives);
+                if (_db.MeetingTBLs.Any(e => !ids.Contains(e.RoomFriendlyID) && (e.Status == MainEntity_Status.MEETING_LIVE || e.Status == MainEntity_Status.MEETING_STARTED_LATER)))
                 {
-                    rows+=_db.MeetingTBLs.Where(e => !ids.Contains(e.MeetID) && (e.Status == MainEntity_Status.MEETING_LIVE || e.Status == MainEntity_Status.MEETING_STARTED_LATER))
-                        .ExecuteUpdate(e => e.SetProperty(r => r.Status, MainEntity_Status.MEETING_END_BY_CRON_JOB).SetProperty(r=>r.EndDate,DateTime.Now));
+                    rows += _db.MeetingTBLs.Where(e => !ids.Contains(e.RoomFriendlyID) && (e.Status == MainEntity_Status.MEETING_LIVE || e.Status == MainEntity_Status.MEETING_STARTED_LATER))
+                        .ExecuteUpdate(e => e.SetProperty(r => r.Status, MainEntity_Status.MEETING_END_BY_CRON_JOB).SetProperty(r => r.EndDate, DateTime.Now));
                 }
             }
             if (rows == 0)
@@ -74,7 +74,7 @@ namespace Application.Usecase
             }
 
             _ = TelegramHelper.SendMessage($"🛑اتمام پاکسازی میت");
-         
+
 
 
 
@@ -86,8 +86,8 @@ namespace Application.Usecase
     Status = 200,
 
 }));
-                return;
-            }
+            return;
+        }
         public async Task BackgroundRun(List<MiniRoomJSON> meetss)
         {
             foreach (var i in meetss)
@@ -95,7 +95,7 @@ namespace Application.Usecase
                 //RoomID = meetid اینجا
                 try
                 {
-                    _db.RoomTBLs.Where(e => e.MeetingTBLs.Any(r => r.MeetID == i.RoomID))
+                    _db.RoomTBLs.Where(e => e.FriendlyID == i.RoomID)
 .ExecuteUpdate(e => e.SetProperty(r => r.BBB_MeetID, i.BBB_MeetID));
 
                 }
@@ -137,7 +137,7 @@ namespace Application.Usecase
             int rows = 0;
             _ = TelegramHelper.SendMessage($"بکاپ دیتابیس آغاز شد⌛");
 
-            await _db.Database.ExecuteSqlRawAsync("EXEC Hekmat.Backup_AllUserDatabases");
+            await _db.Database.ExecuteSqlRawAsync("EXEC dbo.Backup_AllUserDatabases");
 
 
 
@@ -150,8 +150,8 @@ namespace Application.Usecase
     Status = 200,
 
 }));
-                return;
-            }
+            return;
+        }
 
     }
     #endregion

@@ -54,7 +54,7 @@ namespace Presistence.Entities
             builder.HasOne(c => c.UserTBLToMeetingTBL)
                .WithOne(u => u.CertificateTBL)
                .HasForeignKey<CertificateTBL>(c => c.IDUserTBLToMeetingTBL)
-               .OnDelete(DeleteBehavior.Cascade);
+               .OnDelete(DeleteBehavior.Restrict);
 
         }
 

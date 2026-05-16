@@ -27,6 +27,8 @@ namespace Domain.Entity
         public bool RequiredToEnterName { get; set; } = false;
         public ICollection<UserTBLToMeetingTBL> UserTBLToMeetingTBLs { get; set; }
 
+        public RoomTBLPlanTBL RoomTBLPlanTBL { get; set; }
+        public long? IDRoomTBLPlanTBL { get; set; }
         public static string GetStatusString(MainEntity_Status status)
         {
             switch (status)

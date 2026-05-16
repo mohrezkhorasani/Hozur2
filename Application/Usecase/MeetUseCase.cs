@@ -6,12 +6,14 @@ using Application.Interface.IUsecase;
 using Application.Interfaces;
 using CacheHandler.Events;
 using ClosedXML.Excel;
+using DocumentFormat.OpenXml.InkML;
 using Domain.Entity;
 using MediatR;
 using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -374,20 +376,20 @@ namespace Application.Usecase
                             return new SharedOBJ_PartisBiggest
                             {
                                 ID = e.ID,
-                                Name = e.UserNickName!=null? e.UserNickName=="Teacher"? e.UserTBL.GetName():e.UserNickName : "نامشخص",
+                                Name = e.UserNickName != null ? e.UserNickName == "Teacher" ? e.UserTBL.GetName() : e.UserNickName : "نامشخص",
                                 Timer = Statics.GetPrettyDateBySeconds(_commonMethods.GetTimerStayUserInMeet(e)),
                                 CanTakeCertificate = e.CertificateTBL != null &&
                                                     e.CertificateTBL.Status == MainEntity_Status.CERT_FULL &&
                                                     e.CertificateTBL.Validation,
                                 HasTakenCertificate = e.CertificateTBL?.FilePath != null,
                                 NationalCode = _commonMethods.GetNationalCode(e),
-                                Role=e.Role,
+                                Role = e.Role,
                                 Email = e.UserTBL?.Email ?? "",
                                 Phone = e.UserTBL?.PhoneNumber ?? "",
                                 Gender = e.CertificateTBL == null || !e.CertificateTBL.IsMale.HasValue
                                          ? "تعیین نشده"
                                          : e.CertificateTBL.IsMale.Value ? "آقا" : "خانم",
-                                
+
                                 // <<< اطلاعات دستگاه و مرورگر اضافه شده >>>
                                 Device = device,                    // مثلاً gl-006ad8b2-...
                                 Browser = browser,                  // مثلاً Firefox 146
@@ -807,13 +809,15 @@ namespace Application.Usecase
         private IScpUploader scpUploader { get; }
         private IBBBGetMeetings bbb { get; }
         private readonly IMediator _mediator;
+        private readonly IServiceScopeFactory _serviceScopeFactory; // اضافه کنید
 
         public StartNewMeetUseCase(IDBContext repository,
             IConfiguration configuration, IWordService wordService,
             IWebHostEnvironment hosting,
             IScpUploader scpUploader,
             IMediator m,
-            IBBBGetMeetings bbb)
+            IBBBGetMeetings bbb,
+            IServiceScopeFactory serviceScopeFactory)
         {
             this.bbb = bbb;
             _db = repository;
@@ -822,247 +826,317 @@ namespace Application.Usecase
             this.hosting = hosting;
             this._mediator = m;
             _commonMethods = new CommonMethods(configuration, repository, hosting);
+            _serviceScopeFactory = serviceScopeFactory;
         }
+
 
         public async Task handleAsync(StartNewMeetRequest message,
-            IOutPutPort<GenericResponse<StartNewMeetResponse>> outputPort)
+    IOutPutPort<GenericResponse<StartNewMeetResponse>> outputPort)
         {
-            // شروع تراکنش برای جلوگیری از تداخل
-            using var transaction = await _db.Database.BeginTransactionAsync();
+            var strategy = _db.Database.CreateExecutionStrategy();
             string meetid = "";
+            string redirectLink = "";
+            string meetTitle = "";
+
+            await strategy.ExecuteAsync(async () =>
+            {
+                using (var transaction = await _db.Database.BeginTransactionAsync())
+                {
+                    try
+                    {
+                        long idplan = 0;
+                        if (message.IDPlan.HasValue)
+                            idplan = message.IDPlan.Value;
+
+                        long idRoom = 0;
+                        long.TryParse(message.IDRoom, out idRoom);
+
+                        // اعتبارسنجی‌ها
+                        if (!_db.RoomTBLs.Any(e => e.FriendlyID == message.IDRoom || e.ID == idRoom))
+                        {
+                            outputPort.Handle(new GenericResponse<StartNewMeetResponse>(new StartNewMeetResponse
+                            {
+                                Message = "آی دی گروه یافت نشد",
+                                Status = 404,
+                            }));
+                            return;
+                        }
+
+                        if (!_db.RoomTBLs.Any(e => e.IDOwnerTBL == message.GeneralHeaders.UserTBL.ID && e.FriendlyID == message.IDRoom) &&
+                            !message.GeneralHeaders.UserTBL.VerifyUserPermissions("manage_admins"))
+                        {
+                            outputPort.Handle(new GenericResponse<StartNewMeetResponse>(new StartNewMeetResponse
+                            {
+                                Message = "دسترسی ندارید",
+                                Status = 400
+                            }));
+                            return;
+                        }
+
+                        var room = _db.RoomTBLs.Where(e => e.FriendlyID == message.IDRoom || e.ID == idRoom).First();
+                        var planTBL = await _db.RoomTBLPlanTBLs.FindAsync(idplan);
+
+                        if (planTBL == null)
+                        {
+                            planTBL = new RoomTBLPlanTBL
+                            {
+                                Dabir = message.Dabir,
+                                IDRoomTBL = room.ID,
+                                StartDate = DateTime.UtcNow,
+                                Title = message.MeetTitle,
+                                RequiredToEnterName = message.RequiredToEnterName,
+                                Teachers = string.Join(" ، ", message.Teachers),
+                                Status = MainEntity_Status.MEETING_STARTED_LATER,
+                                Type = message.HasCertificate ? MainEntity_Types.PLAN_WITH_CERT : MainEntity_Types.PLAN_NORMAL,
+                            };
+                            _db.RoomTBLPlanTBLs.Add(planTBL);
+                            await _db.SaveChangesAsync();
+                        }
+
+                        // تنظیم BBB_MeetID و کدها
+                        if (string.IsNullOrEmpty(room.BBB_MeetID))
+                        {
+                            if (_db.MeetingTBLs.Any(e => e.RoomFriendlyID == room.FriendlyID))
+                            {
+                                room.BBB_MeetID = _db.MeetingTBLs.First(e => e.RoomFriendlyID == room.FriendlyID).MeetID.Split("-")[0];
+                            }
+                            else
+                            {
+                                while (true)
+                                {
+                                    room.BBB_MeetID = Statics.GenerateRoomMeetID();
+                                    if (_db.RoomTBLs.Any(e => e.BBB_MeetID == room.BBB_MeetID))
+                                        continue;
+                                    break;
+                                }
+                                _db.Update(room);
+                            }
+                        }
+
+                        if (string.IsNullOrEmpty(room.ViewerCode) || string.IsNullOrEmpty(room.ModeratorCode))
+                        {
+                            room.ModeratorCode = Statics.GenerateSegment(8);
+                            room.ViewerCode = Statics.GenerateSegment(8);
+                            _db.Update(room);
+                        }
+
+                        // ایجاد جلسه در بیگ بلو باتن
+                        var meet = await this.bbb.CreateMeetingAsync(room);
+                        if (meet.Status != "created")
+                        {
+                            outputPort.Handle(new GenericResponse<StartNewMeetResponse>(new StartNewMeetResponse
+                            {
+                                Message = "ساختن جلسه جدید با خطای بیگ بلو باتن مواجه شد" + JsonConvert.SerializeObject(meet),
+                                Status = 400,
+                            }));
+                            return;
+                        }
+
+                        meetid = $"{meet.MeetID}";
+                        meetTitle = meet.Title;
+
+                        // ایجاد جلسه در دیتابیس
+                        var meetTBL = new MeetingTBL
+                        {
+                            RoomFriendlyID = message.IDRoom,
+                            MeetID = meetid,
+                            Type = MainEntity_Types.MEET_API,
+                            Status = MainEntity_Status.MEETING_STARTED_LATER,
+                            JalaliDate = Statics.ToJalaliDate(DateTime.Now),
+                            Title = planTBL.Title,
+                            RequiredToEnterName = planTBL.RequiredToEnterName,
+                            IDRoomTBLPlanTBL = planTBL.ID,
+                            IDCreator = message.GeneralHeaders.UserTBL.ID,
+                        };
+                        meetTBL.JWT = Statics.GenerateJWTMeet(meetTBL);
+                        _db.MeetingTBLs.Add(meetTBL);
+                        await _db.SaveChangesAsync();
+
+                        // گرفتن لینک ورود
+                        redirectLink = await bbb.GetJoinUrlAsync(meetTBL, message.Name, true,
+                            await _commonMethods.ReturnPassword(message.IDRoom, true));
+
+                        // ذخیره اطلاعات مورد نیاز برای Background
+                        var backgroundData = new BackgroundMeetData
+                        {
+                            MeetID = meetid,
+                            MeetTBLId = meetTBL.ID,
+                            RoomId = room.ID,
+                            PlanTBL = planTBL,
+                            Teachers = message.Teachers.ToList(),
+                            Dabir = message.Dabir,
+                            UserId = message.GeneralHeaders.UserTBL.ID
+                        };
+
+                        // COMMIT تراکنش (ذخیره داده‌های اصلی)
+                        await transaction.CommitAsync();
+
+                        // **همین الان پاسخ رو به کاربر برگردون**
+                        outputPort.Handle(new GenericResponse<StartNewMeetResponse>(new StartNewMeetResponse
+                        {
+                            Message = "ok",
+                            Status = 200,
+                            RedirectURL = redirectLink,
+                            Meeting = new SharedOBJ_Meeting
+                            {
+                                Title = meetTitle
+                            }
+                        }));
+
+                        // **بقیه عملیات سنگین رو در Background اجرا کن**
+                        _ = Task.Run(async () => await ProcessMeetBackgroundAsync(backgroundData));
+
+                        return;
+                    }
+                    catch (Exception e)
+                    {
+                        await transaction.RollbackAsync();
+                        if (!string.IsNullOrEmpty(meetid))
+                            _ = bbb.EndMeetingAsync(meetid.Split("-")[0]);
+
+                        Statics.Log("Start meet error:", e);
+                        outputPort.Handle(new GenericResponse<StartNewMeetResponse>(new StartNewMeetResponse
+                        {
+                            Message = "خطا در ساختن جلسه جدید: " + e.Message,
+                            Status = 400,
+                        }));
+                    }
+                }
+            });
+        }
+
+        // متد مجزا برای پردازش پس‌زمینه
+        private async Task ProcessMeetBackgroundAsync(BackgroundMeetData data)
+        {
             try
             {
-                // 1. پیدا کردن روم
-                long idRoom = 0;
-                long.TryParse(message.IDRoom, out idRoom);
-
-                if (!_db.RoomTBLs.Any(e => e.FriendlyID == message.IDRoom || e.ID == idRoom))
+                using (var scope = _serviceScopeFactory.CreateScope())
                 {
-                    outputPort.Handle(new GenericResponse<StartNewMeetResponse>
-                    (new StartNewMeetResponse
-                    {
-                        Message = "آی دی گروه یافت نشد",
-                        Status = 404,
-                    }));
-                    return;
-                }
-                if (!_db.RoomTBLs.Any(e => e.IDOwnerTBL == message.GeneralHeaders.UserTBL.ID && e.FriendlyID == message.IDRoom) &&
-                    !message.GeneralHeaders.UserTBL.VerifyUserPermissions("manage_admins"))
-                {
-                    outputPort.Handle(new GenericResponse<StartNewMeetResponse>(new StartNewMeetResponse
-                    {
-                        Message = "دسترسی ندارید",
-                        Status = 400
-                    }));
-                    return;
-                }
+                    var db = scope.ServiceProvider.GetRequiredService<IDBContext>();
+                    var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
 
-                var room = _db.RoomTBLs.Where(e => e.FriendlyID == message.IDRoom || e.ID == idRoom).First();
+                    // اضافه کردن معلمان و دبیر
+                    List<UserTBL> teachers = new List<UserTBL>();
 
-                // 2. تنظیم BBB_MeetID برای روم
-                if (string.IsNullOrEmpty(room.BBB_MeetID))
-                {
-                    if (_db.MeetingTBLs.Any(e => e.RoomFriendlyID == room.FriendlyID))
+                    // پردازش دبیر
+                    if (!string.IsNullOrEmpty(data.PlanTBL.Dabir))
                     {
-                        room.BBB_MeetID = _db.MeetingTBLs.First(e => e.RoomFriendlyID == room.FriendlyID).MeetID.Split("-")[0];
-                    }
-                    else
-                    {
-                        while (true)
+                        UserTBL dabir = null;
+                        var existingDabir = await db.UserTBLs.FirstOrDefaultAsync(e =>
+                            (e.Firstname + " " + e.LastName).Trim() == data.PlanTBL.Dabir &&
+                            e.Status == MainEntity_Status.USER_ACTIVE &&
+                            e.Type == MainEntity_Types.USER_TEACHER);
+
+                        if (existingDabir != null)
                         {
-                            room.BBB_MeetID = Statics.GenerateRoomMeetID();
-                            if (_db.RoomTBLs.Any(e => e.BBB_MeetID == room.BBB_MeetID))
-                            {
-                                continue;
-                            }
-                            break;
+                            dabir = existingDabir;
                         }
-                        _db.Update(room);
-                    }
-                }
-
-                if (string.IsNullOrEmpty(room.ViewerCode) || string.IsNullOrEmpty(room.ModeratorCode))
-                {
-                    room.ModeratorCode = Statics.GenerateSegment(8);
-                    room.ViewerCode = Statics.GenerateSegment(8);
-                    _db.Update(room);
-
-                }
-
-                // 3. ایجاد جلسه در بیگ بلو باتن
-                var meet = await this.bbb.CreateMeetingAsync(room);
-
-                if (meet.Status != "created")
-                {
-                    outputPort.Handle(new GenericResponse<StartNewMeetResponse>
-                    (new StartNewMeetResponse
-                    {
-                        Message = "ساختن جلسه جدید با خطای بیگ بلو باتن مواجه شد" + JsonConvert.SerializeObject(meet),
-                        Status = 400,
-                    }));
-                    return;
-                }
-
-                meetid = $"{meet.MeetID}";
-                Console.WriteLine(@$"meetid : {meetid}");
-
-                // 4. ایجاد جلسه در دیتابیس (اولین SaveChanges)
-                var meetTBL = new MeetingTBL
-                {
-                    RoomFriendlyID = message.IDRoom,
-                    MeetID = meetid,
-                    Type = MainEntity_Types.MEET_API,
-                    Status = MainEntity_Status.MEETING_STARTED_LATER,
-                    JalaliDate = Statics.ToJalaliDate(DateTime.Now),
-                    Title = message.MeetTitle,
-                    RequiredToEnterName = message.RequiredToEnterName,
-                    IDCreator = -6000,
-                };
-                meetTBL.JWT = Statics.GenerateJWTMeet(meetTBL);
-
-                _db.MeetingTBLs.Add(meetTBL);
-                await _db.SaveChangesAsync(); // اولین SaveChanges - برای گرفتن Id
-
-
-
-                // 5. انتشار Event (حالا meetTBL.Id مقدار دارد)
-                await _mediator.Publish(new MeetingUpdatedEvent
-                {
-                    Action = "Create",
-                    MeetingId = meetTBL.ID
-                });
-                meetTBL.RoomTBL = _db.RoomTBLs.First(e => e.FriendlyID == message.IDRoom);
-
-                // 6. گرفتن لینک ورود
-                var link = await bbb.GetJoinUrlAsync(meetTBL, message.Name, true, await _commonMethods.ReturnPassword(message.IDRoom, true));
-
-                // 7. اضافه کردن معلمان
-                List<UserTBL> teachers = new List<UserTBL>();
-                UserTBL dabir = new UserTBL();
-                if (!string.IsNullOrEmpty(message.Dabir))
-                {
-                    if (_db.UserTBLs.Any(e => (e.Firstname + " " + e.LastName).Trim() == message.Dabir
-                                            && e.Status == MainEntity_Status.USER_ACTIVE
-                        && e.Type == MainEntity_Types.USER_TEACHER))
-
-                    {
-                        dabir = _db.UserTBLs.FirstOrDefault(e => (e.Firstname + " " + e.LastName).Trim() == message.Dabir
-                         && e.Status == MainEntity_Status.USER_ACTIVE
-                         && e.Type == MainEntity_Types.USER_TEACHER);
-                    }
-                    else
-                    {
-                        var d = new UserTBL
+                        else
                         {
-                            Firstname = message.Dabir,
-                            Type = MainEntity_Types.USER_TEACHER,
-                            Status = MainEntity_Status.USER_ACTIVE,
-                            Username = message.Dabir,
-                            UUID = new Random().NextInt64(-999999999999999999, -99999999999999999).ToString()
-                        };
-                        dabir = d;
+                            dabir = new UserTBL
+                            {
+                                Firstname = data.PlanTBL.Dabir,
+                                Type = MainEntity_Types.USER_TEACHER,
+                                Status = MainEntity_Status.USER_ACTIVE,
+                                Username = data.PlanTBL.Dabir,
+                                UUID = new Random().NextInt64(-999999999999999999, -99999999999999999).ToString()
+                            };
+                            db.UserTBLs.Add(dabir);
+                            await db.SaveChangesAsync();
+                        }
 
-                    }
-
-
-                    if (!_db.UserTBLToMeetingTBLs.Any(e => e.UUID == dabir.UUID && e.MeetID == meetid))
-                    {
-                        _db.UserTBLToMeetingTBLs.Add(new UserTBLToMeetingTBL
+                        if (!db.UserTBLToMeetingTBLs.Any(e => e.UUID == dabir.UUID && e.MeetID == data.MeetID))
                         {
-                            MeetID = meetid,
-                            Type = MainEntity_Types.USER_DABIR,
-                            Status = MainEntity_Status.MEETING_STARTED_LATER,
-                            UUID = dabir.UUID,
-                            UserMeetID = "Dabir",
-                            Role = "Dabir",
-                            UserNickName = dabir.GetName(),
-                            IsCertificated = false,
-                            TokenJWT = "nope",
-                            TimeSpendSeconds = 0,
-                        });
+                            db.UserTBLToMeetingTBLs.Add(new UserTBLToMeetingTBL
+                            {
+                                MeetID = data.MeetID,
+                                Type = MainEntity_Types.USER_DABIR,
+                                Status = MainEntity_Status.MEETING_STARTED_LATER,
+                                UUID = dabir.UUID,
+                                UserMeetID = "Dabir",
+                                Role = "Dabir",
+                                UserNickName = dabir.GetName(),
+                                IsCertificated = false,
+                                TokenJWT = "nope",
+                                TimeSpendSeconds = 0,
+                            });
+                        }
                     }
+
+                    // پردازش معلمان
+                    var teacherList = data.PlanTBL.Teachers?.Split("،").ToList() ?? new List<string>();
+                    foreach (var t1 in teacherList)
+                    {
+                        var t = t1.Trim();
+                        var existingTeacher = await db.UserTBLs.FirstOrDefaultAsync(e =>
+                            ((e.Firstname + " " + e.LastName).Trim() == t || e.Username == t) &&
+                            e.Status == MainEntity_Status.USER_ACTIVE);
+
+                        UserTBL teacher;
+                        if (existingTeacher != null)
+                        {
+                            teacher = existingTeacher;
+                        }
+                        else
+                        {
+                            teacher = new UserTBL
+                            {
+                                Firstname = t,
+                                Type = MainEntity_Types.USER_TEACHER,
+                                Status = MainEntity_Status.USER_ACTIVE,
+                                Username = t,
+                                UUID = new Random().NextInt64(-999999999999999999, -99999999999999999).ToString()
+                            };
+                            db.UserTBLs.Add(teacher);
+                            await db.SaveChangesAsync();
+                        }
+
+                        if (!db.UserTBLToMeetingTBLs.Any(e => e.UUID == teacher.UUID && e.MeetID == data.MeetID))
+                        {
+                            db.UserTBLToMeetingTBLs.Add(new UserTBLToMeetingTBL
+                            {
+                                MeetID = data.MeetID,
+                                Type = MainEntity_Types.USER_TEACHER,
+                                Status = MainEntity_Status.MEETING_STARTED_LATER,
+                                UUID = teacher.UUID,
+                                UserMeetID = "TEACHER",
+                                Role = "Teacher",
+                                UserNickName = teacher.GetName(),
+                                IsCertificated = false,
+                                TokenJWT = "nope",
+                                TimeSpendSeconds = 0,
+                            });
+                        }
+                    }
+
+                    await db.SaveChangesAsync();
+
+                    // ارسال رویداد
+                    await mediator.Publish(new MeetingUpdatedEvent
+                    {
+                        Action = "Create",
+                        MeetingId = data.MeetTBLId
+                    });
                 }
-                foreach (var t in message.Teachers)
-                {
-                    UserTBL teacher = null;
-
-                    if (_db.UserTBLs.Any(e => ((e.Firstname + " " + e.LastName).Trim() == t || e.Username==t)
-                        && e.Status == MainEntity_Status.USER_ACTIVE
-                        ))
-                    {
-                        Statics.Log("UpdateMeeting", $"{t} existed user!");
-                        teacher = _db.UserTBLs.FirstOrDefault(e => ((e.Firstname + " " + e.LastName).Trim() == t || e.Username == t)
-                            && e.Status == MainEntity_Status.USER_ACTIVE
-                            );
-                        teachers.Add(teacher);
-                    }
-                    else
-                    {
-                        teacher = new UserTBL
-                        {
-                            Firstname = t,
-                            Type = MainEntity_Types.USER_TEACHER,
-                            Status = MainEntity_Status.USER_ACTIVE,
-                            Username = t,
-                            UUID = new Random().NextInt64(-999999999999999999, -99999999999999999).ToString()
-                        };
-                        teachers.Add(teacher);
-                        _db.UserTBLs.Add(teacher);
-                    }
-
-                    if (!_db.UserTBLToMeetingTBLs.Any(e => e.UUID == teacher.UUID && e.MeetID == meetid))
-                    {
-                        _db.UserTBLToMeetingTBLs.Add(new UserTBLToMeetingTBL
-                        {
-                            MeetID = meetid,
-                            Type = MainEntity_Types.USER_TEACHER,
-                            Status = MainEntity_Status.MEETING_STARTED_LATER,
-                            UUID = teacher.UUID,
-                            UserMeetID = "TEACHER",
-                            Role = "Teacher",
-                            UserNickName = teacher.GetName(),
-                            IsCertificated = false,
-                            TokenJWT = "nope",
-                            TimeSpendSeconds = 0,
-                        });
-                    }
-                }
-
-                // 8. ذخیره نهایی همه تغییرات
-                await _db.SaveChangesAsync();
-
-                // 9. commit تراکنش
-                await transaction.CommitAsync();
-
-                // 10. برگرداندن نتیجه موفق
-                outputPort.Handle(new GenericResponse<StartNewMeetResponse>
-                (new StartNewMeetResponse
-                {
-                    Message = "ok",
-                    Status = 200,
-                    RedirectURL = link,
-                    Meeting = new SharedOBJ_Meeting
-                    {
-                        Title = meet.Title
-                    }
-                }));
-                return;
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
-                // در صورت خطا، برگرداندن تراکنش
-                await transaction.RollbackAsync();
-                _ = bbb.EndMeetingAsync(meetid.Split("-")[0]);
-
-                Statics.Log("Start meet error:", e);
-                outputPort.Handle(new GenericResponse<StartNewMeetResponse>
-                (new StartNewMeetResponse
-                {
-                    Message = "خطا در ساختن جلسه جدید: " + e.Message,
-                    Status = 400,
-                }));
+                Statics.Log("Background meet processing error:", ex);
             }
         }
+
+        // کلاس کمکی
+        public class BackgroundMeetData
+        {
+            public string MeetID { get; set; }
+            public long MeetTBLId { get; set; }
+            public long RoomId { get; set; }
+            public RoomTBLPlanTBL PlanTBL { get; set; }
+            public List<string> Teachers { get; set; }
+            public string Dabir { get; set; }
+            public long UserId { get; set; }
+        }
+
     }
     #endregion
 

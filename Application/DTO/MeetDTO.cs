@@ -170,7 +170,7 @@ namespace Application.DTO
     #region GetExcellMembers
     public class GetExcellMembersRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<GetExcellMembersResponse>>
     {
-        public string MeetID{ get; set; }
+        public string MeetID { get; set; }
     }
 
     public class GetExcellMembersResponse : BaseParentResponce
@@ -187,12 +187,14 @@ namespace Application.DTO
         public string? Name { get; set; } = "مجمع عالی حکمت اسلامی";
         public bool RequiredToEnterName { get; set; }
         public string? Dabir { get; set; }
+        public long? IDPlan { get; set; }
+        public bool HasCertificate { get; set; } = false;
         public List<string> Teachers { get; set; }
     }
 
     public class StartNewMeetResponse : BaseParentResponce
     {
-        public SharedOBJ_Meeting Meeting{ get; set; }
+        public SharedOBJ_Meeting Meeting { get; set; }
         public string RedirectURL { get; set; }
     }
     #endregion
@@ -212,7 +214,7 @@ namespace Application.DTO
     }
     public class SharedOBJ_Log
     {
-        public long ID{ get; set; }
+        public long ID { get; set; }
         public string Title { get; set; }
         public string Value { get; set; }
         public string Time { get; set; }

@@ -16,6 +16,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Primitives;
 using Microsoft.Identity.Client.Kerberos;
 using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
@@ -1406,16 +1407,19 @@ namespace Application.Usecase
         public IDBContext _db { get; }
         public CommonMethods _commonMethods { get; }
         private IWebHostEnvironment hosting;
+        private IMemoryCache _cache { get; }
 
         public GetRoomsPublicUseCase(IDBContext repository,
+            IMemoryCache _cache,
             IConfiguration configuration)
         {
             _db = repository;
+            this._cache = _cache;
             _commonMethods = new CommonMethods(configuration, repository, hosting);
         }
 
         public async Task handleAsync(GetRoomsPublicRequest message,
-     IOutPutPort<GenericResponse<GetRoomsPublicResponse>> outputPort)
+        IOutPutPort<GenericResponse<GetRoomsPublicResponse>> outputPort)
         {
             try
             {
@@ -1426,93 +1430,106 @@ namespace Application.Usecase
                 if (!string.IsNullOrEmpty(message.UserName))
                     message.UserName = message.UserName.Replace("@", "");
 
-                // اول اتاق‌ها رو با اطلاعات پایه می‌گیریم (سبک و سریع)
-                var rooms = await _db.RoomTBLs
-                    .Where(e => (string.IsNullOrEmpty(message.Query) || e.Title.Contains(message.Query)) &&
-                        e.IsPublicRoom &&
-                        ((message.UserName != null && message.UserName == e.OwnerTBL.Username) || (string.IsNullOrEmpty(message.UserName)))
-                    )
+                // ساخت کلید کش بر اساس پارامترهای ورودی
+                var cacheKey = $"GetRoomsPublic_{message.Query ?? "null"}_{message.UserName ?? "null"}";
 
-                    .Include(e => e.MeetingTBLs)
-                        .ThenInclude(m => m.UserTBLToMeetingTBLs)
-                            .ThenInclude(um => um.UserTBL)
-                    .Include(e => e.OwnerTBL)
-                    .Include(e => e.RoomTBLPlanTBLs)
-                    .OrderByDescending(e => e.DateInsert)
-                    .Select(e => new
-                    {
-                        e.FriendlyID,
-                        e.Avatar,
-                        e.Title,
-                        e.DateInsert,
-                        plan = e.RoomTBLPlanTBLs.OrderBy(e => e.StartDate).ToList(),
-                        e.OwnerTBL,
-                        Meetings = e.MeetingTBLs.Select(m => new
+                // تلاش برای گرفتن از کش
+                if (!_cache.TryGetValue(cacheKey, out List<DTO.Models.MiniRoomJSON> result))
+                {
+                    // تنظیمات کش
+                    var cacheEntryOptions = new MemoryCacheEntryOptions()
+                        .SetSlidingExpiration(TimeSpan.FromDays(1)) // 5 دقیقه کش با اسلایدینگ
+                        .SetAbsoluteExpiration(TimeSpan.FromDays(2)) // حداکثر 30 دقیقه
+                        .SetPriority(CacheItemPriority.High) // اولویت بالا
+                        .AddExpirationToken(new CancellationChangeToken(new CancellationTokenSource(TimeSpan.FromMinutes(30)).Token));
+
+                    // گرفتن از دیتابیس
+                    var rooms = await _db.RoomTBLs
+                        .Where(e => (string.IsNullOrEmpty(message.Query) || e.Title.Contains(message.Query)) &&
+                            e.IsPublicRoom &&
+                            ((message.UserName != null && message.UserName == e.OwnerTBL.Username) || (string.IsNullOrEmpty(message.UserName)))
+                        )
+                        .AsSplitQuery()
+                        .Select(e => new
                         {
-                            m.ID,
-                            m.DateInsert,
-                            m.Title,
-                            Participants = m.UserTBLToMeetingTBLs.Select(um => new
+                            e.FriendlyID,
+                            e.Avatar,
+                            e.Title,
+                            e.DateInsert,
+                            plan = e.RoomTBLPlanTBLs.OrderBy(p => p.StartDate).ToList(),
+                            e.OwnerTBL,
+                            Meetings = e.MeetingTBLs.Select(m => new
                             {
-                                um.UserNickName,
-                                um.UserTBL.UUID,
-                                um.UserTBL.Email,
-                                um.UserTBL.NationalCode,
-                                um.UserTBL.PhoneNumber,
-                                um.UserTBL.Type
+                                m.ID,
+                                m.DateInsert,
+                                m.Title,
+                                //Participants = m.UserTBLToMeetingTBLs.Select(um => new
+                                //{
+                                //    um.UserNickName,
+                                //    um.UserTBL.UUID,
+                                //    um.UserTBL.Email,
+                                //    um.UserTBL.NationalCode,
+                                //    um.UserTBL.PhoneNumber,
+                                //    um.UserTBL.Type
+                                //})
                             })
                         })
-                    })
-                    .ToListAsync(); // ← اینجا می‌ریزیم توی حافظه
+                        .ToListAsync();
 
-                // حالا توی حافظه محاسبه می‌کنیم (بدون هیچ مشکلی!)
-                var result = rooms.Select(room => new DTO.Models.MiniRoomJSON
-                {
-                    RoomID = room.FriendlyID,
-                    Title = room.Title,
-                    Created = room.DateInsert,
-                    Avatar = room.Avatar,
-
-                    // آخرین جلسه
-                    LastMeet = room.Meetings
-                        .OrderByDescending(m => m.DateInsert)
-                        .FirstOrDefault()?.DateInsert ?? room.DateInsert,
-
-                    // تعداد جلساتی که حداقل ۲ نفر (غیر معلم) داشتن
-                    Count = room.Meetings.Count(m => m.Participants
-                        .Count(p => p.Type != MainEntity_Types.USER_TEACHER) > 1),
-                    NextMeet = room.plan.Any(e => e.StartDate > DateTime.Now) ? room.plan.Where(e => e.StartDate > DateTime.Now).First().StartDate : DateTime.MaxValue,
-                    Owner = new MiniUserJSON
+                    result = rooms.Select(room => new DTO.Models.MiniRoomJSON
                     {
-                        UID = room.OwnerTBL.UUID,
-                        Fullname = room.OwnerTBL.Firstname,
-                        Username = room.OwnerTBL.Username
-                    },
-                    // تعداد معلم‌های یکتا
-                    CountTeacher = room.Meetings
-                        .SelectMany(m => m.Participants)
-                        .Where(p => p.Type == MainEntity_Types.USER_TEACHER)
-                        .Select(p => p.UUID ?? p.Email ?? p.NationalCode ?? p.PhoneNumber ?? p.UserNickName)
-                        .Where(k => !string.IsNullOrWhiteSpace(k))
-                        .Distinct()
-                        .Count(),
-                    LatestTitle = room.Meetings != null && room.Meetings.Count() > 0 ? room.Meetings.OrderByDescending(e => e.ID).First().Title : "",
-                    // تعداد شرکت‌کننده‌های یکتا (دانش‌آموز) با همه شناسه‌ها
-                    CountPartis = room.Meetings
-                        .SelectMany(m => m.Participants)
-                        .Where(p => p.Type != MainEntity_Types.USER_TEACHER)
-                        .SelectMany(p => new[]
+                        RoomID = room.FriendlyID,
+                        Title = room.Title,
+                        Created = room.DateInsert,
+                        Avatar = room.Avatar,
+                        LastMeet = room.Meetings
+                            .OrderByDescending(m => m.DateInsert)
+                            .FirstOrDefault()?.DateInsert ?? room.DateInsert,
+                        //Count = room.Meetings.Count(m => m.Participants
+                        //    .Count(p => p.Type != MainEntity_Types.USER_TEACHER) > 1),
+                        NextMeet = room.plan.Any(e => e.StartDate > DateTime.Now)
+                            ? room.plan.Where(e => e.StartDate > DateTime.Now).First().StartDate
+                            : DateTime.MaxValue,
+                        Owner = new MiniUserJSON
                         {
-                p.UUID?.Trim().ToLower(),
-                p.UserNickName?.Trim().ToLower(),
-                p.Email?.Trim().ToLower(),
-                p.NationalCode?.Trim(),
-                p.PhoneNumber?.Trim()
-                        })
-                        .Where(k => !string.IsNullOrWhiteSpace(k))
-                        .Distinct()
-                        .Count()
-                }).OrderBy(e => e.NextMeet).ThenBy(e => e.LastMeet).ToList();
+                            UID = room.OwnerTBL.UUID,
+                            Fullname = room.OwnerTBL.Firstname,
+                            Username = room.OwnerTBL.Username
+                        },
+                        //CountTeacher = room.Meetings
+                        //    .SelectMany(m => m.Participants)
+                        //    .Where(p => p.Type == MainEntity_Types.USER_TEACHER)
+                        //    .Select(p => p.UUID ?? p.Email ?? p.NationalCode ?? p.PhoneNumber ?? p.UserNickName)
+                        //    .Where(k => !string.IsNullOrWhiteSpace(k))
+                        //    .Distinct()
+                        //    .Count(),
+                        LatestTitle = room.Meetings != null && room.Meetings.Count() > 0
+                            ? room.Meetings.OrderByDescending(e => e.ID).First().Title
+                            : "",
+                        //CountPartis = room.Meetings
+                        //    .SelectMany(m => m.Participants)
+                        //    .Where(p => p.Type != MainEntity_Types.USER_TEACHER)
+                        //    .SelectMany(p => new[]
+                        //    {
+                        //p.UUID?.Trim().ToLower(),
+                        //p.UserNickName?.Trim().ToLower(),
+                        //p.Email?.Trim().ToLower(),
+                        //p.NationalCode?.Trim(),
+                        //p.PhoneNumber?.Trim()
+                        //    })
+                        //    .Where(k => !string.IsNullOrWhiteSpace(k))
+                        //    .Distinct()
+                        //    .Count()
+                    }).OrderBy(e => e.NextMeet).ThenBy(e => e.LastMeet).ToList();
+
+                    // ذخیره در کش
+                    _cache.Set(cacheKey, result, cacheEntryOptions);
+                }
+                else
+                {
+                    // برای دیباگ - لاگ اینکه از کش دریافت شده
+                    Console.WriteLine($"Cache hit for key: {cacheKey}");
+                }
 
                 outputPort.Handle(new GenericResponse<GetRoomsPublicResponse>(new GetRoomsPublicResponse
                 {
@@ -1526,6 +1543,13 @@ namespace Application.Usecase
                 Console.WriteLine(e.Message);
                 Statics.Log("GetRoomsPublic", e);
 
+                // در صورت خطا، پاسخ خطا برگردانید
+                outputPort.Handle(new GenericResponse<GetRoomsPublicResponse>(new GetRoomsPublicResponse
+                {
+                    Message = "خطا در دریافت اطلاعات",
+                    Status = 500,
+                    Data = null
+                }));
             }
         }
     }
@@ -1745,6 +1769,7 @@ namespace Application.Usecase
         public async Task handleAsync(GetLivesPublicRequest message,
             IOutPutPort<GenericResponse<GetLivesPublicResponse>> outputPort)
         {
+
             var meets = await IBBBGetMeetings.Request(message);
             foreach (var m in meets)
             {
@@ -2070,7 +2095,6 @@ namespace Application.Usecase
 
     }
     #endregion
-
 
     #region GetMeetingURL
     public class GetMeetingURLUseCase : IGetMeetingURLUseCase
@@ -2481,7 +2505,7 @@ namespace Application.Usecase
     }
     #endregion
 
-    #region EndTheMeeting
+    #region EndTheMeeting From BBB
     public class EndTheMeetingUseCase : IEndTheMeetingUseCase
     {
         public IDBContext _db { get; }
@@ -2533,6 +2557,74 @@ namespace Application.Usecase
                 _db.SaveChanges();
             }
             outputPort.Handle(new GenericResponse<EndTheMeetingResponse>(new EndTheMeetingResponse
+            {
+                Message = "ended",
+                Status = 200,
+            }));
+
+        }
+    }
+    #endregion
+
+    #region EndTheMeetingWithAPI
+    public class EndTheMeetingWithAPIUseCase : IEndTheMeetingWithAPIUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        private IBBBGetMeetings bbb { get; }
+        public EndTheMeetingWithAPIUseCase(IDBContext repository,
+            IConfiguration configuration,
+            IBBBGetMeetings bbb
+            )
+        {
+            _db = repository;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+            this.bbb = bbb;
+        }
+
+        public async Task handleAsync(EndTheMeetingWithAPIRequest message,
+            IOutPutPort<GenericResponse<EndTheMeetingWithAPIResponse>> outputPort)
+        {
+            if (!message.GeneralHeaders.UserTBL.VerifyUserPermissions("create_meeting"))
+            {
+                outputPort.Handle(new GenericResponse<EndTheMeetingWithAPIResponse>(new EndTheMeetingWithAPIResponse
+                {
+                    Message = "دسترسی ندارید",
+                    Status = 400
+                }));
+                return;
+            }
+            if (!_db.RoomTBLs.Any(e => e.IDOwnerTBL == message.GeneralHeaders.UserTBL.ID && e.FriendlyID == message.FriendlyID))
+            {
+                outputPort.Handle(new GenericResponse<EndTheMeetingWithAPIResponse>(new EndTheMeetingWithAPIResponse
+                {
+                    Message = "دسترسی ندارید",
+                    Status = 400
+                }));
+                return;
+            }
+            var meet = await _db.MeetingTBLs.FirstOrDefaultAsync(e => e.RoomFriendlyID == message.FriendlyID && !e.EndDate.HasValue && e.IDCreator==message.GeneralHeaders.UserTBL.ID); 
+
+            if (meet == null )
+            {
+                outputPort.Handle(new GenericResponse<EndTheMeetingWithAPIResponse>(new EndTheMeetingWithAPIResponse
+                {
+                    Message = "forbidden",
+                    Status = 403,
+                }));
+                return;
+            }
+            meet.Status = MainEntity_Status.MEETING_END;
+            meet.EndDate = DateTime.Now;
+
+            bool ended = await bbb.EndMeetingAsync(meet.MeetID.Split("-")[0], "mp");
+            if (ended)
+            {
+                _db.Update(meet);
+                _db.SaveChanges();
+            }
+            outputPort.Handle(new GenericResponse<EndTheMeetingWithAPIResponse>(new EndTheMeetingWithAPIResponse
             {
                 Message = "ended",
                 Status = 200,
@@ -3253,26 +3345,41 @@ namespace Application.Usecase
                     // Data not in cache, retrieve from database
                     Statics.Log("GetHekmatShobeUseCase", "Cache miss - retrieving from database");
 
-                    var list = _db.UserTBLs.Where(e => e.IsHekmatShobe)
-                        .Include(e => e.RoomTBLs)
-                        .ThenInclude(e => e.MeetingTBLs)
-                        .ThenInclude(e => e.UserTBLToMeetingTBLs)
-                        .ToList();
+                    var users = await _db.UserTBLs
+                      .Where(e => e.IsHekmatShobe)
+                      .Select(e => new { e.ID, e.AvatarPath, e.Firstname, e.LastName })
+                      .ToListAsync();
+                    var userIds = users.Select(u => u.ID).ToList();
+                    var rooms = await _db.RoomTBLs
+                        .Where(r => userIds.Contains(r.IDOwnerTBL))
+                        .Select(r => new
+                        {
+                            r.IDOwnerTBL,
+                            r.Title,
+                            r.FriendlyID,
+                            r.Avatar,
+                            MeetingCount = r.MeetingTBLs.Count(),
+                            ParticipantCount = r.MeetingTBLs.Sum(m => m.UserTBLToMeetingTBLs.Count)
+                        })
+                        .ToListAsync();
 
-                    cachedData = list.Select(e => new MiniShobeJSON
+
+                    cachedData = users.Select(u => new MiniShobeJSON
                     {
-                        Avatar = Statics.CombinePath(Statics.URLFiles, e.AvatarPath),
-                        Fullname = e.GetName(),
-                        Room = e.RoomTBLs.Select(r => new MiniRoomJSON
+                        Avatar = Statics.CombinePath(Statics.URLFiles, u.AvatarPath),
+                        Fullname = $"{u.Firstname} {u.LastName}",
+                        ID = u.ID,
+                        Room = rooms.Where(r => r.IDOwnerTBL == u.ID)
+                        .Select(r => new MiniRoomJSON
                         {
                             Title = r.Title,
-                            Count = r.MeetingTBLs.Count(d => d.UserTBLToMeetingTBLs.Count > 1),
                             RoomID = r.FriendlyID,
-                            CountPartis = r.MeetingTBLs.Sum(f => f.UserTBLToMeetingTBLs.Count),
-                            Avatar = Statics.CombinePath(Statics.URLFiles, r.Avatar)
-                        }).ToList(),
-                        ID = e.ID
+                            Avatar = Statics.CombinePath(Statics.URLFiles, r.Avatar),
+                            Count = r.MeetingCount, // یا محاسبه با شرط خاص
+                            CountPartis = r.ParticipantCount
+                        }).ToList()
                     }).ToList();
+
 
                     // Configure cache options
                     var cacheOptions = new MemoryCacheEntryOptions()

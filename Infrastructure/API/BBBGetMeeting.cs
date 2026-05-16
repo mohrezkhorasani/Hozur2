@@ -118,7 +118,7 @@ namespace Infrastructure.API
             {
                 RoomID = e.MetaDatas.RoomID,
                 //RoomID = e.InternalMeetingID,
-                Title = e.MeetingName,
+                Title = e.MeetingName,  
                 BBB_MeetID = e.MeetingID,
                 CountPartis = e.ParticipantCount,
                 Created = new DateTime(long.Parse(e.CreateTime))

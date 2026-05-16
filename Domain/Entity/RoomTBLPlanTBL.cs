@@ -18,6 +18,8 @@ namespace Domain.Entity
         public string? Title{ get; set; }
         public string? Teachers{ get; set; }
         public string? Dabir{ get; set; }
+        public bool RequiredToEnterName{get;set;} =false;
         public DateTime? StartDate { get; set; }
+        public ICollection<MeetingTBL> MeetingTBLs{get;set;}
     }
 }

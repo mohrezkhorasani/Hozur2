@@ -119,8 +119,14 @@ builder.Services.AddMediatR(cfg => {
 });
 
 builder.Services.AddDbContext<DBContext>(option =>
-option.UseSqlServer(builder.Configuration.GetConnectionString("DBConnecDBConnectiontionMohrez")));
-
+    option.UseSqlServer(
+        builder.Configuration.GetConnectionString("DBConnecDBConnectiontionMohrez"),
+        sqlOptions =>
+        {
+            sqlOptions.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null);
+            sqlOptions.CommandTimeout(300); // 5 دقیقه
+        }
+    ));
 builder.Services.AddScoped(typeof(ApiPresenter<>));
 builder.Services.AddScoped(typeof(JsonContentResult));
 builder.Services.AddScoped<IDBContext, DBContext>();
@@ -172,6 +178,7 @@ builder.Services.AddScoped<IGetLivesOfProfileUseCase, GetLivesOfProfileUseCase>(
 builder.Services.AddScoped<IGetRoomCalendarActivityUseCase, GetRoomCalendarActivityUseCase>();
 builder.Services.AddScoped<IGetMembersOfMeetUseCase, GetMembersOfMeetUseCase>();
 builder.Services.AddScoped<IGetLiveWithIDUseCase, GetLiveWithIDUseCase>();
+builder.Services.AddScoped<IEndTheMeetingWithAPIUseCase, EndTheMeetingWithAPIUseCase>();
 
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();

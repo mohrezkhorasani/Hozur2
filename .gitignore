@@ -361,3 +361,14 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+reactproject1/
+NajmBridge/
+FrontClientBBB-Blazor/
+FrontClientBBB/
+FrontClient/
+BBB-DashboardRazor/
+BBB-Dashboard/
+BBBDashboard/
+AspireApp1/
+BlazorApp1/

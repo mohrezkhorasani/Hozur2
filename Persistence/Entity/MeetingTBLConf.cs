@@ -53,10 +53,15 @@ namespace Presistence.Entities
 
             builder.HasOne(e => e.Teacher).WithMany(c => c.TeacherMeetings)
             .HasForeignKey(x => x.IDTeacher).OnDelete(DeleteBehavior.Restrict);
+
+            builder.HasOne(e => e.Creator).WithMany(c => c.CreatedMeetings)
+                .HasForeignKey(x => x.IDCreator).OnDelete(DeleteBehavior.Restrict);
             
-               builder.HasOne(e => e.Creator).WithMany(c => c.CreatedMeetings)
-            .HasForeignKey(x => x.IDCreator).OnDelete(DeleteBehavior.Restrict);
-            
+            builder.HasOne(e => e.RoomTBLPlanTBL)
+                .WithMany(c => c.MeetingTBLs)
+                .HasForeignKey(x => x.IDRoomTBLPlanTBL) // Specify the foreign key property
+                .OnDelete(DeleteBehavior.Restrict);
+
         }
 
     }
