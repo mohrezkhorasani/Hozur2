@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Domain.Entity;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -43,7 +44,24 @@ namespace Application.DTO.Models
         public string Avatar { get; set; }
         public List<MiniRoomJSON> Room { get; set; }
     }
-
+    public class MiniReservationJSON
+    {
+        public long ID { get; set; }
+        public string NickName { get; set; }
+    }
+    public class PollJSON
+    {
+        public long ID { get; set; }
+        public string Question { get; set; }
+        public MainEntity_Status Status { get; set; } = MainEntity_Status.LOG_NORMAL;
+        public List<PoolAnsJSON> Answers { get; set; }
+        public MainEntity_Types Type{ get; set; }
+    }
+    public class PoolAnsJSON
+    {
+        public long ID { get; set; }
+        public string Content{ get; set; }
+    }
     public class MiniPlanJSON
     {
         public long Id { get; set; }
@@ -73,6 +91,7 @@ namespace Application.DTO.Models
         public DateTime Created { get; set; }
         public DateTime LastMeet { get; set; }
         public DateTime? NextMeet { get; set; }
+        public MiniPlanJSON? NextPlan { get; set; }
         public List<string> NextMeetTeacher { get; set; } = [];
         public int Count { get; set; }
         public int CountTeacher { get; set; }
@@ -110,6 +129,21 @@ namespace Application.DTO.Models
         public string Name { get; set; }
         public long ID { get; set; }
 
+    }
+    public class AttendeeInfo
+    {
+        public string UserID { get; set; }
+        public string FullName { get; set; }
+        public string Role { get; set; }
+        public string IsPresenter { get; set; }
+        public string IsListeningOnly { get; set; }
+        public string HasJoinedVoice { get; set; }
+        public string HasVideo { get; set; }
+        public string ClientType { get; set; }
+        public string NationalCode { get; set; }
+        public string Phone { get; set; }
+        public string UserID5 { get; set; }
+        public string Vc2AuthNorm { get; set; }
     }
 
 }

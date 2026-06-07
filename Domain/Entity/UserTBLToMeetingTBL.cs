@@ -30,10 +30,13 @@ namespace Domain.Entity
         public string UserNickName{ get; set; }
         public string UserMeetID{ get; set; }
         public string? Role{ get; set; }
+        public string NationalCode { get; set; } = "";
+        public string Phone { get; set; } = "";
         public List<string> IPList { get; set; } = new List<string>();
         public ICollection<UserTBLToMeetingTBLLogs> UserTBLToMeetingTBLLogs { get; set; }
         public ICollection<MeetQuestionTBL> MeetQuestionTBLs { get; set; }
         public ICollection<MeetCommentTBL> MeetCommentTBLs { get; set; }
+        public ICollection<MeetPollQuizAnsTBLToUserMeetTBL> MeetPollQuizAnsTBLToUserMeetTBLs { get; set; }
 
         public string ReturnTypeString()
         {

@@ -62,6 +62,10 @@ public class MappingProfile : Profile
           .ForMember(dest => dest.GeneralHeaders, opt => opt.Ignore());
         CreateMap<EndTheMeetingWithAPIViewModel, EndTheMeetingWithAPIRequest>()
           .ForMember(dest => dest.GeneralHeaders, opt => opt.Ignore());
+        CreateMap<AnswerPollListViewModel, AnswerPollListRequest>()
+          .ForMember(dest => dest.GeneralHeaders, opt => opt.Ignore());
+        CreateMap<UpdatePresentMinToCertOfMeetViewModel, UpdatePresentMinToCertOfMeetRequest>()
+          .ForMember(dest => dest.GeneralHeaders, opt => opt.Ignore());
 
     }
 }

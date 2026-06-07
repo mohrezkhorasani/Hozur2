@@ -1,3 +1,4 @@
+using Application.DTO;
 using Domain.Entity;
 using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel;
@@ -51,4 +52,18 @@ namespace CoreMe.VM
         public string RoomID { get; set; }
         public string AvatarPath { get; set; }
     }
+    public class AddPollQuizVM
+    {
+        public string Question { get; set; }
+        public MainEntity_Types Type { get; set; } = MainEntity_Types.QUIZ_OPTIONAL;
+        public List<AnsPollRequestJSON> AnsPollRequestJSONs { get; set; }
+    }
+
+
+
+
+
+
+
+
 }

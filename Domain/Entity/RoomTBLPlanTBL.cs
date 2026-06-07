@@ -21,5 +21,6 @@ namespace Domain.Entity
         public bool RequiredToEnterName{get;set;} =false;
         public DateTime? StartDate { get; set; }
         public ICollection<MeetingTBL> MeetingTBLs{get;set;}
+        public ICollection<MeetingReservationTBL> MeetingReservationTBLs { get;set;}
     }
 }

@@ -29,20 +29,34 @@ public class GeneralHeadersService : IGeneralHeadersService
 
         // مقداردهی از هدرهای HTTP
         headers.Agent = httpContext.Request.Headers["User-Agent"].ToString();
-        headers.RequestedIP = httpContext.Connection.RemoteIpAddress?.ToString() ?? "";
+        headers.RequestedIP = httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault()
+                              ?? httpContext.Connection.RemoteIpAddress?.ToString()
+                              ?? "";
         headers.RequestedDevice = GetDevice(httpContext.Request.Headers["User-Agent"].ToString());
         headers.RequestedPage = httpContext.Request.Path.ToString();
         headers.Referer = httpContext.Request.Headers["Referer"].ToString();
         headers.RefererGoogle = httpContext.Request.Headers["Referer-Google"].ToString();
+
+        headers.BBBUserToken = httpContext.Request.Headers["bbbusertoken2"].ToString();
+
         headers.JWTUserToken = httpContext.Request.Headers["vc2AuthNorm"].ToString();
 
         try
         {
-            headers.JWTMeetingUserToken = httpContext.Request.Headers["Authorization"].ToString();
+            headers.JWTMeetingUserToken = httpContext.Request.Headers["authbbb"].ToString();
+            if (string.IsNullOrEmpty(headers.JWTMeetingUserToken)) throw new Exception("e");
         }
         catch (Exception e)
         {
-            headers.JWTMeetingUserToken = "";
+            try
+            {
+                headers.JWTMeetingUserToken = httpContext.Request.Headers["Authorization"].ToString();
+
+            }
+            catch (Exception e1)
+            {
+                headers.JWTMeetingUserToken = "";
+            }
         }
         try
         {

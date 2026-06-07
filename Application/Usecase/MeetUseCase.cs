@@ -377,7 +377,7 @@ namespace Application.Usecase
                             {
                                 ID = e.ID,
                                 Name = e.UserNickName != null ? e.UserNickName == "Teacher" ? e.UserTBL.GetName() : e.UserNickName : "نامشخص",
-                                Timer = Statics.GetPrettyDateBySeconds(_commonMethods.GetTimerStayUserInMeet(e)),
+                                Timer = _commonMethods.GetTimerStayUserInMeet(e).ToString(),
                                 CanTakeCertificate = e.CertificateTBL != null &&
                                                     e.CertificateTBL.Status == MainEntity_Status.CERT_FULL &&
                                                     e.CertificateTBL.Validation,
@@ -920,6 +920,7 @@ namespace Application.Usecase
                             _db.Update(room);
                         }
 
+
                         // ایجاد جلسه در بیگ بلو باتن
                         var meet = await this.bbb.CreateMeetingAsync(room);
                         if (meet.Status != "created")
@@ -945,15 +946,27 @@ namespace Application.Usecase
                             JalaliDate = Statics.ToJalaliDate(DateTime.Now),
                             Title = planTBL.Title,
                             RequiredToEnterName = planTBL.RequiredToEnterName,
+                            DateInsert = DateTime.UtcNow,
                             IDRoomTBLPlanTBL = planTBL.ID,
                             IDCreator = message.GeneralHeaders.UserTBL.ID,
                         };
                         meetTBL.JWT = Statics.GenerateJWTMeet(meetTBL);
                         _db.MeetingTBLs.Add(meetTBL);
                         await _db.SaveChangesAsync();
-
+                        string userid = "";
+                        if (message.GeneralHeaders?.UserTBL != null)
+                        {
+                            userid = message.GeneralHeaders.UserTBL.UUID;
+                        }
+                        else if (string.IsNullOrEmpty(userid))
+                        {
+                            userid = message.GeneralHeaders.BBBUserToken;
+                            if (userid == null)
+                                userid = Statics.GenerateSecretKey(64);
+                        }
                         // گرفتن لینک ورود
-                        redirectLink = await bbb.GetJoinUrlAsync(meetTBL, message.Name, true,
+                        redirectLink = await bbb.GetJoinUrlAsync(meetTBL, message.Name, userid, message.GeneralHeaders.UserTBL.NationalCode + "",
+                            message.GeneralHeaders.UserTBL.PhoneNumber + "", message.GeneralHeaders.JWTUserToken, true,
                             await _commonMethods.ReturnPassword(message.IDRoom, true));
 
                         // ذخیره اطلاعات مورد نیاز برای Background
@@ -1060,6 +1073,47 @@ namespace Application.Usecase
                                 TokenJWT = "nope",
                                 TimeSpendSeconds = 0,
                             });
+                            var q = new MeetPollQuizTBL
+                            {
+                                IDMeetingTBL = data.MeetTBLId,
+                                IsForAll = false,
+                                Question = $"نظرتان درباره میزان تسلط دبیر علمی محترم {$"**{dabir.GetName()}**"} چیست؟"
+                            };
+                            db.MeetPollQuizTBLs.Add(q);
+                            await db.SaveChangesAsync();
+                            db.MeetPollQuizAnsTBLs.Add(new MeetPollQuizAnsTBL
+                            {
+                                Answer = "ضعیف",
+                                IDQuizTBL = q.ID,
+                                Score = 25,
+                                Type = q.Type,
+                                Status = q.Status,
+                            });
+                            db.MeetPollQuizAnsTBLs.Add(new MeetPollQuizAnsTBL
+                            {
+                                Answer = "متوسط",
+                                IDQuizTBL = q.ID,
+                                Score = 50,
+                                Type = q.Type,
+                                Status = q.Status,
+                            });
+                            db.MeetPollQuizAnsTBLs.Add(new MeetPollQuizAnsTBL
+                            {
+                                Answer = "خوب",
+                                IDQuizTBL = q.ID,
+                                Score = 75,
+                                Type = q.Type,
+                                Status = q.Status,
+                            });
+                            db.MeetPollQuizAnsTBLs.Add(new MeetPollQuizAnsTBL
+                            {
+                                Answer = "عالی",
+                                IDQuizTBL = q.ID,
+                                Score = 100,
+                                Type = q.Type,
+                                Status = q.Status,
+                            });
+                            await db.SaveChangesAsync();
                         }
                     }
 
@@ -1106,8 +1160,51 @@ namespace Application.Usecase
                                 TokenJWT = "nope",
                                 TimeSpendSeconds = 0,
                             });
+                            var q = new MeetPollQuizTBL
+                            {
+                                IDMeetingTBL = data.MeetTBLId,
+                                IsForAll = false,
+                                Question = $"نظرتان درباره میزان تسلط کارشناس محترم **{teacher.GetName()}** چیست؟",
+                            };
+                            db.MeetPollQuizTBLs.Add(q);
+                            await db.SaveChangesAsync();
+                            db.MeetPollQuizAnsTBLs.Add(new MeetPollQuizAnsTBL
+                            {
+                                Answer = "ضعیف",
+                                IDQuizTBL = q.ID,
+                                Score = 25,
+                                Type = q.Type,
+                                Status = q.Status,
+                            });
+                            db.MeetPollQuizAnsTBLs.Add(new MeetPollQuizAnsTBL
+                            {
+                                Answer = "متوسط",
+                                IDQuizTBL = q.ID,
+                                Score = 50,
+                                Type = q.Type,
+                                Status = q.Status,
+                            });
+                            db.MeetPollQuizAnsTBLs.Add(new MeetPollQuizAnsTBL
+                            {
+                                Answer = "خوب",
+                                IDQuizTBL = q.ID,
+                                Score = 75,
+                                Type = q.Type,
+                                Status = q.Status,
+                            });
+                            db.MeetPollQuizAnsTBLs.Add(new MeetPollQuizAnsTBL
+                            {
+                                Answer = "عالی",
+                                IDQuizTBL = q.ID,
+                                Score = 100,
+                                Type = q.Type,
+                                Status = q.Status,
+                            });
+                            await db.SaveChangesAsync();
                         }
                     }
+
+
 
                     await db.SaveChangesAsync();
 

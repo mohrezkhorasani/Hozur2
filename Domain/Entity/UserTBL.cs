@@ -15,7 +15,7 @@ namespace Domain.Entity
     [Index(nameof(PhoneNumber), IsUnique = true)]
     [Index(nameof(Email), IsUnique = true)]
     [Index(nameof(Username), IsUnique = true)]
-    public class UserTBL : MainEntity
+    public class    UserTBL : MainEntity
     {
         public long ID { get; set; }
         public List<Guid> AllowedGUID { get; set; } = new List<Guid>();
@@ -70,6 +70,7 @@ namespace Domain.Entity
         public string? AvatarPath { get; set; }
         public ICollection<MeetingTBL> TeacherMeetings { get; set; }
         public ICollection<MeetingTBL> CreatedMeetings { get; set; }
+        public ICollection<MeetingReservationTBL> MeetingReservationTBLs { get; set; }
         public ICollection<RoomTBL> RoomTBLs { get; set; }
         public ICollection<UserTBLToMeetingTBL> UserTBLToMeetingTBLs { get; set; }
         public ICollection<RoomTBLToUserTBL> RoomTBLToUserTBLs { get; set; }
@@ -92,7 +93,7 @@ namespace Domain.Entity
                     permissions.AddRange(new[] { "manage_admins" });
                     goto case MainEntity_Types.USER_ADMIN;
                 case MainEntity_Types.USER_ADMIN:
-                    permissions.AddRange(new[] { "manage_users", "view_reports", "create_rooms_for_others" });
+                    permissions.AddRange(new[] { "manage_users", "view_reports", "create_rooms_for_others","edit_poll" });
                     goto case MainEntity_Types.USER_MODERATOR;
                 case MainEntity_Types.USER_MODERATOR:
                     permissions.AddRange(new[] { "create_rooms" });

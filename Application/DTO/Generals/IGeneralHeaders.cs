@@ -10,6 +10,7 @@ namespace Application.DTO.Generals
     public class GeneralHeaders : IGeneralHeaders
     {
         public string Agent { get; set; }
+        public string? BBBUserToken { get; set; }
         public string? JWTMeetingToken { get; set; }
         public string? JWTMeetingUserToken { get; set; }
         public string? JWTUserToken { get; set; }
@@ -27,6 +28,7 @@ namespace Application.DTO.Generals
     public interface IGeneralHeaders
     {
         public string Agent { get; set; }
+        public string? BBBUserToken { get; set; }
         public string? JWTMeetingToken { get; set; }
         public string? JWTUserToken { get; set; }
         public string RequestedPage { get; set; }

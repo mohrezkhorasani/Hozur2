@@ -8,6 +8,7 @@ using AutoMapper;
 using CoreMe.Cofigurations;
 using CoreMe.Cofigurations.Auth;
 using CoreMe.Presenter;
+using Infrastracture;
 using Infrastructure.API;
 using Infrastructure.Word;
 using Microsoft.EntityFrameworkCore;
@@ -38,10 +39,11 @@ builder.Services.AddCors(options =>
 
             var uri = new Uri(origin);
             var host = uri.Host.ToLower();
-
+            
             // Allow local dev + production subdomains
             return host == "localhost"
                    || host == "127.0.0.1"
+                   || host== "192.168.0.122"
                    || host.EndsWith(".hekmateislami.com")
                    || host == "hekmateislami.com"
                    || host == "hek.either.ir"
@@ -154,18 +156,22 @@ builder.Services.AddScoped<IGetQuestionOfMeetUseCase, GetQuestionOfMeetUseCase>(
 builder.Services.AddScoped<IGetRoomsPublicUseCase, GetRoomsPublicUseCase>();
 builder.Services.AddScoped<IQuestionAnsweredUseCase, QuestionAnsweredUseCase>();
 builder.Services.AddScoped<ISignInUserPanelUseCase, SignInUserPanelUseCase>();
+builder.Services.AddScoped<IGetAllRoomsUseCase, GetAllRoomsUseCase>();
 builder.Services.AddScoped<IVerifyTokenUseCase, VerifyTokenUseCase>();
 builder.Services.AddScoped<ILoginUserPanelUseCase, LoginUserPanelUseCase>();
 builder.Services.AddScoped<IGetLivesPublicUseCase, GetLivesPublicUseCase>();
 builder.Services.AddScoped<IContactusUseCase, ContactusUseCase>();
 builder.Services.AddScoped<IGetSlideShowUseCase, GetSlideShowUseCase>();
 builder.Services.AddScoped<IGetProfileInfoUseCase, GetProfileInfoUseCase>();
+builder.Services.AddScoped<IGetReservationUseCase, GetReservationUseCase>();
+builder.Services.AddScoped<INewReservationUseCase, NewReservationUseCase>();
 builder.Services.AddScoped<IFollowProfileUseCase, FollowProfileUseCase>();
 builder.Services.AddScoped<IAdminGetUserRoomListUseCase, AdminGetUserRoomListUseCase>();
 builder.Services.AddScoped<IAdminCreateRoomUseCase, AdminCreateRoomUseCase>();
 builder.Services.AddScoped<IGetPlanRoomPublicUseCase, GetPlanRoomPublicUseCase>();
 builder.Services.AddScoped<IAdminChangeRoleUseCase, AdminChangeRoleUseCase>();
 builder.Services.AddScoped<IAdminGetUserListUseCase, AdminGetUserListUseCase>();
+builder.Services.AddScoped<IGetAllCertificateOfMemberUseCase, GetAllCertificateOfMemberUseCase>();
 builder.Services.AddScoped<IGetHekmatShobeUseCase, GetHekmatShobeUseCase>();
 builder.Services.AddScoped<IEditSlideShowUseCase, EditSlideShowUseCase>();
 builder.Services.AddScoped<IInsertSlideShowUseCase, InsertSlideShowUseCase>();
@@ -177,8 +183,20 @@ builder.Services.AddScoped<IGetPlanRoomUseCase, GetPlanRoomUseCase>();
 builder.Services.AddScoped<IGetLivesOfProfileUseCase, GetLivesOfProfileUseCase>();
 builder.Services.AddScoped<IGetRoomCalendarActivityUseCase, GetRoomCalendarActivityUseCase>();
 builder.Services.AddScoped<IGetMembersOfMeetUseCase, GetMembersOfMeetUseCase>();
+builder.Services.AddScoped<IGenerateCertificateWithUserMeetIDUseCase, GenerateCertificateWithUserMeetIDUseCase>();
 builder.Services.AddScoped<IGetLiveWithIDUseCase, GetLiveWithIDUseCase>();
+builder.Services.AddScoped<IGetMembersOfMeetOnlyCertificatedUseCase, GetMembersOfMeetOnlyCertificatedUseCase>();
+builder.Services.AddScoped<IAnswerPollListUseCase, AnswerPollListUseCase>();
+builder.Services.AddScoped<IGetPollListUseCase, GetPollListUseCase>();
+builder.Services.AddScoped<IAddPollQuizUseCase, AddPollQuizUseCase>();
+builder.Services.AddScoped<IGetPollListAdminUseCase, GetPollListAdminUseCase>();
 builder.Services.AddScoped<IEndTheMeetingWithAPIUseCase, EndTheMeetingWithAPIUseCase>();
+builder.Services.AddScoped<IUpdatePresentMinToCertOfMeetUseCase, UpdatePresentMinToCertOfMeetUseCase>();
+builder.Services.AddScoped<IGetAllLivesUseCase, GetAllLivesUseCase>();
+
+
+
+builder.Services.AddScoped<ISendSMS , SendSMS>();
 
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
@@ -291,3 +309,4 @@ app.MapWhen(context => context.Request.Host.Host.Equals("vcfile.hekmateislami.co
 
 TelegramHelper.Initialize(app.Services.GetRequiredService<IServiceScopeFactory>());
 app.Run();
+    

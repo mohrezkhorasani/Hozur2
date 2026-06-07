@@ -25,7 +25,8 @@ namespace Domain.Entity
          , Forbidden = -403
          , Ban = -403 ,
 
-        LOG_NORMAL=300,
+        LOG_NORMAL = 300,
+        LOG_REMOVED = -300,
         LOG_KILLED =301,// masalan 10 ta join poshte ham nayad
 
         //USERS
@@ -86,10 +87,17 @@ namespace Domain.Entity
         //cert
         CERT_NORMAL = 600,
 
+
         COMMENT_ANONYMOUS = 610,
         COMMENT_NORMAL=609,
         
         CONTACTUS_WEBSITE=620,
+
+        //quiz
+        QUIZ_OPTIONAL = 625,
+        QUIZ_INPUT = 626,
+        QUIZ_OPTIONAL_NOSCORE = 627,
+
     }
     public interface MainEntity
     {

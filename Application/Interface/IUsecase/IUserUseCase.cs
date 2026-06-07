@@ -39,11 +39,16 @@ namespace Application.Interface.IUsecase
     public interface IGetProfileInfoUseCase : IUseCaseRequestHandler<GetProfileInfoRequest, GenericResponse<GetProfileInfoResponse>> { }
     public interface IFollowProfileUseCase : IUseCaseRequestHandler<FollowProfileRequest, GenericResponse<FollowProfileResponse>> { }
     public interface IGetHekmatShobeUseCase : IUseCaseRequestHandler<GetHekmatShobeRequest, GenericResponse<GetHekmatShobeResponse>> { }
+    public interface IGetPollListUseCase : IUseCaseRequestHandler<GetPollListRequest, GenericResponse<GetPollListResponse>> { }
+    public interface IAnswerPollListUseCase : IUseCaseRequestHandler<AnswerPollListRequest, GenericResponse<AnswerPollListResponse>> { }
+    public interface IUpdatePresentMinToCertOfMeetUseCase : IUseCaseRequestHandler<UpdatePresentMinToCertOfMeetRequest, GenericResponse<UpdatePresentMinToCertOfMeetResponse>> { }
     public interface IGetPlanRoomUseCase : IUseCaseRequestHandler<GetPlanRoomRequest, GenericResponse<GetPlanRoomResponse>> { }
     public interface IGetPlanRoomPublicUseCase : IUseCaseRequestHandler<GetPlanRoomPublicRequest, GenericResponse<GetPlanRoomPublicResponse>> { }
     public interface IGetLatestMeetingsUseCase : IUseCaseRequestHandler<GetLatestMeetingsRequest, GenericResponse<GetLatestMeetingsResponse>> { }
     public interface IDeletePlanRoomUseCase : IUseCaseRequestHandler<DeletePlanRoomRequest, GenericResponse<DeletePlanRoomResponse>> { }
     public interface INewPlanRoomUseCase : IUseCaseRequestHandler<NewPlanRoomRequest, GenericResponse<NewPlanRoomResponse>> { }
+    public interface IGetReservationUseCase : IUseCaseRequestHandler<GetReservationRequest, GenericResponse<GetReservationResponse>> { }
+    public interface INewReservationUseCase : IUseCaseRequestHandler<NewReservationRequest, GenericResponse<NewReservationResponse>> { }
 
 
 
@@ -51,5 +56,9 @@ namespace Application.Interface.IUsecase
     public interface IAdminGetUserRoomListUseCase : IUseCaseRequestHandler<AdminGetUserRoomListRequest, GenericResponse<AdminGetUserRoomListResponse>> { }
     public interface IAdminChangeRoleUseCase : IUseCaseRequestHandler<AdminChangeRoleRequest, GenericResponse<AdminChangeRoleResponse>> { }
     public interface IChangeAvatarOfRoomUseCase : IUseCaseRequestHandler<ChangeAvatarOfRoomRequest, GenericResponse<ChangeAvatarOfRoomResponse>> { }
+    public interface IGetAllLivesUseCase : IUseCaseRequestHandler<GetAllLivesRequest, GenericResponse<GetAllLivesResponse>> { }
     public interface IAdminCreateRoomUseCase : IUseCaseRequestHandler<AdminCreateRoomRequest, GenericResponse<AdminCreateRoomResponse>> { }
+    public interface IGetAllRoomsUseCase : IUseCaseRequestHandler<GetAllRoomsRequest, GenericResponse<GetAllRoomsResponse>> { }
+    public interface IAddPollQuizUseCase : IUseCaseRequestHandler<AddPollQuizRequest, GenericResponse<AddPollQuizResponse>> { }
+    public interface IGetPollListAdminUseCase : IUseCaseRequestHandler<GetPollListAdminRequest, GenericResponse<GetPollListAdminResponse>> { }
 }

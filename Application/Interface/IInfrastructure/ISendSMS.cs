@@ -8,6 +8,6 @@ namespace Application.Interface.IInfrastructure
 {
     public interface ISendSMS 
     {
-        public Task<int> SendAsync(int type,string cellphone, string Token1,string Token2, string Token3);
+        public Task<bool> SendReservation(string phone, string name, string topic, string meeting, string time, string date, string timeSend);
     }
 }

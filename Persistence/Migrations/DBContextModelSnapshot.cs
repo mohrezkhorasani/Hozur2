@@ -310,6 +310,139 @@ namespace Persistence.Migrations
                     b.ToTable("MeetCommentTBL", (string)null);
                 });
 
+            modelBuilder.Entity("Domain.Entity.MeetPollQuizAnsTBL", b =>
+                {
+                    b.Property<long>("ID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("ID"), 525L, 7);
+
+                    b.Property<string>("Answer")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("DateInsert")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSDATETIME()");
+
+                    b.Property<string>("Explain")
+                        .HasMaxLength(3000)
+                        .HasColumnType("nvarchar(3000)");
+
+                    b.Property<long>("IDQuizTBL")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Score")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(300);
+
+                    b.Property<int>("Type")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(625);
+
+                    b.HasKey("ID");
+
+                    b.HasIndex("IDQuizTBL");
+
+                    b.ToTable("MeetPollQuizAnsTBL", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entity.MeetPollQuizAnsTBLToUserMeetTBL", b =>
+                {
+                    b.Property<long>("ID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("ID"), 525L, 7);
+
+                    b.Property<string>("Content")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("DateInsert")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSDATETIME()");
+
+                    b.Property<string>("Explain")
+                        .HasMaxLength(3000)
+                        .HasColumnType("nvarchar(3000)");
+
+                    b.Property<long>("IDMeetPollQuizAnsTBL")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("IDUserTBLToMeetingTBL")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Status")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(300);
+
+                    b.Property<int>("Type")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(625);
+
+                    b.HasKey("ID");
+
+                    b.HasIndex("IDMeetPollQuizAnsTBL");
+
+                    b.HasIndex("IDUserTBLToMeetingTBL");
+
+                    b.ToTable("MeetPollQuizAnsTBLToUserMeetTBL", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entity.MeetPollQuizTBL", b =>
+                {
+                    b.Property<long>("ID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("ID"), 525L, 7);
+
+                    b.Property<DateTime>("DateInsert")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSDATETIME()");
+
+                    b.Property<string>("Explain")
+                        .HasMaxLength(3000)
+                        .HasColumnType("nvarchar(3000)");
+
+                    b.Property<long?>("IDMeetingTBL")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("IsForAll")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Question")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Status")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(300);
+
+                    b.Property<int>("Type")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(625);
+
+                    b.HasKey("ID");
+
+                    b.HasIndex("IDMeetingTBL");
+
+                    b.ToTable("MeetPollQuizTBL", (string)null);
+                });
+
             modelBuilder.Entity("Domain.Entity.MeetQuestionTBL", b =>
                 {
                     b.Property<long>("ID")
@@ -376,6 +509,60 @@ namespace Persistence.Migrations
                     b.ToTable("MeetQuestionTBL", (string)null);
                 });
 
+            modelBuilder.Entity("Domain.Entity.MeetingReservationTBL", b =>
+                {
+                    b.Property<long>("ID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("ID"), 598569L);
+
+                    b.Property<DateTime>("DateInsert")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSDATETIME()");
+
+                    b.Property<string>("Explain")
+                        .HasMaxLength(3000)
+                        .HasColumnType("nvarchar(3000)");
+
+                    b.Property<long>("IDRoomTBLPlanTBL")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("IDUserTBL")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Phone")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Status")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.Property<string>("TokenJWT")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Type")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
+
+                    b.Property<string>("UserNickName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("ID");
+
+                    b.HasIndex("IDRoomTBLPlanTBL");
+
+                    b.HasIndex("IDUserTBL");
+
+                    b.ToTable("MeetingReservationTBL", (string)null);
+                });
+
             modelBuilder.Entity("Domain.Entity.MeetingTBL", b =>
                 {
                     b.Property<long>("ID")
@@ -414,6 +601,9 @@ namespace Persistence.Migrations
                     b.Property<string>("MeetID")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("PresentMinutesToCert")
+                        .HasColumnType("int");
 
                     b.Property<bool>("RequiredToEnterName")
                         .HasColumnType("bit");
@@ -919,6 +1109,14 @@ namespace Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
+                    b.Property<string>("NationalCode")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Phone")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Role")
                         .HasColumnType("nvarchar(max)");
 
@@ -1153,6 +1351,45 @@ namespace Persistence.Migrations
                     b.Navigation("UserTBLToMeeting");
                 });
 
+            modelBuilder.Entity("Domain.Entity.MeetPollQuizAnsTBL", b =>
+                {
+                    b.HasOne("Domain.Entity.MeetPollQuizTBL", "QuizTBL")
+                        .WithMany("MeetPollQuizAnsTBLs")
+                        .HasForeignKey("IDQuizTBL")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("QuizTBL");
+                });
+
+            modelBuilder.Entity("Domain.Entity.MeetPollQuizAnsTBLToUserMeetTBL", b =>
+                {
+                    b.HasOne("Domain.Entity.MeetPollQuizAnsTBL", "MeetPollQuizAnsTBL")
+                        .WithMany("MeetPollQuizAnsTBLToUserMeetTBLs")
+                        .HasForeignKey("IDMeetPollQuizAnsTBL")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entity.UserTBLToMeetingTBL", "UserTBLToMeetingTBL")
+                        .WithMany("MeetPollQuizAnsTBLToUserMeetTBLs")
+                        .HasForeignKey("IDUserTBLToMeetingTBL")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("MeetPollQuizAnsTBL");
+
+                    b.Navigation("UserTBLToMeetingTBL");
+                });
+
+            modelBuilder.Entity("Domain.Entity.MeetPollQuizTBL", b =>
+                {
+                    b.HasOne("Domain.Entity.MeetingTBL", "MeetingTBL")
+                        .WithMany("MeetPollQuizTBLs")
+                        .HasForeignKey("IDMeetingTBL")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("MeetingTBL");
+                });
+
             modelBuilder.Entity("Domain.Entity.MeetQuestionTBL", b =>
                 {
                     b.HasOne("Domain.Entity.UserTBLToMeetingTBL", "UserTBLToMeeting")
@@ -1162,6 +1399,24 @@ namespace Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("UserTBLToMeeting");
+                });
+
+            modelBuilder.Entity("Domain.Entity.MeetingReservationTBL", b =>
+                {
+                    b.HasOne("Domain.Entity.RoomTBLPlanTBL", "RoomTBLPlanTBL")
+                        .WithMany("MeetingReservationTBLs")
+                        .HasForeignKey("IDRoomTBLPlanTBL")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entity.UserTBL", "UserTBL")
+                        .WithMany("MeetingReservationTBLs")
+                        .HasForeignKey("IDUserTBL")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("RoomTBLPlanTBL");
+
+                    b.Navigation("UserTBL");
                 });
 
             modelBuilder.Entity("Domain.Entity.MeetingTBL", b =>
@@ -1331,8 +1586,20 @@ namespace Persistence.Migrations
                     b.Navigation("AccessLevelTBLToRoleTBLs");
                 });
 
+            modelBuilder.Entity("Domain.Entity.MeetPollQuizAnsTBL", b =>
+                {
+                    b.Navigation("MeetPollQuizAnsTBLToUserMeetTBLs");
+                });
+
+            modelBuilder.Entity("Domain.Entity.MeetPollQuizTBL", b =>
+                {
+                    b.Navigation("MeetPollQuizAnsTBLs");
+                });
+
             modelBuilder.Entity("Domain.Entity.MeetingTBL", b =>
                 {
+                    b.Navigation("MeetPollQuizTBLs");
+
                     b.Navigation("UserTBLToMeetingTBLs");
                 });
 
@@ -1356,6 +1623,8 @@ namespace Persistence.Migrations
 
             modelBuilder.Entity("Domain.Entity.RoomTBLPlanTBL", b =>
                 {
+                    b.Navigation("MeetingReservationTBLs");
+
                     b.Navigation("MeetingTBLs");
                 });
 
@@ -1366,6 +1635,8 @@ namespace Persistence.Migrations
                     b.Navigation("Followers");
 
                     b.Navigation("Followings");
+
+                    b.Navigation("MeetingReservationTBLs");
 
                     b.Navigation("RoomTBLToUserTBLs");
 
@@ -1384,6 +1655,8 @@ namespace Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("MeetCommentTBLs");
+
+                    b.Navigation("MeetPollQuizAnsTBLToUserMeetTBLs");
 
                     b.Navigation("MeetQuestionTBLs");
 

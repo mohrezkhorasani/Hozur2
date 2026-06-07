@@ -27,6 +27,10 @@ namespace Presistence.Entities
         public DbSet<SlideshowTBL> SlideshowTBL { get; set; }
         public DbSet<UserTBLToUserTBL> UserTBLToUserTBLs { get; set; }
         public DbSet<RoomTBLPlanTBL> RoomTBLPlanTBLs { get; set; }
+        public DbSet<MeetingReservationTBL> MeetingReservationTBLs { get; set; }
+        public DbSet<MeetPollQuizAnsTBL> MeetPollQuizAnsTBLs { get; set; }
+        public DbSet<MeetPollQuizAnsTBLToUserMeetTBL> MeetPollQuizAnsTBLToUserMeetTBLs { get; set; }
+        public DbSet<MeetPollQuizTBL> MeetPollQuizTBLs { get; set; }
 
         #endregion
         #region 12/07/2025  
@@ -89,6 +93,10 @@ namespace Presistence.Entities
             modelBuilder.ApplyConfiguration(new SlideshowTBLConfiguration());
             modelBuilder.ApplyConfiguration(new UserTBLToUserTBLConfiguration());
             modelBuilder.ApplyConfiguration(new RoomTBLPlanTBLConfiguration());
+            modelBuilder.ApplyConfiguration(new MeetingReservationTBLConfiguration());
+            modelBuilder.ApplyConfiguration(new MeetPollQuizTBLConfiguration());
+            modelBuilder.ApplyConfiguration(new MeetPollQuizAnsTBLToUserMeetTBLConfiguration());
+            modelBuilder.ApplyConfiguration(new MeetPollQuizAnsTBLConfiguration());
             #endregion
         }
 

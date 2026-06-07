@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace Infrastracture
@@ -17,33 +18,71 @@ namespace Infrastracture
             public string message { set; get; }
         }
 
-        public async Task<int> SendAsync(int type, string cellphone, string Token1, string Token2, string Token3)
+      
+        public async Task<bool> SendReservation(string phone = "09129382449", string name = "محمدرضا خراسانی", string topic = "نشست علمی قم", 
+            string meeting = "امتداد صدرایی در نظر حکیم بزرگ ملا صدرا", string time = "18:30",string dateSend= "2026-05-24", string timesend= "22:30:00")
         {
-                string requestJson = "";
-                if (type == 1)
+            using var client = new HttpClient();
+
+            // Create the message text
+            string messageText = $"سلام {name} عزیز،\n" +
+                                $"جلسه {topic} با موضوع \"{meeting}\" \n" +
+                                $"ساعت {time} برگزار می‌شود.\n";
+
+            var requestBody = new
+            {
+                text = messageText,
+                line_number = "50002178584000",
+                number_format = "english",
+                schedule = $"{dateSend} {timesend}",
+                recipients=new string[] {phone.Replace("+989","09")}
+            };
+            var json = JsonSerializer.Serialize(requestBody);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            // Add the API key to headers
+            client.DefaultRequestHeaders.Add("Api-Key", "iOB6evopI0ht6SVhNWxYoKIXXMiRj8ZaZZmUEVerNvOuYNzvqI");
+
+            // Optional: Add phone number to headers if required by the API
+            // client.DefaultRequestHeaders.Add("X-Phone-Number", phone);
+
+            try
+            {
+                var response = await client.PostAsync("https://api.iranpayamak.com/ws/v1/sms/simple", content);
+                var responseString = await response.Content.ReadAsStringAsync();
+
+                if (response.IsSuccessStatusCode)
                 {
-                    requestJson = "receptor=" + cellphone + "&token=" + Token1+ "&template=verifykhodkar724";
-
+                    Console.WriteLine($"✅ SMS sent successfully to {phone}");
+                    Console.WriteLine($"📝 Response: {responseString}");
+                    return true;
                 }
-
-                string serviceurl = "https://api.kavenegar.com/v1/7A342F786E346167544961464E4E6759504238656934307644596F535A52473479716135504B4A2F6769413D/verify/lookup.json?" + requestJson;
-                var c = new HttpClient();
-                var r = c.GetAsync(serviceurl).Result;
-
-
-            //string requestJson = "";
-            //if (type == 1)
-            //{
-            //    requestJson = "receptor=" + cellphone + "&token=" + Token1 + "&template=verifysindokht";
-
-            //}
-
-            //string serviceurl = "https://api.kavenegar.com/v1/4F3149636555626B307736503270446970706E4971633970364B6F7864386153/verify/lookup.json?" + requestJson;
-            //var client = new HttpClient();
-            //var response = client.GetAsync(serviceurl).Result;
-
-            return 1;
+                else
+                {
+                    Console.WriteLine($"❌ Failed to send SMS to {phone}");
+                    Console.WriteLine($"Status: {response.StatusCode}");
+                    Console.WriteLine($"Response: {responseString}");
+                    return false;
+                }
+            }
+            catch (HttpRequestException ex)
+            {
+                Console.WriteLine($"🌐 Network error: {ex.Message}");
+                return false;
+            }
+            catch (JsonException ex)
+            {
+                Console.WriteLine($"📄 JSON error: {ex.Message}");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"⚠️ Unexpected error: {ex.Message}");
+                return false;
+            }
         }
+
+
 
     }
 }

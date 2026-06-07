@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <PackageReference Include="JWT" Version="11.0.0" />
+    <PackageReference Include="libphonenumber-csharp" Version="9.0.31" />
     <PackageReference Include="MediatR" Version="14.1.0" />
     <PackageReference Include="MediatR.Extensions.Microsoft.DependencyInjection" Version="11.0.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.2" />

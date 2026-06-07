@@ -2,6 +2,7 @@
 using Application.DTO.Models;
 using Application.General;
 using Application.Interface.IInfrastructure;
+using DocumentFormat.OpenXml.Wordprocessing;
 using Domain.Entity;
 using Infrastructure.DTO;
 using System;
@@ -269,50 +270,127 @@ namespace Infrastructure.API
         }
 
 
+        public async Task<List<AttendeeInfo>> GetMeetingAttendeesByRoomId(string roomId)
+        {
+            try
+            {
+                string apiCall = "getMeetings";
+                string checksumInput = apiCall + "" + Statics.bbb.Secret;
+                string checksum = Statics.ComputeSha1(checksumInput);
+                string fullUrl = $"{Statics.bbb.UrlAPI}{apiCall}?checksum={checksum}";
 
-        public async Task<string> GetJoinUrlAsync(MeetingTBL meet, string fullName, bool asModerator = false, string moderatorPassowrd = "")
+                using HttpClient client = new HttpClient();
+                string xmlResponse = await client.GetStringAsync(fullUrl);
+
+                XmlSerializer serializer = new XmlSerializer(typeof(BBBResponse));
+                using StringReader reader = new StringReader(xmlResponse);
+                BBBResponse result = (BBBResponse)serializer.Deserialize(reader);
+
+                // Find meeting by RoomID
+                var meeting = result.Meetings.MeetingList
+                    .FirstOrDefault(m => m.MetaDatas?.RoomID == roomId);
+
+                if (meeting == null)
+                    return new List<AttendeeInfo>();
+
+                // Extract attendees
+                return meeting.Attendees?.AttendeeList?.Select(a => new AttendeeInfo
+                {
+                    UserID = a.UserID,
+                    FullName = a.FullName,
+                    Role = a.Role,
+                    NationalCode = a.CustomData?.NationalCode,
+                    Phone = a.CustomData?.Phone,
+                    UserID5 = a.CustomData?.UserID5,
+                    Vc2AuthNorm = a.CustomData?.Vc2AuthNorm
+                }).ToList() ?? new List<AttendeeInfo>();
+            }
+            catch (Exception e)
+            {
+                Statics.Log("GetMeetingAttendeesByRoomId Error", e.Message);
+                return new List<AttendeeInfo>();
+            }
+        }
+        public async Task<AttendeeInfo> GetAttendeeByUserId(string roomId, string userId)
+        {
+            try
+            {
+                var attendees = await GetMeetingAttendeesByRoomId(roomId);
+                return attendees.FirstOrDefault(a => a.UserID == userId);
+            }
+            catch (Exception e)
+            {
+                Statics.Log("GetAttendeeByUserId Error", e.Message);
+                return null;
+            }
+        }
+        public async Task<AttendeeInfo> GetAttendeeByNationalCode(string roomId, string nationalCode)
+        {
+            try
+            {
+                var attendees = await GetMeetingAttendeesByRoomId(roomId);
+                return attendees.FirstOrDefault(a => a.NationalCode == nationalCode);
+            }
+            catch (Exception e)
+            {
+                Statics.Log("GetAttendeeByNationalCode Error", e.Message);
+                return null;
+            }
+        }
+        public async Task<AttendeeInfo> GetAttendeeByPhoneNumber(string roomId, string phoneNumber)
+        {
+            try
+            {
+                var attendees = await GetMeetingAttendeesByRoomId(roomId);
+                return attendees.FirstOrDefault(a => a.Phone == phoneNumber);
+            }
+            catch (Exception e)
+            {
+                Statics.Log("GetAttendeeByPhoneNumber Error", e.Message);
+                return null;
+            }
+        }
+        public async Task<string> GetJoinUrlAsync(MeetingTBL meet, string fullName, string userId,string nationalCode,string phone=""
+            ,string vc2AuthNorm="", bool asModerator = false, string moderatorPassowrd = "")
         {
             string apiCall = "join";
             string meetingID = meet.RoomTBL.BBB_MeetID;
+
             // Parameters
             string queryString =
                 $"fullName={Uri.EscapeDataString(fullName)}" +
-                //$"&bot=true" +
-                //$"&guest=true" +
-                //$"&logoutURL={Uri.EscapeDataString("")}"+    
                 $"&meetingID={Uri.EscapeDataString(meetingID)}" +
-                                 $"&logoutURL={Uri.EscapeDataString($"https://vc2.hekmateislami.com/meeting/ended?roomid={meet.RoomFriendlyID}")}" +
-
+                $"&userID={Uri.EscapeDataString(userId)}" +  // ✅ اضافه کردن userId
+                $"&logoutURL={Uri.EscapeDataString($"https://vc2.hekmateislami.com/meeting/ended?roomid={meet.RoomFriendlyID}")}" +
                 $"&password={Uri.EscapeDataString(moderatorPassowrd)}" +
-
-            //$"&avatarURL={Uri.EscapeDataString($"{URL}/images/avatar/ma2.jpg")}" +
-            $"&redirect=true";
+                $"&redirect=true";
+            if(!string.IsNullOrEmpty(nationalCode))
+                queryString += $"&userdata-nationalCode={Uri.EscapeDataString(nationalCode)}";
+            queryString += $"&userdata-vc2AuthNorm={Uri.EscapeDataString(vc2AuthNorm)}";
+            if(!string.IsNullOrEmpty(phone))
+                queryString += $"&userdata-phone={Uri.EscapeDataString(phone)}";
+            queryString += $"&userdata-userID5={Uri.EscapeDataString(userId)}";
 
             // Compute checksum
             string checksumInput = apiCall + queryString + Statics.bbb.Secret;
             string checksum = Statics.ComputeSha1(checksumInput);
 
-            // ✅ Full join URL
+            // Full join URL
             string url = $"{Statics.bbb.UrlAPI}{apiCall}?{queryString}&checksum={checksum}";
+
             using HttpClient client = new HttpClient();
-            string response = "";
             try
             {
-                response = await client.GetStringAsync(url);
-
+                await client.GetStringAsync(url);
             }
             catch (Exception e)
             {
                 Statics.Log("IBBBMeeting", e.Message);
             }
-            // If you just want to open it or return it:
+
             return url;
-
-            // Optional: If you want to GET it (usually not needed, since it's a redirect):
-            /*
-
-            */
         }
+
         public async Task<bool> IsMeetingRunningAsync(string meetingID)
         {
             string apiCall = "isMeetingRunning";

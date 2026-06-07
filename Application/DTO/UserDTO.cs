@@ -286,6 +286,7 @@ namespace Application.DTO
     public class GetLivesPublicResponse : BaseParentResponce
     {
         public List<MiniRoomJSON> Data = new List<MiniRoomJSON>();
+        public bool IsLive { get; set; }
     }
     #endregion
 
@@ -306,6 +307,8 @@ namespace Application.DTO
     public class GetRoomCalendarActivityRequest : GetLivesRequest, IUseCaseRequest<GenericResponse<GetRoomCalendarActivityResponse>>
     {
         public string FriendlyID { get; set; }
+        public string Month { get; set; }
+        public int Year { get; set; }
     }
 
     public class GetRoomCalendarActivityResponse : BaseParentResponce
@@ -359,6 +362,7 @@ namespace Application.DTO
     {
         public string MeetiID { get; set; }
         public string FullName { get; set; }
+        public string NationalCode { get; set; }
         public bool AsModerator { get; set; } = false;
         public string Password { get; set; } = "";
     }
@@ -429,6 +433,32 @@ namespace Application.DTO
 
     public class NewPlanRoomResponse : BaseParentResponce
     {
+    }
+    #endregion
+
+    #region NewReservation
+    public class NewReservationRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<NewReservationResponse>>
+    {
+        public string Name { get; set; }
+        public string Phone { get; set; }
+        public string NationalCode { get; set; }
+        public long PlanID { get; set; }
+    }
+
+    public class NewReservationResponse : BaseParentResponce
+    {
+    }
+    #endregion
+
+    #region GetReservation
+    public class GetReservationRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<GetReservationResponse>>
+    {
+        public long PlanID { get; set; }
+    }
+
+    public class GetReservationResponse : BaseParentResponce
+    {
+        public MiniReservationJSON Data { get; set; }
     }
     #endregion
 
@@ -569,6 +599,50 @@ namespace Application.DTO
     }
     #endregion
 
+
+    #region GetPollList
+    public class GetPollListRequest : NewUserRequest, IUseCaseRequest<GenericResponse<GetPollListResponse>>
+    {
+    }
+
+    public class GetPollListResponse : BaseParentResponce
+    {
+        public List<PollJSON> Data = new List<PollJSON>();
+    }
+    #endregion
+    #region AnswerPollList
+    public class AnswerPollListRequest : NewUserRequest, IUseCaseRequest<GenericResponse<AnswerPollListResponse>>
+    {
+        public List<AnswerItemRequestJSON> AnswerItemRequestJSONs { get; set; }
+
+    }
+    public class AnswerItemRequestJSON
+    {
+        public long ID { get; set; }
+        public string Content { get; set; }
+    }
+    public class AnswerPollListResponse : BaseParentResponce
+    {
+    }
+    #endregion
+
+    #region UpdatePresentMinToCertOfMeet
+    public class UpdatePresentMinToCertOfMeetRequest : NewUserRequest, IUseCaseRequest<GenericResponse<UpdatePresentMinToCertOfMeetResponse>>
+    {
+        public int Minutes { get; set; }
+
+    }
+    public class UpdatePresentMinToCertOfMeetResponse : BaseParentResponce
+    {
+    }
+    #endregion
+
+
+
+
+
+
+
     //Admins
     #region AdminGetUserList
     public class AdminGetUserListRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<AdminGetUserListResponse>>
@@ -639,4 +713,62 @@ namespace Application.DTO
         public MiniRoomJSON Data = new MiniRoomJSON();
     }
     #endregion
+
+    #region GetAllRooms
+    public class GetAllRoomsRequest : NewUserRequest, IUseCaseRequest<GenericResponse<GetAllRoomsResponse>>
+    {
+        public string Query { get; set; }
+        public string? UserName { get; set; }
+    }
+
+    public class GetAllRoomsResponse : BaseParentResponce
+    {
+        public List<MiniRoomJSON> Data = new List<MiniRoomJSON>();
+    }
+    #endregion
+
+
+    #region GetAllLives
+    public class GetAllLivesRequest : GetLivesRequest, IUseCaseRequest<GenericResponse<GetAllLivesResponse>>
+    {
+        public string Query { get; set; }
+    }
+
+    public class GetAllLivesResponse : BaseParentResponce
+    {
+        public List<MiniRoomJSON> Data = new List<MiniRoomJSON>();
+        public bool IsLive { get; set; }
+    }
+    #endregion
+
+
+
+    #region AddPollQuiz
+    public class AddPollQuizRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<AddPollQuizResponse>>
+    {
+        public string Question { get; set; }
+        public MainEntity_Types Type { get; set; } = MainEntity_Types.QUIZ_OPTIONAL;
+        public List<AnsPollRequestJSON> AnsPollRequestJSONs { get; set; }
+    }
+    public class AnsPollRequestJSON
+    {
+        public string Content { get; set; }
+        public int Score { get; set; }
+    }
+
+    public class AddPollQuizResponse : BaseParentResponce
+    {
+    }
+    #endregion
+    #region GetPollListAdmin
+    public class GetPollListAdminRequest : NewUserRequest, IUseCaseRequest<GenericResponse<GetPollListAdminResponse>>
+    {
+    }
+
+    public class GetPollListAdminResponse : BaseParentResponce
+    {
+        public List<PollJSON> Data = new List<PollJSON>();
+    }
+    #endregion
+
 }

@@ -7,11 +7,14 @@ using Application.Interface.IUsecase;
 using Application.Interfaces;
 using CacheHandler.Events;
 using DocumentFormat.OpenXml.Spreadsheet;
+using DocumentFormat.OpenXml.Wordprocessing;
 using Domain.Entity;
 using MediatR;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Primitives;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -492,4 +495,385 @@ namespace Application.Usecase
         }
     }
     #endregion
+
+    #region GetAllRooms
+    public class GetAllRoomsUseCase : IGetAllRoomsUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        private IMemoryCache _cache { get; }
+
+        public GetAllRoomsUseCase(IDBContext repository,
+            IMemoryCache _cache,
+            IConfiguration configuration)
+        {
+            _db = repository;
+            this._cache = _cache;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+        }
+
+        public async Task handleAsync(GetAllRoomsRequest message,
+        IOutPutPort<GenericResponse<GetAllRoomsResponse>> outputPort)
+        {
+            try
+            {
+                if (message.GeneralHeaders.UserTBL == null)
+                    return;
+                if (!message.GeneralHeaders.UserTBL.VerifyUserPermissions("manage_users"))
+                {
+                    throw new Exception("FORBIDDEN ! 403");
+                }
+
+
+                if (!string.IsNullOrEmpty(message.UserName) && !message.UserName.StartsWith("@"))
+                {
+                    throw new Exception("user must start with @");
+                }
+                if (!string.IsNullOrEmpty(message.UserName))
+                    message.UserName = message.UserName.Replace("@", "");
+
+                // ساخت کلید کش بر اساس پارامترهای ورودی
+                var cacheKey = $"GetAllRooms_{message.Query ?? "null"}_{message.UserName ?? "null"}";
+
+                // تلاش برای گرفتن از کش
+                if (!_cache.TryGetValue(cacheKey, out List<DTO.Models.MiniRoomJSON> result))
+                {
+                    // تنظیمات کش
+                    var cacheEntryOptions = new MemoryCacheEntryOptions()
+                        .SetSlidingExpiration(TimeSpan.FromDays(1)) // 5 دقیقه کش با اسلایدینگ
+                        .SetAbsoluteExpiration(TimeSpan.FromDays(2)) // حداکثر 30 دقیقه
+                        .SetPriority(CacheItemPriority.High) // اولویت بالا
+                        .AddExpirationToken(new CancellationChangeToken(new CancellationTokenSource(TimeSpan.FromMinutes(30)).Token));
+
+                    // گرفتن از دیتابیس
+                    var rooms = await _db.RoomTBLs
+                        .Where(e => (string.IsNullOrEmpty(message.Query) || e.Title.Contains(message.Query)) &&
+                            ((message.UserName != null && message.UserName == e.OwnerTBL.Username) || (string.IsNullOrEmpty(message.UserName)))
+                        )
+                        .AsSplitQuery()
+                        .Select(e => new
+                        {
+                            e.FriendlyID,
+                            e.Avatar,
+                            e.Title,
+                            e.DateInsert,
+                            plan = e.RoomTBLPlanTBLs.OrderBy(p => p.StartDate).ToList(),
+                            e.OwnerTBL,
+                            Meetings = e.MeetingTBLs.Select(m => new
+                            {
+                                m.ID,
+                                m.DateInsert,
+                                m.Title,
+                                //Participants = m.UserTBLToMeetingTBLs.Select(um => new
+                                //{
+                                //    um.UserNickName,
+                                //    um.UserTBL.UUID,
+                                //    um.UserTBL.Email,
+                                //    um.UserTBL.NationalCode,
+                                //    um.UserTBL.PhoneNumber,
+                                //    um.UserTBL.Type
+                                //})
+                            })
+                        })
+                        .ToListAsync();
+
+                    result = rooms.Select(room => new DTO.Models.MiniRoomJSON
+                    {
+                        RoomID = room.FriendlyID,
+                        Title = room.Title,
+                        Created = room.DateInsert,
+                        Avatar = room.Avatar,
+                        LastMeet = room.Meetings
+                            .OrderByDescending(m => m.DateInsert)
+                            .FirstOrDefault()?.DateInsert ?? room.DateInsert,
+                        //Count = room.Meetings.Count(m => m.Participants
+                        //    .Count(p => p.Type != MainEntity_Types.USER_TEACHER) > 1),
+                        NextMeet = room.plan.Any(e => e.StartDate > DateTime.Now)
+                            ? room.plan.Where(e => e.StartDate > DateTime.Now).First().StartDate
+                            : DateTime.MaxValue,
+                        Owner = new MiniUserJSON
+                        {
+                            UID = room.OwnerTBL.UUID,
+                            Fullname = room.OwnerTBL.Firstname,
+                            Username = room.OwnerTBL.Username
+                        },
+                        //CountTeacher = room.Meetings
+                        //    .SelectMany(m => m.Participants)
+                        //    .Where(p => p.Type == MainEntity_Types.USER_TEACHER)
+                        //    .Select(p => p.UUID ?? p.Email ?? p.NationalCode ?? p.PhoneNumber ?? p.UserNickName)
+                        //    .Where(k => !string.IsNullOrWhiteSpace(k))
+                        //    .Distinct()
+                        //    .Count(),
+                        LatestTitle = room.Meetings != null && room.Meetings.Count() > 0
+                            ? room.Meetings.OrderByDescending(e => e.ID).First().Title
+                            : "",
+                        NextPlan = room.plan.Any(e => e.StartDate > DateTime.Now) ? room.plan.Where(e => e.StartDate > DateTime.Now).Select(e => new MiniPlanJSON
+                        {
+                            Dabir = e.Dabir,
+                            Id = e.ID,
+                            StartAt = e.StartDate,
+                            Title = e.Title,
+                            Teacher = e.Teachers
+                        }).First() : null,
+                        //CountPartis = room.Meetings
+                        //    .SelectMany(m => m.Participants)
+                        //    .Where(p => p.Type != MainEntity_Types.USER_TEACHER)
+                        //    .SelectMany(p => new[]
+                        //    {
+                        //p.UUID?.Trim().ToLower(),
+                        //p.UserNickName?.Trim().ToLower(),
+                        //p.Email?.Trim().ToLower(),
+                        //p.NationalCode?.Trim(),
+                        //p.PhoneNumber?.Trim()
+                        //    })
+                        //    .Where(k => !string.IsNullOrWhiteSpace(k))
+                        //    .Distinct()
+                        //    .Count()
+                    }).OrderBy(e => e.NextMeet).ThenBy(e => e.LastMeet).ToList();
+
+                    // ذخیره در کش
+                    _cache.Set(cacheKey, result, cacheEntryOptions);
+                }
+                else
+                {
+                    // برای دیباگ - لاگ اینکه از کش دریافت شده
+                    Console.WriteLine($"Cache hit for key: {cacheKey}");
+                }
+
+                outputPort.Handle(new GenericResponse<GetAllRoomsResponse>(new GetAllRoomsResponse
+                {
+                    Message = "ok",
+                    Status = 200,
+                    Data = result
+                }));
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+                Statics.Log("GetAllRooms", e);
+
+                // در صورت خطا، پاسخ خطا برگردانید
+                outputPort.Handle(new GenericResponse<GetAllRoomsResponse>(new GetAllRoomsResponse
+                {
+                    Message = "خطا در دریافت اطلاعات",
+                    Status = 500,
+                    Data = null
+                }));
+            }
+        }
+    }
+    #endregion
+
+    #region GetAllLives
+    public class GetAllLivesUseCase : IGetAllLivesUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        private IBBBGetMeetings IBBBGetMeetings { get; }
+        private IScpUploader IScpUploader { get; }
+        public GetAllLivesUseCase(IDBContext repository,
+            IConfiguration configuration,
+            IBBBGetMeetings bBBGetMeetings,
+            IScpUploader IScpUploader
+            )
+        {
+            _db = repository;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+            IBBBGetMeetings = bBBGetMeetings;
+            this.IScpUploader = IScpUploader;
+        }
+
+
+        public async Task handleAsync(GetAllLivesRequest message,
+            IOutPutPort<GenericResponse<GetAllLivesResponse>> outputPort)
+        {
+
+            var meets = await IBBBGetMeetings.RequestAll(message);
+            foreach (var m in meets)
+            {
+                var r = _db.RoomTBLs.First(e => e.BBB_MeetID == m.BBB_MeetID);
+                m.RoomID = r.FriendlyID;
+            }
+            //var r = await IBBBGetMeetings.GetRecordingsByMeetingId("1khe4quugbx7ziilyojrvapwebknxbn1jydcjozl");
+
+            //var resp = IScpUploader.ExecuteRemoteCommand("ls -lht");
+
+
+            outputPort.Handle(new GenericResponse<GetAllLivesResponse>(new GetAllLivesResponse
+            {
+                Message = "ok",
+                Status = 200,
+                IsLive = meets.Any(),
+                Data = meets.Select(e => new MiniRoomJSON
+                {
+                    RoomID = e.RoomID,
+                    Title = e.Title,
+                    Created = e.Created,
+                    BBB_MeetID = e.BBB_MeetID,
+                    CountPartis = e.CountPartis,
+                }).ToList()
+            }));
+
+        }
+    }
+    #endregion
+
+
+
+    #region AddPollQuiz
+    public class AddPollQuizUseCase : IAddPollQuizUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        private IBBBGetMeetings IBBBGetMeetings { get; }
+        private readonly IMediator _mediator;
+        private IScpUploader IScpUploader { get; }
+        public AddPollQuizUseCase(IDBContext repository,
+            IConfiguration configuration,
+            IBBBGetMeetings bBBGetMeetings,
+            IMediator m,
+            IScpUploader IScpUploader
+            )
+        {
+            _db = repository;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+            IBBBGetMeetings = bBBGetMeetings;
+            this.IScpUploader = IScpUploader;
+            this._mediator = m;
+        }
+
+
+        public async Task handleAsync(AddPollQuizRequest message,
+     IOutPutPort<GenericResponse<AddPollQuizResponse>> outputPort)
+        {
+            if (message.GeneralHeaders.UserTBL == null)
+                return;
+
+            // بررسی دسترسی ادمین برای ایجاد/ویرایش اتاق برای دیگران
+            if (!message.GeneralHeaders.UserTBL.VerifyUserPermissions("edit_poll"))
+            {
+                throw new Exception("FORBIDDEN ! 403");
+            }
+
+            // بررسی وجود کاربر هدف (صاحب اتاق)s
+            var poll = new MeetPollQuizTBL
+            {
+                DateInsert = DateTime.Now,
+                IDMeetingTBL = null,
+                IsForAll = true,
+                Question = message.Question,
+                Status = MainEntity_Status.LOG_NORMAL,
+                Type = message.Type,
+            };
+            _db.MeetPollQuizTBLs.Add(poll);
+            _db.SaveChanges();
+            foreach (var i in message.AnsPollRequestJSONs)
+            {
+                _db.MeetPollQuizAnsTBLs.Add(new MeetPollQuizAnsTBL
+                {
+                    Answer=i.Content,
+                    IDQuizTBL=poll.ID,
+                    Type=poll.Type,
+                    Status=poll.Status,
+                    Score=i.Score,
+                });
+            }
+            _db.SaveChanges();
+            outputPort.Handle(new GenericResponse<AddPollQuizResponse>(new AddPollQuizResponse
+            {
+                Message = "ok",
+                Status = 200,
+
+            }));
+        }
+    }
+
+    #endregion
+
+    #region GetPollListAdmin
+    public class GetPollListAdminUseCase : IGetPollListAdminUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        private readonly IMemoryCache _memoryCache;
+        private readonly IConfiguration _configuration;
+        private readonly IMediator _mediator;
+        public GetPollListAdminUseCase(IDBContext repository,
+            IConfiguration configuration,
+            IMediator _mediator,
+            IMemoryCache memoryCache)
+        {
+            _db = repository;
+            _configuration = configuration;
+            this._mediator = _mediator;
+            _memoryCache = memoryCache;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+        }
+
+        public async Task handleAsync(GetPollListAdminRequest message,
+            IOutPutPort<GenericResponse<GetPollListAdminResponse>> outputPort)
+        {
+            try
+            {
+                if (message.GeneralHeaders.UserTBL == null)
+                    return;
+
+                // بررسی دسترسی ادمین برای ایجاد/ویرایش اتاق برای دیگران
+                if (!message.GeneralHeaders.UserTBL.VerifyUserPermissions("edit_poll"))
+                {
+                    throw new Exception("FORBIDDEN ! 403");
+                }
+
+
+                var q = _db.MeetPollQuizTBLs.Include(e => e.MeetPollQuizAnsTBLs).Select(e => new PollJSON
+                {
+                    ID = e.ID,
+                    Question = e.Question,
+                    Status=e.Status,
+                    Type = e.Type,
+                    Answers = e.MeetPollQuizAnsTBLs != null & e.MeetPollQuizAnsTBLs.Count > 0 ? e.MeetPollQuizAnsTBLs.Select(r => new PoolAnsJSON
+                    {
+                        Content = r.Answer,
+                        ID = r.ID
+                    }).ToList() : new List<PoolAnsJSON>(),
+                }).ToList();
+
+                outputPort.Handle(new GenericResponse<GetPollListAdminResponse>(new GetPollListAdminResponse
+                {
+                    Message = "ok",
+                    Status = 200,
+                    Data = q
+                }));
+            }
+            catch (Exception e)
+            {
+                Statics.Log("GetPollListAdminUseCase", e);
+                outputPort.Handle(new GenericResponse<GetPollListAdminResponse>(new GetPollListAdminResponse
+                {
+                    Message = "ok",
+                    Status = 200,
+                    Data = []
+                }));
+            }
+        }
+    }
+    #endregion
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 }

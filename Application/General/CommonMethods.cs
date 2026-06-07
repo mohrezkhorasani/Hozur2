@@ -126,7 +126,7 @@ namespace Application.General
         {
             if (!m.MeetingTBL.EndDate.HasValue)
             {
-                m.MeetingTBL.EndDate = DateTime.MaxValue;
+                m.MeetingTBL.EndDate = DateTime.UtcNow;
             }
             long seconds = 0;
             var logs = m.UserTBLToMeetingTBLLogs.OrderBy(e => e.DateInsert);

@@ -19,10 +19,13 @@ namespace Application.Interface.IInfrastructure
         public Task<List<MiniRoomJSON>> Request(GetLiveWithIDRequest req);
         public Task<List<MiniRoomJSON>> GetLivesShort(GetLivesRequest req);
         public Task<MeetJSON> CreateMeetingAsync(RoomTBL room);
-        public Task<string> GetJoinUrlAsync(MeetingTBL meet, string fullName,bool asmoderator, string moderatorPassowrd);
+        public Task<string> GetJoinUrlAsync(MeetingTBL meet, string fullName, string userId, string nationalCode, string phone = ""
+            , string vc2AuthNorm = "", bool asModerator = false, string moderatorPassowrd = "");
         public Task<List<RecordingInfo>> GetRecordingsByMeetingId(string meetingId);
         public Task GetMeeting(string meetingId);
         public Task<bool> EndMeetingAsync(string meetingId,string moderatorPass="");
+        public Task<AttendeeInfo> GetAttendeeByUserId(string roomId, string userId);
+        public Task<List<AttendeeInfo>> GetMeetingAttendeesByRoomId(string roomId);
     }
     public class RecordingInfo
     {

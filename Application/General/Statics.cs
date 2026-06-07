@@ -14,6 +14,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Security.Cryptography;
+using PhoneNumbers;
 
 
 namespace Application.General
@@ -205,7 +206,29 @@ namespace Application.General
 
             return new string(result);
         }
+        public static string ToEnglishNumbers(string input)
+        {
+            if (string.IsNullOrEmpty(input))
+                return input;
 
+            var persianToEnglish = new Dictionary<char, char>
+                {
+                    {'۰', '0'}, {'۱', '1'}, {'۲', '2'}, {'۳', '3'}, {'۴', '4'},
+                    {'۵', '5'}, {'۶', '6'}, {'۷', '7'}, {'۸', '8'}, {'۹', '9'}
+                };
+
+            char[] result = input.ToCharArray();
+
+            for (int i = 0; i < result.Length; i++)
+            {
+                if (persianToEnglish.ContainsKey(result[i]))
+                {
+                    result[i] = persianToEnglish[result[i]];
+                }
+            }
+
+            return new string(result);
+        }
         public static string DecodeUrlString(string url)
         {
             try
@@ -342,29 +365,59 @@ namespace Application.General
         }
         public static string GetPrettyDateBySeconds(long seconds)
         {
-            var dif = seconds;
-            dif = Math.Abs(dif);
-            if (dif > 86400)
-            {
-                var day = (int)(dif / 86400);
-                return day.ToString() + " روز";
-            }
-            else if (dif > 3600)
-            {
-                var h = ((int)(dif / 3600));
-                return h.ToString() + " ساعت";
-            }
-            else if (dif > 60)
-            {
-                var m = ((int)(dif / 60));
-                return m.ToString() + " دقیقه";
-            }
-            else
-            {
+            if (seconds < 0) seconds = Math.Abs(seconds);
 
-                return dif.ToString("#.##") + " ثانیه.";
+            var days = seconds / 86400;
+            var remaining = seconds % 86400;
+
+            var hours = remaining / 3600;
+            remaining = remaining % 3600;
+
+            var minutes = remaining / 60;
+            var secs = remaining % 60;
+
+            var parts = new List<string>();
+
+            if (days > 0)
+            {
+                if (days == 1) parts.Add("1 روز");
+                else if (days == 2) parts.Add("2 روز");
+                else parts.Add($"{days} روز");
             }
 
+            if (hours > 0)
+            {
+                if (hours == 1) parts.Add("یک ساعت");
+                else if (hours == 2) parts.Add("دو ساعت");
+                else if (hours == 3) parts.Add("سه ساعت");
+                else if (hours == 4) parts.Add("چهار ساعت");
+                else if (hours == 5) parts.Add("پنج ساعت");
+                else parts.Add($"{hours} ساعت");
+            }
+
+            if (minutes > 0)
+            {
+                if (minutes == 1) parts.Add("1 دقیقه");
+                else if (minutes == 2) parts.Add("2 دقیقه");
+                else parts.Add($"{minutes} دقیقه");
+            }
+
+            if (secs > 0 && parts.Count == 0) // فقط وقتی هیچ واحد بزرگتری وجود نداشته باشد
+            {
+                parts.Add($"{secs} ثانیه");
+            }
+
+            if (parts.Count == 0)
+                return "0 ثانیه";
+
+            if (parts.Count == 1)
+                return parts[0];
+
+            // اتصال با "و" و ویرگول
+            var last = parts.Last();
+            var allExceptLast = parts.Take(parts.Count - 1);
+
+            return string.Join("، ", allExceptLast) + " و " + last;
         }
         public static string GenerateSecretKey(int size = 32) // default 32 bytes = 256-bit key
         {
@@ -705,5 +758,40 @@ namespace Application.General
         public string ModeratorPassword { get; set; }
         public string AttendPassword { get; set; }
         public string Last { get; set; }
+    }
+
+    public class PhoneValidator
+    {
+        public static (bool IsValid, string NormalizedPhoneNumber) Verify(string phoneNumber)
+        {
+            var phoneUtil = PhoneNumberUtil.GetInstance();
+
+            try
+            {
+                // Try to parse with default region IR
+                var number = phoneUtil.Parse(phoneNumber, "IR");
+
+                // Validate the number
+                if (phoneUtil.IsValidNumber(number))
+                {
+                    // Return normalized format (E.164 format: +989XXXXXXXXX)
+                    var normalized = phoneUtil.Format(number, PhoneNumberFormat.E164);
+                    return (true, normalized);
+                }
+
+                return (false, phoneNumber);
+            }
+            catch (NumberParseException)
+            {
+                return (false, phoneNumber);
+            }
+        }
+
+        // Overload method that only returns the normalized phone number
+        public static string Normalize(string phoneNumber)
+        {
+            var result = Verify(phoneNumber);
+            return result.IsValid ? result.NormalizedPhoneNumber : null;
+        }
     }
 }

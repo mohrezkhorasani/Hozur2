@@ -99,7 +99,7 @@ namespace Application.Cache.Handlers
         {
             List<MiniPlanJSON> cachedData = null;
 
-            var list = _db.RoomTBLPlanTBLs.Where(e => e.StartDate.HasValue && e.StartDate.Value <= DateTime.Now && e.RoomTBL.IsPublicRoom).Include(e => e.RoomTBL).ThenInclude(e => e.RoomTBLPlanTBLs)
+            var list = _db.RoomTBLPlanTBLs.Where(e => e.StartDate.HasValue && !string.IsNullOrEmpty(e.Title) && !string.IsNullOrEmpty(e.Teachers) && e.StartDate.Value <= DateTime.Now && e.RoomTBL.IsPublicRoom).Include(e => e.RoomTBL).ThenInclude(e => e.RoomTBLPlanTBLs)
                 .ToList();
 
             cachedData = list.OrderByDescending(e => e.StartDate).Select(e => new MiniPlanJSON

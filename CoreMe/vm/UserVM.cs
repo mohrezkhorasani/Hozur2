@@ -1,3 +1,4 @@
+using Application.DTO;
 using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
@@ -235,7 +236,10 @@ namespace CoreMe.VM
         public string Content { get; set; } 
 
     }
-
+    public class AnswerPollListViewModel : UserMainVM
+    {
+        public List<AnswerItemRequestJSON> AnswerItemRequestJSONs { get; set; }
+    }
     public class StartMeetingViewModel
     {
         [DefaultValue("jtb-a8e-ydl-05b")]
@@ -276,6 +280,10 @@ namespace CoreMe.VM
         public string? Dabir { get; set; }
         public bool HasCert { get; set; } = true;
         public DateTime StartDate { get; set; }
+    }
+    public class UpdatePresentMinToCertOfMeetViewModel
+    {
+        public int Minutes { get; set; }
     }
 
 

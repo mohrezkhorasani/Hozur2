@@ -45,7 +45,7 @@ namespace Application.Usecase
         }
     }
     #endregion
-    #region GetRedirectURL
+    #region GetRedirectURL    ( Duplicated! ) 
     public class GetRedirectURLUseCase : IGetRedirectURLUseCase
     {
         public IDBContext _db { get; }
@@ -128,7 +128,7 @@ namespace Application.Usecase
                     else
                     {
                         var count = _db.UserTBLToMeetingTBLs.Count(e => e.MeetID == meetTBL.MeetID);
-                        var join = await bbb.GetJoinUrlAsync(meetTBL, (1111111 + count).ToString(), false, "");
+                        var join = await bbb.GetJoinUrlAsync(meetTBL, (1111111 + count).ToString(),Statics.GenerateSecretKey(66), "","","",false, "");
                         outputPort.Handle(new GenericResponse<GetRedirectURLResponse>
    (new GetRedirectURLResponse
    {

@@ -23,9 +23,11 @@ namespace Domain.Entity
         public long? IDTeacher { get; set; }
         public UserTBL Creator { get; set; }
         public long IDCreator { get; set; }
+        public int PresentMinutesToCert { get; set; } = 0;
         public string? JWT { get; set; }
         public bool RequiredToEnterName { get; set; } = false;
         public ICollection<UserTBLToMeetingTBL> UserTBLToMeetingTBLs { get; set; }
+        public ICollection<MeetPollQuizTBL> MeetPollQuizTBLs { get; set; }
 
         public RoomTBLPlanTBL RoomTBLPlanTBL { get; set; }
         public long? IDRoomTBLPlanTBL { get; set; }

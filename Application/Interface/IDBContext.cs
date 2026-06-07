@@ -16,6 +16,7 @@ namespace Application.Interfaces
         public DbSet<AccessLevelTBLToRoleTBL> AccessLevelTBLToRoleTBLs { get; set; }
         #endregion
         #region 12/07/2025  
+        public DbSet<MeetingReservationTBL> MeetingReservationTBLs { get; set; }
         public DbSet<RoleTBL> RoleTBLs { get; set; }
         public DbSet<UserTBLToRoleTBL> UserTBLToRoleTBLs { get; set; }
         public DbSet<ConfigTBL> ConfigTBLs { get; set; }
@@ -33,6 +34,9 @@ namespace Application.Interfaces
         public DbSet<UserTBLToUserTBL> UserTBLToUserTBLs { get; set; }
         public DbSet<RoomTBLPlanTBL> RoomTBLPlanTBLs { get; set; }
         public DbSet<SlideshowTBL> SlideshowTBL { get; set; }
+        public DbSet<MeetPollQuizAnsTBL> MeetPollQuizAnsTBLs { get; set; }
+        public DbSet<MeetPollQuizAnsTBLToUserMeetTBL> MeetPollQuizAnsTBLToUserMeetTBLs { get; set; }
+        public DbSet<MeetPollQuizTBL> MeetPollQuizTBLs { get; set; }
         #endregion
         public int SaveChanges();
         public Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default);
