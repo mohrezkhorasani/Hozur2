@@ -15,6 +15,7 @@ namespace Domain.Entity
          , MEETING_LIVE = 251 // started meeting and configured 
          , MEETING_END = 252
          , MEETING_END_BY_CRON_JOB = 253
+         , MEETING_END_BY_HOOK = 254
          , MEETING_END_BY_HANDY = 255
 
 
@@ -46,6 +47,10 @@ namespace Domain.Entity
 
         CONTACTUS_SUBMITED=620,
         CONTACTUS_SEEN=621,
+    
+        FILE_INSERTED=630,
+        FILE_DELETED=631,
+
     }
     public enum MainEntity_Types
     {
@@ -80,6 +85,9 @@ namespace Domain.Entity
         USER_TEACHER = 508,
         USER_DABIR = 509,
         
+        //
+        USERMEETLOG_HOOK = 520,
+
         //ROLE
         ROLE_MANAGER = 500,
         ROLE_FORROOM = 501,

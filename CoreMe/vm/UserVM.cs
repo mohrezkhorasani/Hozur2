@@ -1,4 +1,5 @@
 using Application.DTO;
+using Application.General;
 using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
@@ -284,6 +285,32 @@ namespace CoreMe.VM
     public class UpdatePresentMinToCertOfMeetViewModel
     {
         public int Minutes { get; set; }
+    }
+
+    public class UploadFileStorageViewModel
+    {
+        public List<IFormFile> Files { get; set; }
+        public string? UploadPath { get; set; } = "/ftp/owns";
+        public string BaseUrl { get; set; } = Statics.URLFiles; // Optional: base URL for generating file links
+    }
+    public class GetFileStorageVM
+    {
+        public string? FileID { get; set; } // Optional: get specific file by ID
+        public string? UserID { get; set; } // Optional: filter by user ID
+        public string? FileType { get; set; } // Optional: filter by type (images/videos/audios)
+        public DateTime? FromDate { get; set; } // Optional: filter from date
+        public DateTime? ToDate { get; set; } // Optional: filter to date
+        public int PageNumber { get; set; } = 1; // Pagination
+        public int PageSize { get; set; } = 20; // Pagination
+        public string? SearchTerm { get; set; } // Optional: search by filename
+        public string? SortBy { get; set; } = "DateInsert"; // DateInsert, FileName, FileSize
+        public bool SortDescending { get; set; } = true;
+    }
+
+    public class GetSingleFileVM
+    {
+        public string FileID { get; set; } 
+        public bool IncludeDownloadLink { get; set; } = false; 
     }
 
 

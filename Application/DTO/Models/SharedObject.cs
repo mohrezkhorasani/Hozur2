@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Serialization;
 
 namespace Application.DTO.Models
 {
@@ -25,6 +26,33 @@ namespace Application.DTO.Models
         public List<MiniUserJSON> Teacher { get; set; }
         public MiniUserJSON Creator { get; set; }
 
+    }
+    public class PollReportJSON
+    {
+        public long ID { get; set; }
+        public string Question { get; set; }
+        public MainEntity_Types Type { get; set; }
+        public List<AnswerReportJSON> AnswersReport { get; set; }
+        public double? OverallAverageScore { get; set; } // Only for QUIZ_OPTIONAL type
+    }
+
+    public class AnswerReportJSON
+    {
+        public long ID { get; set; }
+        public string Answer { get; set; }
+        public int Score { get; set; }
+        public int Count { get; set; }              // Number of users who selected this answer
+        public double? Percentage { get; set; }      // Percentage of users who selected this answer
+        public double? AverageScore { get; set; }    // Average score for this answer (if scored)
+        public List<UserAnswerDetailJSON> UserAnswers { get; set; }
+    }
+
+    public class UserAnswerDetailJSON
+    {
+        public long UserMeetID { get; set; }
+        public string? Content { get; set; }         // For INPUT type, contains the user's answer text
+        public DateTime DateInsert { get; set; }
+        public string NickName { get; set; } = "";
     }
     public class MiniUserJSON
     {
@@ -79,6 +107,21 @@ namespace Application.DTO.Models
         public DateTime RevokedAt { get; set; }
         public string UserId { get; set; }
     }
+    public class MicroRoomJSON
+    {
+        public string Title { get; set; }
+        public string BBBMeetID { get; set; }
+        public string FriendlyID { get; set; }
+        public MiniUserJSON Owner { get; set; }
+    }
+    public class MiniMeet
+    {
+        public long ID { get; set; }
+        public string MeetID { get; set; }
+        public string Title { get; set; }
+        public string Time { get; set; }
+        public MicroRoomJSON Room { get; set; }
+    }
     public class MiniRoomJSON
     {
         public string RoomID { get; set; }
@@ -130,6 +173,36 @@ namespace Application.DTO.Models
         public long ID { get; set; }
 
     }
+    [XmlRoot("response")]
+    public class BBBHookResponse
+    {
+        [XmlElement("returncode")]
+        public string ReturnCode { get; set; }
+
+        [XmlElement("message")]
+        public string Message { get; set; }
+
+        [XmlElement("messageKey")]
+        public string MessageKey { get; set; }
+
+        [XmlElement("hookID")]
+        public string HookID { get; set; }
+
+        [XmlElement("callbackURL")]
+        public string CallbackURL { get; set; }
+    }
+
+    public class BBBHookInfo
+    {
+        public string HookID { get; set; }
+        public string CallbackURL { get; set; }
+        public string MeetingID { get; set; }
+        public bool Permanent { get; set; }
+        public bool RawData { get; set; }
+        public List<string> EventIDs { get; set; } = new List<string>();
+    }
+
+  
     public class AttendeeInfo
     {
         public string UserID { get; set; }

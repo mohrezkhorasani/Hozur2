@@ -26,8 +26,10 @@ namespace Domain.Entity
         public int PresentMinutesToCert { get; set; } = 0;
         public string? JWT { get; set; }
         public bool RequiredToEnterName { get; set; } = false;
+        public bool IsRecorded { get; set; } = false;
         public ICollection<UserTBLToMeetingTBL> UserTBLToMeetingTBLs { get; set; }
         public ICollection<MeetPollQuizTBL> MeetPollQuizTBLs { get; set; }
+        public ICollection<MeetingLogTBL> MeetingLogTBLs { get; set; }
 
         public RoomTBLPlanTBL RoomTBLPlanTBL { get; set; }
         public long? IDRoomTBLPlanTBL { get; set; }
@@ -40,6 +42,15 @@ namespace Domain.Entity
                 case MainEntity_Status.MEETING_STARTED_LATER: return "در حال شروع";
                 default: return "نامشخص";
             }
+        }
+
+        public bool IsMeetingRunning()
+        {
+            return Status == MainEntity_Status.MEETING_STARTED_LATER ||
+                Status == MainEntity_Status.MEETING_LIVE
+                
+                
+                ;
         }
     }
 }

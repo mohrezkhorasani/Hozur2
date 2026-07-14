@@ -1,364 +1,421 @@
 ﻿using Application.DTO;
+using Application.DTO.Generals;
 using Application.General;
 using Application.Interface.IUsecase;
+using Application.Usecase;
 using AutoMapper;
-using CoreMe.VM;
+using CoreMe.Cofigurations;
+using CoreMe.Presenter;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Presenter;
+using System.Web;
 
 namespace CoreMe.Controllers
 {
     [ApiController]
-    [Route("bbbHook")]
+    [Route("bbb/hooks")]
+    [EnableCors("AllowHekmateSubdomains")]
     public class BBBHookController : ControllerBase
     {
         private readonly ILogger<BBBHookController> _logger;
-        private readonly IWebHostEnvironment _hosting;
-        public ICronJobCheckLiveMeetingTaskUseCase _ICronJobCheckLiveMeetingTaskUseCase { get; }
-        public ApiPresenter<CronJobCheckLiveMeetingTaskResponse> _CronJobCheckLiveMeetingTaskResponse { get; }
-        public IBackupDBUseCase _IBackupDBUseCase { get; }
-        public ApiPresenter<BackupDBResponse> _BackupDBResponse { get; }
+        private readonly IMapper _mapper;
+        private readonly IBackgroundTaskQueue _taskQueue;
+        private readonly IServiceScopeFactory _serviceScopeFactory; // ⭐ اضافه کنید
 
-        public BBBHookController(ILogger<BBBHookController> logger, IWebHostEnvironment hosting, ICronJobCheckLiveMeetingTaskUseCase iCronJobCheckLiveMeetingTaskUseCase, ApiPresenter<CronJobCheckLiveMeetingTaskResponse> cronJobCheckLiveMeetingTaskResponse, IBackupDBUseCase iBackupDBUseCase, ApiPresenter<BackupDBResponse> backupDBResponse)
+        // Webhook UseCases
+        public INewHookUseCase _INewHookUseCase { get; }
+        public ApiPresenter<NewHookResponse> _NewHookResponse { get; }
+
+        public IGetHooksUseCase _IGetHooksUseCase { get; }
+        public ApiPresenter<GetHooksResponse> _GetHooksResponse { get; }
+
+        public IGetHookInfoUseCase _IGetHookInfoUseCase { get; }
+        public ApiPresenter<GetHookInfoResponse> _GetHookInfoResponse { get; }
+
+        public IDestroyWebhookAsyncUseCase _IDestroyWebhookAsyncUseCase { get; }
+        public ApiPresenter<DestroyWebhookAsyncResponse> _DestroyWebhookAsyncResponse { get; }
+
+        public IDestroyAllWebhooksForMeetingAsyncUseCase _IDestroyAllWebhooksForMeetingAsyncUseCase { get; }
+        public ApiPresenter<DestroyAllWebhooksForMeetingAsyncResponse> _DestroyAllWebhooksForMeetingAsyncResponse { get; }
+
+        public IUpdateWebhookCallbackURLAsyncUseCase _IUpdateWebhookCallbackURLAsyncUseCase { get; }
+        public ApiPresenter<UpdateWebhookCallbackURLAsyncResponse> _UpdateWebhookCallbackURLAsyncResponse { get; }
+        public IBBBWebhookLogUseCase _IBBBWebhookLogUseCase { get; }
+        public ApiPresenter<BBBWebhookLogResponse> _BBBWebhookLogResponse { get; }
+
+        public BBBHookController(ILogger<BBBHookController> logger, IMapper mapper, IBackgroundTaskQueue taskQueue, IServiceScopeFactory serviceScopeFactory, INewHookUseCase iNewHookUseCase, ApiPresenter<NewHookResponse> newHookResponse, IGetHooksUseCase iGetHooksUseCase, ApiPresenter<GetHooksResponse> getHooksResponse, IGetHookInfoUseCase iGetHookInfoUseCase, ApiPresenter<GetHookInfoResponse> getHookInfoResponse, IDestroyWebhookAsyncUseCase iDestroyWebhookAsyncUseCase, ApiPresenter<DestroyWebhookAsyncResponse> destroyWebhookAsyncResponse, IDestroyAllWebhooksForMeetingAsyncUseCase iDestroyAllWebhooksForMeetingAsyncUseCase, ApiPresenter<DestroyAllWebhooksForMeetingAsyncResponse> destroyAllWebhooksForMeetingAsyncResponse, IUpdateWebhookCallbackURLAsyncUseCase iUpdateWebhookCallbackURLAsyncUseCase, ApiPresenter<UpdateWebhookCallbackURLAsyncResponse> updateWebhookCallbackURLAsyncResponse, IBBBWebhookLogUseCase iBBBWebhookLogUseCase, ApiPresenter<BBBWebhookLogResponse> bBBWebhookLogResponse)
         {
             _logger = logger;
-            _hosting = hosting;
-            _ICronJobCheckLiveMeetingTaskUseCase = iCronJobCheckLiveMeetingTaskUseCase;
-            _CronJobCheckLiveMeetingTaskResponse = cronJobCheckLiveMeetingTaskResponse;
-            _IBackupDBUseCase = iBackupDBUseCase;
-            _BackupDBResponse = backupDBResponse;
+            _mapper = mapper;
+            _taskQueue = taskQueue;
+            _serviceScopeFactory = serviceScopeFactory;
+            _INewHookUseCase = iNewHookUseCase;
+            _NewHookResponse = newHookResponse;
+            _IGetHooksUseCase = iGetHooksUseCase;
+            _GetHooksResponse = getHooksResponse;
+            _IGetHookInfoUseCase = iGetHookInfoUseCase;
+            _GetHookInfoResponse = getHookInfoResponse;
+            _IDestroyWebhookAsyncUseCase = iDestroyWebhookAsyncUseCase;
+            _DestroyWebhookAsyncResponse = destroyWebhookAsyncResponse;
+            _IDestroyAllWebhooksForMeetingAsyncUseCase = iDestroyAllWebhooksForMeetingAsyncUseCase;
+            _DestroyAllWebhooksForMeetingAsyncResponse = destroyAllWebhooksForMeetingAsyncResponse;
+            _IUpdateWebhookCallbackURLAsyncUseCase = iUpdateWebhookCallbackURLAsyncUseCase;
+            _UpdateWebhookCallbackURLAsyncResponse = updateWebhookCallbackURLAsyncResponse;
+            _IBBBWebhookLogUseCase = iBBBWebhookLogUseCase;
+            _BBBWebhookLogResponse = bBBWebhookLogResponse;
         }
 
-        [HttpGet("/api/bbb-webhook")]
-        public async Task<IActionResult> BbbWebhook()
+
+
+
+
+        /// <summary>
+        /// Create a new webhook for receiving BBB callbacks
+        /// </summary>
+        /// <param name="callbackURL">The URL where BBB will send POST requests when events occur</param>
+        /// <param name="meetingID">Optional: Only receive events for a specific meeting</param>
+        /// <param name="eventIDs">Optional: Comma-separated list of specific event IDs to subscribe to</param>
+        /// <returns>Hook information</returns>
+        [HttpPost("create")]
+        [Authorize(AuthenticationSchemes = "vc2AuthNorm")]
+        public async Task<IActionResult> CreateWebhook(
+            [FromQuery] string callbackURL,
+            [FromQuery] string? meetingID = null,
+            [FromQuery] string? eventIDs = null)
         {
-            Statics.Log("BBBWebhook", $"hook called");
+            var headers = HttpContext.GetGeneralHeaders();
+
+            var request = new NewHookRequest
+            {
+                GeneralHeaders = headers,
+                CallbackURL = callbackURL,
+                MeetID = meetingID,
+                EventIDs = !string.IsNullOrEmpty(eventIDs)
+                    ? eventIDs.Split(',').Select(e => e.Trim()).ToList()
+                    : null
+            };
+
+            await _INewHookUseCase.handleAsync(request, _NewHookResponse);
+            return _NewHookResponse.jsonContentResult;
+        }
+
+        /// <summary>
+        /// Create a webhook for all events
+        /// </summary>
+        [HttpPost("create-all")]
+        [Authorize(AuthenticationSchemes = "vc2AuthNorm")]
+        public async Task<IActionResult> CreateWebhookForAllEvents(
+            [FromQuery] string callbackURL,
+            [FromQuery] string? meetingID = null)
+        {
+            var headers = HttpContext.GetGeneralHeaders();
+
+            var request = new NewHookRequest
+            {
+                GeneralHeaders = headers,
+                CallbackURL = callbackURL,
+                MeetID = meetingID,
+                EventIDs = BBBWebhookHelper.GetAllEvents() // Use all events
+            };
+
+            await _INewHookUseCase.handleAsync(request, _NewHookResponse);
+            return _NewHookResponse.jsonContentResult;
+        }
+
+        /// <summary>
+        /// Create a webhook for recording-related events only
+        /// </summary>
+        [HttpPost("create-recording")]
+        [Authorize(AuthenticationSchemes = "vc2AuthNorm")]
+        public async Task<IActionResult> CreateWebhookForRecordingEvents(
+            [FromQuery] string callbackURL,
+            [FromQuery] string? meetingID = null)
+        {
+            var headers = HttpContext.GetGeneralHeaders();
+
+            var request = new NewHookRequest
+            {
+                GeneralHeaders = headers,
+                CallbackURL = callbackURL,
+                MeetID = meetingID,
+                EventIDs = BBBWebhookHelper.GetRecordingEvents()
+            };
+
+            await _INewHookUseCase.handleAsync(request, _NewHookResponse);
+            return _NewHookResponse.jsonContentResult;
+        }
+
+        /// <summary>
+        /// Create a webhook for participant events only
+        /// </summary>
+        [HttpPost("create-participant")]
+        [Authorize(AuthenticationSchemes = "vc2AuthNorm")]
+        public async Task<IActionResult> CreateWebhookForParticipantEvents(
+            [FromQuery] string callbackURL,
+            [FromQuery] string? meetingID = null)
+        {
+            var headers = HttpContext.GetGeneralHeaders();
+
+            var request = new NewHookRequest
+            {
+                GeneralHeaders = headers,
+                CallbackURL = callbackURL,
+                MeetID = meetingID,
+                EventIDs = BBBWebhookHelper.GetParticipantEvents()
+            };
+
+            await _INewHookUseCase.handleAsync(request, _NewHookResponse);
+            return _NewHookResponse.jsonContentResult;
+        }
+
+        /// <summary>
+        /// Get all registered webhooks
+        /// </summary>
+        /// <param name="meetingID">Optional: Filter by meeting ID</param>
+        [HttpGet("list")]
+        [Authorize(AuthenticationSchemes = "vc2AuthNorm")]
+        public async Task<IActionResult> GetHooks([FromQuery] string? meetingID = null)
+        {
+            var headers = HttpContext.GetGeneralHeaders();
+
+            var request = new GetHooksRequest
+            {
+                GeneralHeaders = headers,
+                MeetingID = meetingID
+            };
+
+            await _IGetHooksUseCase.handleAsync(request, _GetHooksResponse);
+            return _GetHooksResponse.jsonContentResult;
+        }
+
+        /// <summary>
+        /// Get detailed information about a specific webhook
+        /// </summary>
+        /// <param name="hookID">The ID of the webhook</param>
+        [HttpGet("info/{hookID}")]
+        [Authorize(AuthenticationSchemes = "vc2AuthNorm")]
+        public async Task<IActionResult> GetHookInfo([FromRoute] string hookID)
+        {
+            var headers = HttpContext.GetGeneralHeaders();
+
+            var request = new GetHookInfoRequest
+            {
+                GeneralHeaders = headers,
+                HookID = hookID
+            };
+
+            await _IGetHookInfoUseCase.handleAsync(request, _GetHookInfoResponse);
+            return _GetHookInfoResponse.jsonContentResult;
+        }
+
+        /// <summary>
+        /// Destroy/delete a specific webhook
+        /// </summary>
+        /// <param name="hookID">The ID of the webhook to destroy</param>
+        [HttpDelete("destroy/{hookID}")]
+        [Authorize(AuthenticationSchemes = "vc2AuthNorm")]
+        public async Task<IActionResult> DestroyWebhook([FromRoute] string hookID)
+        {
+            var headers = HttpContext.GetGeneralHeaders();
+
+            var request = new DestroyWebhookAsyncRequest
+            {
+                GeneralHeaders = headers,
+                HookID = hookID
+            };
+
+            await _IDestroyWebhookAsyncUseCase.handleAsync(request, _DestroyWebhookAsyncResponse);
+            return _DestroyWebhookAsyncResponse.jsonContentResult;
+        }
+
+        /// <summary>
+        /// Destroy all webhooks for a specific meeting
+        /// </summary>
+        /// <param name="meetingID">The meeting ID</param>
+        [HttpDelete("destroy-all/{meetingID}")]
+        [Authorize(AuthenticationSchemes = "vc2AuthNorm")]
+        public async Task<IActionResult> DestroyAllWebhooksForMeeting([FromRoute] string meetingID)
+        {
+            var headers = HttpContext.GetGeneralHeaders();
+
+            var request = new DestroyAllWebhooksForMeetingAsyncRequest
+            {
+                GeneralHeaders = headers,
+                MeetingID = meetingID
+            };
+
+            await _IDestroyAllWebhooksForMeetingAsyncUseCase.handleAsync(request, _DestroyAllWebhooksForMeetingAsyncResponse);
+            return _DestroyAllWebhooksForMeetingAsyncResponse.jsonContentResult;
+        }
+
+        /// <summary>
+        /// Update a webhook's callback URL
+        /// </summary>
+        /// <param name="hookID">The ID of the webhook to update</param>
+        /// <param name="newCallbackURL">The new callback URL</param>
+        [HttpPut("update/{hookID}")]
+        [Authorize(AuthenticationSchemes = "vc2AuthNorm")]
+        public async Task<IActionResult> UpdateWebhookCallbackURL(
+            [FromRoute] string hookID,
+            [FromQuery] string newCallbackURL)
+        {
+            var headers = HttpContext.GetGeneralHeaders();
+
+            var request = new UpdateWebhookCallbackURLAsyncRequest
+            {
+                GeneralHeaders = headers,
+                HookID = hookID,
+                NewCallbackURL = newCallbackURL
+            };
+
+            await _IUpdateWebhookCallbackURLAsyncUseCase.handleAsync(request, _UpdateWebhookCallbackURLAsyncResponse);
+            return _UpdateWebhookCallbackURLAsyncResponse.jsonContentResult;
+        }
+
+
+
+        [HttpPost("logEvent")]
+        [AllowAnonymous]
+        public async Task<IActionResult> LogEvent()
+        {
             try
             {
-                string rawQueryString = Request.QueryString.ToString();
-                Statics.Log("BBBWebhook", $"Raw form data:{rawQueryString}");
+                var rawBody = await new StreamReader(Request.Body).ReadToEndAsync();
+                Statics.Log("BBBWebhookRaw", rawBody);
 
+                var formData = HttpUtility.ParseQueryString(rawBody);
 
-                // Read the raw form data that BBB sends
-                var formData = await Request.ReadFormAsync();
+                string domain = formData["domain"];
+                string eventDataJson = formData["event"];
+                string timestampStr = formData["timestamp"];
 
-                // Log the raw data for debugging
-                Statics.Log("BBBWebhook", $"Raw form data: {string.Join(", ", formData.Keys)}");
-
-                // BBB sends data as form fields, not JSON
-                // The event data is in the "event" field as a JSON string
-                string eventJson = formData["event"];
-
-                if (string.IsNullOrEmpty(eventJson))
+                if (string.IsNullOrEmpty(eventDataJson))
                 {
-                    Statics.Log("BBBWebhook", "No event data received");
-                    return Ok();
+                    Statics.Log("BBBWebhookError", "No event data received");
+                    return Ok(new { status = "received", message = "No event data" });
                 }
 
-                Statics.Log("BBBWebhook", $"Event JSON: {eventJson}");
+                var eventsArray = JsonConvert.DeserializeObject<JArray>(eventDataJson);
 
-                // Parse the JSON string
-                JObject payload = JObject.Parse(eventJson);
-
-                // Extract event type - different path in BBB webhook structure
-                var eventType = payload["data"]?["attributes"]?["id"]?.ToString();
-
-                Statics.Log("BBBWebhook", $"Received event: {eventType}");
-
-                switch (eventType)
+                if (eventsArray == null || !eventsArray.Any())
                 {
-                    case "meeting-created":
-                        await HandleMeetingCreated(payload);
-                        break;
-
-                    case "user-joined":
-                        await HandleUserJoined(payload);
-                        break;
-
-                    case "user-left":
-                        await HandleUserLeft(payload);
-                        break;
-
-                    case "meeting-ended":
-                        await HandleMeetingEnded(payload);
-                        break;
-
-                    case "user-audio-voice-enabled":
-                        await HandleAudioEnabled(payload);
-                        break;
-
-                    case "user-audio-voice-disabled":
-                        await HandleAudioDisabled(payload);
-                        break;
-
-                    case "user-cam-broadcast-start":
-                        await HandleCameraStarted(payload);
-                        break;
-
-                    case "user-cam-broadcast-end":
-                        await HandleCameraStopped(payload);
-                        break;
-
-                    case "user-presenter-assigned":
-                        await HandlePresenterAssigned(payload);
-                        break;
-
-                    case "poll-started":
-                        await HandlePollStarted(payload);
-                        break;
-
-                    case "chat-group-message-sent":
-                        await HandleChatMessage(payload);
-                        break;
-
-                    case "rap-published":
-                        await HandleRecordingPublished(payload);
-                        break;
-
-                    default:
-                        Statics.Log("BBBWebhook", $"Unhandled event type: {eventType}");
-                        break;
+                    Statics.Log("BBBWebhookError", "Invalid event data format");
+                    return Ok(new { status = "received", message = "Invalid event data" });
                 }
 
-                return Ok();
+                // ⭐ QUEUE EACH EVENT WITH A NEW SCOPE
+                foreach (var eventItem in eventsArray)
+                {
+                    var eventItemCopy = eventItem;
+                    var domainCopy = domain;
+                    var timestampStrCopy = timestampStr;
+                    var headersCopy = HttpContext.GetGeneralHeaders();
+
+                    _taskQueue.QueueBackgroundWorkItem(async (cancellationToken) =>
+                    {
+                        // ⭐ ایجاد اسکوپ جدید برای هر تسک
+                        using (var scope = _serviceScopeFactory.CreateScope())
+                        {
+                            // ⭐ دریافت سرویس‌ها از اسکوپ جدید
+                            var bBBWebhookLogUseCase = scope.ServiceProvider.GetRequiredService<IBBBWebhookLogUseCase>();
+                            var bBBWebhookLogResponse = scope.ServiceProvider.GetRequiredService< ApiPresenter<BBBWebhookLogResponse> >();
+
+                            try
+                            {
+                                var data = eventItemCopy["data"];
+                                var eventObj = eventItemCopy["event"];
+
+                                if (data == null) return;
+
+                                var eventId = data["id"]?.ToString();
+                                var attributes = data["attributes"];
+
+                                var request = new BBBWebhookLogRequest
+                                {
+                                    HookID = null,
+                                    MeetingID = attributes?["meeting"]?["external-meeting-id"]?.ToString()
+                               ?? attributes?["meeting"]?["externalMeetingId"]?.ToString(),
+                                    InternalMeetingID = attributes?["meeting"]?["internal-meeting-id"]?.ToString()
+                                        ?? attributes?["meeting"]?["internalMeetingId"]?.ToString(),
+                                    Event = eventId,
+                                    Domain = domainCopy,
+                                    Timestamp = eventObj?["ts"] != null
+                                        ? DateTimeOffset.FromUnixTimeMilliseconds(eventObj["ts"].Value<long>()).UtcDateTime
+                                        : (timestampStrCopy != null ? DateTimeOffset.FromUnixTimeMilliseconds(long.Parse(timestampStrCopy)).UtcDateTime : DateTime.UtcNow),
+                                    Data = new Dictionary<string, object>()
+                                };
+
+                                request.Data["rawData"] = eventItemCopy.ToString(Formatting.None);
+                                request.Data["domain"] = domainCopy;
+                                request.Data["timestamp"] = timestampStrCopy;
+
+                                if (attributes?["meeting"] != null)
+                                {
+                                    var meeting = attributes["meeting"];
+                                    request.Data["meeting"] = new
+                                    {
+                                        internalMeetingId = meeting["internal-meeting-id"]?.ToString(),
+                                        externalMeetingId = meeting["external-meeting-id"]?.ToString(),
+                                        name = meeting["name"]?.ToString(),
+                                        isBreakout = meeting["is-breakout"]?.Value<bool>(),
+                                        duration = meeting["duration"]?.Value<int>(),
+                                        createTime = meeting["create-time"]?.Value<long>(),
+                                        record = meeting["record"]?.Value<bool>(),
+                                        metadata = meeting["metadata"]
+                                    };
+                                }
+
+                                if (attributes?["user"] != null && (eventId == "user-joined" || eventId == "user-left" || eventId == "user-presenter-assigned"))
+                                {
+                                    var user = attributes["user"];
+                                    request.Data["user"] = new
+                                    {
+                                        internalUserId = user["internal-user-id"]?.ToString(),
+                                        externalUserId = user["external-user-id"]?.ToString(),
+                                        name = user["name"]?.ToString(),
+                                        role = user["role"]?.ToString(),
+                                        presenter = user["presenter"]?.Value<bool>(),
+                                        userdata = user["userdata"]
+                                    };
+
+                                    if (user["userdata"] != null)
+                                    {
+                                        var userdata = user["userdata"];
+                                        request.NationalCode = userdata["nationalCode"]?.ToString();
+                                        request.Phone = userdata["phone"]?.ToString();
+                                        request.UserId = userdata["userID5"]?.ToString();
+                                        request.Vc2AuthNorm = userdata["vc2AuthNorm"]?.ToString();
+                                    }
+                                }
+
+
+                                request.GeneralHeaders = headersCopy;
+
+                                // ⭐ استفاده از سرویس‌های اسکوپ جدید
+                                await bBBWebhookLogUseCase.handleAsync(request, bBBWebhookLogResponse);
+                            }
+                            catch (Exception ex)
+                            {
+                                Statics.Log($"BBBWebhookQueueError_{eventItemCopy?["data"]?["id"]?.ToString() ?? "unknown"}", ex.Message + "\n" + ex.StackTrace);
+                            }
+                        }
+                    });
+                }
+
+                return Ok(new { status = "success", processed = eventsArray.Count, queued = true });
             }
             catch (Exception ex)
             {
-                Statics.Log("BBBWebhook Error", $"{ex.Message}\n{ex.StackTrace}");
-                return Ok(); // Always return 200 - BBB requires success response
+                Statics.Log("BBBWebhookError", ex.Message + "\n" + ex.StackTrace);
+                return Ok(new { status = "received", message = "Event received but processing failed", error = ex.Message });
             }
         }
 
-        // Separate handler methods for better organization
-        private async Task HandleUserJoined(JObject payload)
-        {
-            try
-            {
-                string meetingId = payload["data"]?["attributes"]?["meeting"]?["id"]?.ToString();
-                string userId = payload["data"]?["attributes"]?["user"]?["id"]?.ToString();
-                string userName = payload["data"]?["attributes"]?["user"]?["name"]?.ToString();
-                string userRole = payload["data"]?["attributes"]?["user"]?["role"]?.ToString();
-
-                Statics.Log("BBBWebhook", $"User Joined - Meeting: {meetingId}, User: {userName}, Role: {userRole}");
-
-                // Update your database - add user to participant list
-                // var room = await db.Rooms.FirstOrDefaultAsync(r => r.BBB_MeetID == meetingId);
-                // Update participant count, etc.
-            }
-            catch (Exception ex)
-            {
-                Statics.Log("HandleUserJoined Error", ex.Message);
-            }
-        }
-
-        private async Task HandleUserLeft(JObject payload)
-        {
-            try
-            {
-                string meetingId = payload["data"]?["attributes"]?["meeting"]?["id"]?.ToString();
-                string userId = payload["data"]?["attributes"]?["user"]?["id"]?.ToString();
-                string userName = payload["data"]?["attributes"]?["user"]?["name"]?.ToString();
-                bool hasLeft = payload["data"]?["attributes"]?["user"]?["has_left"]?.Value<bool>() ?? false;
-
-                Statics.Log("BBBWebhook", $"User Left - Meeting: {meetingId}, User: {userName}");
-
-                // Update your database - remove user from participant list
-                // Update participant count
-            }
-            catch (Exception ex)
-            {
-                Statics.Log("HandleUserLeft Error", ex.Message);
-            }
-        }
-
-        private async Task HandleMeetingCreated(JObject payload)
-        {
-            try
-            {
-                string meetingId = payload["data"]?["attributes"]?["meeting"]?["id"]?.ToString();
-                string meetingName = payload["data"]?["attributes"]?["meeting"]?["name"]?.ToString();
-
-                Statics.Log("BBBWebhook", $"Meeting Created - ID: {meetingId}, Name: {meetingName}");
-
-                // Record meeting start time in database
-            }
-            catch (Exception ex)
-            {
-                Statics.Log("HandleMeetingCreated Error", ex.Message);
-            }
-        }
-
-        private async Task HandleMeetingEnded(JObject payload)
-        {
-            try
-            {
-                string meetingId = payload["data"]?["attributes"]?["meeting"]?["id"]?.ToString();
-
-                Statics.Log("BBBWebhook", $"Meeting Ended - ID: {meetingId}");
-
-                // Clean up all participants for this meeting
-                // Mark meeting as ended in database
-                // Calculate duration, etc.
-            }
-            catch (Exception ex)
-            {
-                Statics.Log("HandleMeetingEnded Error", ex.Message);
-            }
-        }
-
-        private async Task HandleAudioEnabled(JObject payload)
-        {
-            try
-            {
-                string meetingId = payload["data"]?["attributes"]?["meeting"]?["id"]?.ToString();
-                string userId = payload["data"]?["attributes"]?["user"]?["id"]?.ToString();
-                string userName = payload["data"]?["attributes"]?["user"]?["name"]?.ToString();
-
-                Statics.Log("BBBWebhook", $"Audio Enabled - Meeting: {meetingId}, User: {userName}");
-
-                // Update user audio status in database
-            }
-            catch (Exception ex)
-            {
-                Statics.Log("HandleAudioEnabled Error", ex.Message);
-            }
-        }
-
-        private async Task HandleAudioDisabled(JObject payload)
-        {
-            try
-            {
-                string meetingId = payload["data"]?["attributes"]?["meeting"]?["id"]?.ToString();
-                string userId = payload["data"]?["attributes"]?["user"]?["id"]?.ToString();
-                string userName = payload["data"]?["attributes"]?["user"]?["name"]?.ToString();
-
-                Statics.Log("BBBWebhook", $"Audio Disabled - Meeting: {meetingId}, User: {userName}");
-
-                // Update user audio status in database
-            }
-            catch (Exception ex)
-            {
-                Statics.Log("HandleAudioDisabled Error", ex.Message);
-            }
-        }
-
-        private async Task HandleCameraStarted(JObject payload)
-        {
-            try
-            {
-                string meetingId = payload["data"]?["attributes"]?["meeting"]?["id"]?.ToString();
-                string userName = payload["data"]?["attributes"]?["user"]?["name"]?.ToString();
-
-                Statics.Log("BBBWebhook", $"Camera Started - Meeting: {meetingId}, User: {userName}");
-            }
-            catch (Exception ex)
-            {
-                Statics.Log("HandleCameraStarted Error", ex.Message);
-            }
-        }
-
-        private async Task HandleCameraStopped(JObject payload)
-        {
-            try
-            {
-                string meetingId = payload["data"]?["attributes"]?["meeting"]?["id"]?.ToString();
-                string userName = payload["data"]?["attributes"]?["user"]?["name"]?.ToString();
-
-                Statics.Log("BBBWebhook", $"Camera Stopped - Meeting: {meetingId}, User: {userName}");
-            }
-            catch (Exception ex)
-            {
-                Statics.Log("HandleCameraStopped Error", ex.Message);
-            }
-        }
-
-        private async Task HandlePresenterAssigned(JObject payload)
-        {
-            try
-            {
-                string meetingId = payload["data"]?["attributes"]?["meeting"]?["id"]?.ToString();
-                string userName = payload["data"]?["attributes"]?["user"]?["name"]?.ToString();
-
-                Statics.Log("BBBWebhook", $"Presenter Assigned - Meeting: {meetingId}, User: {userName}");
-            }
-            catch (Exception ex)
-            {
-                Statics.Log("HandlePresenterAssigned Error", ex.Message);
-            }
-        }
-
-        private async Task HandlePollStarted(JObject payload)
-        {
-            try
-            {
-                string meetingId = payload["data"]?["attributes"]?["meeting"]?["id"]?.ToString();
-                string pollId = payload["data"]?["attributes"]?["poll"]?["id"]?.ToString();
-                string pollQuestion = payload["data"]?["attributes"]?["poll"]?["question"]?.ToString();
-
-                Statics.Log("BBBWebhook", $"Poll Started - Meeting: {meetingId}, Poll ID: {pollId}");
-            }
-            catch (Exception ex)
-            {
-                Statics.Log("HandlePollStarted Error", ex.Message);
-            }
-        }
-
-        private async Task HandleChatMessage(JObject payload)
-        {
-            try
-            {
-                string meetingId = payload["data"]?["attributes"]?["meeting"]?["id"]?.ToString();
-                string userName = payload["data"]?["attributes"]?["user"]?["name"]?.ToString();
-                string message = payload["data"]?["attributes"]?["chat"]?["message"]?.ToString();
-
-                Statics.Log("BBBWebhook", $"Chat Message - Meeting: {meetingId}, User: {userName}, Message: {message}");
-
-                // Optionally store chat messages in your database
-            }
-            catch (Exception ex)
-            {
-                Statics.Log("HandleChatMessage Error", ex.Message);
-            }
-        }
-
-        private async Task HandleRecordingPublished(JObject payload)
-        {
-            try
-            {
-                string meetingId = payload["data"]?["attributes"]?["meeting"]?["id"]?.ToString();
-                string recordingId = payload["data"]?["attributes"]?["recording"]?["id"]?.ToString();
-                string recordingUrl = payload["data"]?["attributes"]?["recording"]?["url"]?.ToString();
-
-                Statics.Log("BBBWebhook", $"Recording Published - Meeting: {meetingId}, URL: {recordingUrl}");
-
-                // Update your database with recording URL
-                // Notify users that recording is ready
-            }
-            catch (Exception ex)
-            {
-                Statics.Log("HandleRecordingPublished Error", ex.Message);
-            }
-        }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        // Simple version for just logging
 
     }
-
 }

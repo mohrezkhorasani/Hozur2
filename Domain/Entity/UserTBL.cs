@@ -77,6 +77,7 @@ namespace Domain.Entity
         public ICollection<UserRevokeTokenTBL> UserRevokeTokenTBLs { get; set; }
         public ICollection<UserTBLToUserTBL> Followings { get; set; }
         public ICollection<UserTBLToUserTBL> Followers { get; set; }
+        public ICollection<UserFileTBL> UserFileTBLs { get; set; }
 
         public string GetName()
         {
@@ -90,16 +91,16 @@ namespace Domain.Entity
             switch (user.Type)
             {
                 case MainEntity_Types.USER_ADMINSTRATOR:
-                    permissions.AddRange(new[] { "manage_admins" });
+                    permissions.AddRange(new[] { "manage_admins","manage_bbb_hooks" });
                     goto case MainEntity_Types.USER_ADMIN;
                 case MainEntity_Types.USER_ADMIN:
                     permissions.AddRange(new[] { "manage_users", "view_reports", "create_rooms_for_others","edit_poll" });
                     goto case MainEntity_Types.USER_MODERATOR;
                 case MainEntity_Types.USER_MODERATOR:
-                    permissions.AddRange(new[] { "create_rooms" });
+                    permissions.AddRange(new[] { "create_rooms","view_poll_reports" });
                     goto case MainEntity_Types.USER_CREATOR;
                 case MainEntity_Types.USER_CREATOR:
-                    permissions.AddRange(new[] { "create_meeting", "edit_meeting", "delete_meeting" });
+                    permissions.AddRange(new[] { "create_meeting", "edit_meeting", "delete_meeting","ftp" });
                     goto case MainEntity_Types.USER_TEACHER;
                 case MainEntity_Types.USER_TEACHER:
                 case MainEntity_Types.USER_VIEWER:

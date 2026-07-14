@@ -52,6 +52,12 @@ namespace CoreMe.VM
         public string RoomID { get; set; }
         public string AvatarPath { get; set; }
     }
+    public class GetPollReportVM
+    {
+        public string MeetID { get; set; }
+        public long? QID { get; set; }  
+        public string? UserID { get; set; } 
+    }
     public class AddPollQuizVM
     {
         public string Question { get; set; }

@@ -59,6 +59,9 @@ namespace Application.Interface.IUsecase
     public interface IGetAllLivesUseCase : IUseCaseRequestHandler<GetAllLivesRequest, GenericResponse<GetAllLivesResponse>> { }
     public interface IAdminCreateRoomUseCase : IUseCaseRequestHandler<AdminCreateRoomRequest, GenericResponse<AdminCreateRoomResponse>> { }
     public interface IGetAllRoomsUseCase : IUseCaseRequestHandler<GetAllRoomsRequest, GenericResponse<GetAllRoomsResponse>> { }
+    public interface IGetAllMeetingUseCase : IUseCaseRequestHandler<GetAllMeetingRequest, GenericResponse<GetAllMeetingResponse>> { }
+    public interface IGetAllRoomsMiniUseCase : IUseCaseRequestHandler<GetAllRoomsMiniRequest, GenericResponse<GetAllRoomsMiniResponse>> { }
     public interface IAddPollQuizUseCase : IUseCaseRequestHandler<AddPollQuizRequest, GenericResponse<AddPollQuizResponse>> { }
     public interface IGetPollListAdminUseCase : IUseCaseRequestHandler<GetPollListAdminRequest, GenericResponse<GetPollListAdminResponse>> { }
+    public interface IGetPollReportUseCase : IUseCaseRequestHandler<GetPollReportRequest, GenericResponse<GetPollReportResponse>> { }
 }

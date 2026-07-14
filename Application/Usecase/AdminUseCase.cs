@@ -477,11 +477,11 @@ namespace Application.Usecase
             var room = await _db.RoomTBLs.FirstOrDefaultAsync(e => e.FriendlyID == message.RoomID);
             room.Avatar = message.AvatarPath;
             _db.Update(room); _db.SaveChanges();
-            await _mediator.Publish(new PlanUpdateEvent
+            _ = _mediator.Publish(new PlanUpdateEvent
             {
                 Action = "Update",
                 FriendlyID = room.FriendlyID,
-            }); await _mediator.Publish(new RoomUpdatedEvent
+            }); _= _mediator.Publish(new RoomUpdatedEvent
             {
                 Action = "Update",
                 RoomId = room.ID,
@@ -720,7 +720,67 @@ namespace Application.Usecase
     }
     #endregion
 
+    #region GetAllRoomsMini
+    public class GetAllRoomsMiniUseCase : IGetAllRoomsMiniUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        private IMemoryCache _cache { get; }
 
+        public GetAllRoomsMiniUseCase(IDBContext repository,
+            IMemoryCache _cache,
+            IConfiguration configuration)
+        {
+            _db = repository;
+            this._cache = _cache;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+        }
+
+        public async Task handleAsync(GetAllRoomsMiniRequest message,
+        IOutPutPort<GenericResponse<GetAllRoomsMiniResponse>> outputPort)
+        {
+            try
+            {
+                if (message.GeneralHeaders.UserTBL == null)
+                    return;
+                if (!message.GeneralHeaders.UserTBL.VerifyUserPermissions("manage_users"))
+                {
+                    throw new Exception("FORBIDDEN ! 403");
+                }
+                outputPort.Handle(new GenericResponse<GetAllRoomsMiniResponse>(new GetAllRoomsMiniResponse
+                {
+                    Message = "ok",
+                    Status = 200,
+                    Data = _db.RoomTBLs.Include(e => e.OwnerTBL).Select(e => new MicroRoomJSON
+                    {
+                        BBBMeetID = e.BBB_MeetID,
+                        FriendlyID = e.FriendlyID,
+                        Owner = new MiniUserJSON
+                        {
+                            Fullname = e.OwnerTBL.GetName(),
+                            ID = e.OwnerTBL.ID
+                        },
+                        Title = e.Title
+                    }).ToList()
+                }));
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+                Statics.Log("GetAllRoomsMini", e);
+
+                // در صورت خطا، پاسخ خطا برگردانید
+                outputPort.Handle(new GenericResponse<GetAllRoomsMiniResponse>(new GetAllRoomsMiniResponse
+                {
+                    Message = "خطا در دریافت اطلاعات",
+                    Status = 500,
+                    Data = null
+                }));
+            }
+        }
+    }
+    #endregion
 
     #region AddPollQuiz
     public class AddPollQuizUseCase : IAddPollQuizUseCase
@@ -774,11 +834,11 @@ namespace Application.Usecase
             {
                 _db.MeetPollQuizAnsTBLs.Add(new MeetPollQuizAnsTBL
                 {
-                    Answer=i.Content,
-                    IDQuizTBL=poll.ID,
-                    Type=poll.Type,
-                    Status=poll.Status,
-                    Score=i.Score,
+                    Answer = i.Content,
+                    IDQuizTBL = poll.ID,
+                    Type = poll.Type,
+                    Status = poll.Status,
+                    Score = i.Score,
                 });
             }
             _db.SaveChanges();
@@ -833,7 +893,7 @@ namespace Application.Usecase
                 {
                     ID = e.ID,
                     Question = e.Question,
-                    Status=e.Status,
+                    Status = e.Status,
                     Type = e.Type,
                     Answers = e.MeetPollQuizAnsTBLs != null & e.MeetPollQuizAnsTBLs.Count > 0 ? e.MeetPollQuizAnsTBLs.Select(r => new PoolAnsJSON
                     {
@@ -863,14 +923,312 @@ namespace Application.Usecase
     }
     #endregion
 
+    #region GetPollReport
+    public class GetPollReportUseCase : IGetPollReportUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        private readonly IMemoryCache _memoryCache;
+        private readonly IConfiguration _configuration;
+        private readonly IMediator _mediator;
+
+        public GetPollReportUseCase(IDBContext repository,
+            IConfiguration configuration,
+            IMediator mediator,
+            IMemoryCache memoryCache)
+        {
+            _db = repository;
+            _configuration = configuration;
+            _mediator = mediator;
+            _memoryCache = memoryCache;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+        }
+
+        public async Task handleAsync(GetPollReportRequest message,
+    IOutPutPort<GenericResponse<GetPollReportResponse>> outputPort)
+        {
+            try
+            {
+                var user = message.GeneralHeaders?.UserTBL;
+                var meet = await _db.MeetingTBLs.FirstOrDefaultAsync(e => e.MeetID == message.MeetID);
+
+                if (user == null || meet == null || !user.VerifyUserPermissions("view_poll_reports"))
+                {
+                    outputPort.Handle(new GenericResponse<GetPollReportResponse>(new GetPollReportResponse
+                    {
+                        Message = "دسترسی ندارید",
+                        Status = 400
+                    }));
+                    return;
+                }
+
+                // Get all users in this meeting
+                var allMeetingUsers = _db.UserTBLToMeetingTBLs
+                    .Where(e => e.MeetID == meet.MeetID && e.Status == MainEntity_Status.LOG_NORMAL)
+                    .Select(e => new { e.ID, e.UUID })
+                    .ToList();
+
+                int totalParticipants = allMeetingUsers.Count;
+
+                // **اصلاح شده:** فقط پرسش‌هایی که پاسخ مربوط به این میت دارند
+                var pollQuery = _db.MeetPollQuizTBLs
+                    .Where(e => e.MeetPollQuizAnsTBLs
+                        .Any(r => r.MeetPollQuizAnsTBLToUserMeetTBLs
+                            .Any(f => f.UserTBLToMeetingTBL.MeetID == meet.MeetID)));
+
+                // Filter by QID if provided
+                if (message.QID.HasValue && message.QID.Value > 0)
+                {
+                    pollQuery = pollQuery.Where(e => e.ID == message.QID.Value);
+                }
+
+                // **اصلاح شده:** Include کامل با فیلتر در ThenInclude
+                var polls = pollQuery
+                    .Include(e => e.MeetPollQuizAnsTBLs)
+                        .ThenInclude(e => e.MeetPollQuizAnsTBLToUserMeetTBLs)
+                            .ThenInclude(e => e.UserTBLToMeetingTBL)
+                    .ToList();
+
+                // **مرحله مهم:** فیلتر کردن پاسخ‌ها در حافظه برای فقط همین میت
+                foreach (var poll in polls)
+                {
+                    foreach (var answer in poll.MeetPollQuizAnsTBLs)
+                    {
+                        // فقط پاسخ‌هایی که UserTBLToMeetingTBL آنها null نباشد و MeetID برابر باشد
+                        answer.MeetPollQuizAnsTBLToUserMeetTBLs = answer.MeetPollQuizAnsTBLToUserMeetTBLs?
+                            .Where(a => a.UserTBLToMeetingTBL != null &&
+                                        a.UserTBLToMeetingTBL.MeetID == meet.MeetID)
+                            .ToList() ?? new List<MeetPollQuizAnsTBLToUserMeetTBL>();
+                    }
+                }
+
+                var reportData = new List<PollReportJSON>();
+
+                foreach (var poll in polls)
+                {
+                    var pollReport = new PollReportJSON
+                    {
+                        ID = poll.ID,
+                        Question = poll.Question,
+                        Type = poll.Type,
+                        AnswersReport = new List<AnswerReportJSON>()
+                    };
+
+                    // **اصلاح شده:** فیلتر بر اساس UserID با در نظر گرفتن null بودن UserTBLToMeetingTBL
+                    var answersForThisPoll = poll.MeetPollQuizAnsTBLs;
+
+                    if (!string.IsNullOrEmpty(message.UserID) && _db.UserTBLs.Any(e => e.UUID == message.UserID))
+                    {
+                        var targetUserMeet = allMeetingUsers.FirstOrDefault(u => u.UUID == message.UserID);
+                        if (targetUserMeet != null)
+                        {
+                            foreach (var answer in answersForThisPoll)
+                            {
+                                // فقط پاسخ‌های کاربر مورد نظر و مربوط به این میت
+                                answer.MeetPollQuizAnsTBLToUserMeetTBLs = answer.MeetPollQuizAnsTBLToUserMeetTBLs?
+                                    .Where(a => a.IDUserTBLToMeetingTBL == targetUserMeet.ID &&
+                                                a.UserTBLToMeetingTBL != null &&
+                                                a.UserTBLToMeetingTBL.MeetID == meet.MeetID)
+                                    .ToList() ?? new List<MeetPollQuizAnsTBLToUserMeetTBL>();
+                            }
+                        }
+                    }
+
+                    // Process based on type - بقیه کد شما به همان شکل می‌ماند
+                    if (poll.Type == MainEntity_Types.QUIZ_OPTIONAL || poll.Type == MainEntity_Types.QUIZ_OPTIONAL_NOSCORE)
+                    {
+                        int totalAnswersForPoll = 0;
+
+                        foreach (var answer in answersForThisPoll)
+                        {
+                            var userAnswers = answer.MeetPollQuizAnsTBLToUserMeetTBLs?
+                                .Where(a => (a.Status == MainEntity_Status.Default || a.Status == MainEntity_Status.LOG_NORMAL) &&
+                                            a.UserTBLToMeetingTBL != null &&
+                                            a.UserTBLToMeetingTBL.MeetID == meet.MeetID)
+                                .ToList() ?? new List<MeetPollQuizAnsTBLToUserMeetTBL>();
+
+                            totalAnswersForPoll += userAnswers.Count;
+                        }
+
+                        foreach (var answer in answersForThisPoll)
+                        {
+                            var userAnswers = answer.MeetPollQuizAnsTBLToUserMeetTBLs?
+                                .Where(a => (a.Status == MainEntity_Status.Default || a.Status == MainEntity_Status.LOG_NORMAL) &&
+                                            a.UserTBLToMeetingTBL != null &&
+                                            a.UserTBLToMeetingTBL.MeetID == meet.MeetID)
+                                .ToList() ?? new List<MeetPollQuizAnsTBLToUserMeetTBL>();
+
+                            int answerCount = userAnswers.Count;
+                            double percentage = totalAnswersForPoll > 0 ? (double)answerCount / totalAnswersForPoll * 100 : 0;
+
+                            double? averageScore = null;
+                            if (poll.Type == MainEntity_Types.QUIZ_OPTIONAL && answer.Score > 0)
+                            {
+                                var scores = userAnswers.Select(u => (double?)answer.Score).ToList();
+                                averageScore = scores.Any() ? scores.Average() : 0;
+                            }
+
+                            pollReport.AnswersReport.Add(new AnswerReportJSON
+                            {
+                                ID = answer.ID,
+                                Answer = answer.Answer,
+                                Score = answer.Score,
+                                Count = answerCount,
+                                Percentage = Math.Round(percentage, 2),
+                                AverageScore = averageScore.HasValue ? Math.Round(averageScore.Value, 2) : (double?)null,
+                                UserAnswers = userAnswers.Select(u => new UserAnswerDetailJSON
+                                {
+                                    UserMeetID = u.IDUserTBLToMeetingTBL ?? 0,
+                                    Content = u.Content,
+                                    DateInsert = u.DateInsert,
+                                    NickName=u.UserTBLToMeetingTBL.UserNickName
+
+                                }).ToList()
+                            });
+                        }
+
+                        if (poll.Type == MainEntity_Types.QUIZ_OPTIONAL)
+                        {
+                            var allScores = new List<double>();
+                            foreach (var answer in answersForThisPoll)
+                            {
+                                var userAnswersCount = answer.MeetPollQuizAnsTBLToUserMeetTBLs?
+                                    .Where(a => (a.Status == MainEntity_Status.Default || a.Status == MainEntity_Status.LOG_NORMAL) &&
+                                                a.UserTBLToMeetingTBL != null &&
+                                                a.UserTBLToMeetingTBL.MeetID == meet.MeetID)
+                                    .Count() ?? 0;
+
+                                for (int i = 0; i < userAnswersCount; i++)
+                                {
+                                    allScores.Add(answer.Score);
+                                }
+                            }
+                            pollReport.OverallAverageScore = allScores.Any() ? Math.Round(allScores.Average(), 2) : 0;
+                        }
+                    }
+                    else if (poll.Type == MainEntity_Types.QUIZ_INPUT)
+                    {
+                        foreach (var answer in answersForThisPoll)
+                        {
+                            var userAnswers = answer.MeetPollQuizAnsTBLToUserMeetTBLs?
+                                .Where(a => (a.Status == MainEntity_Status.Default || a.Status == MainEntity_Status.LOG_NORMAL) &&
+                                            a.UserTBLToMeetingTBL != null &&
+                                            a.UserTBLToMeetingTBL.MeetID == meet.MeetID)
+                                .ToList() ?? new List<MeetPollQuizAnsTBLToUserMeetTBL>();
+
+                            pollReport.AnswersReport.Add(new AnswerReportJSON
+                            {
+                                ID = answer.ID,
+                                Answer = answer.Answer,
+                                Score = answer.Score,
+                                Count = userAnswers.Count,
+                                Percentage = null,
+                                AverageScore = null,
+                                UserAnswers = userAnswers.Select(u => new UserAnswerDetailJSON
+                                {
+                                    UserMeetID = u.IDUserTBLToMeetingTBL ?? 0,
+                                    Content = u.Content,
+                                    NickName=u.UserTBLToMeetingTBL.UserNickName,
+                                    DateInsert = u.DateInsert,
+                                }).ToList()
+                            });
+                        }
+                    }
+
+                    reportData.Add(pollReport);
+                }
+
+                outputPort.Handle(new GenericResponse<GetPollReportResponse>(new GetPollReportResponse
+                {
+                    Message = "ok",
+                    Status = 200,
+                    Data = reportData,
+                    TotalParticipants = totalParticipants
+                }));
+            }
+            catch (Exception e)
+            {
+                Statics.Log("GetPollReportUseCase", e);
+                outputPort.Handle(new GenericResponse<GetPollReportResponse>(new GetPollReportResponse
+                {
+                    Message = "خطا در دریافت گزارش",
+                    Status = 400,
+                    Data = new List<PollReportJSON>()
+                }));
+            }
+        }
+    }
+    #endregion
 
 
 
 
 
 
+    #region GetAllMeeting
+    public class GetAllMeetingUseCase : IGetAllMeetingUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        private IMemoryCache _cache { get; }
 
+        public GetAllMeetingUseCase(IDBContext repository,
+            IMemoryCache _cache,
+            IConfiguration configuration)
+        {
+            _db = repository;
+            this._cache = _cache;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+        }
 
+        public async Task handleAsync(GetAllMeetingRequest message,
+        IOutPutPort<GenericResponse<GetAllMeetingResponse>> outputPort)
+        {
+            try
+            {
+                if (message.GeneralHeaders.UserTBL == null)
+                    return;
+                if (!message.GeneralHeaders.UserTBL.VerifyUserPermissions("create_meeting"))
+                {
+                    throw new Exception("FORBIDDEN ! 403");
+                }
+                outputPort.Handle(new GenericResponse<GetAllMeetingResponse>(new GetAllMeetingResponse
+                {
+                    Message = "ok",
+                    Status = 200,
+                    Data = _db.MeetingTBLs.Include(e => e.RoomTBL).Where(e=>e.RoomTBL.IDOwnerTBL==message.GeneralHeaders.UserTBL.ID ||
+                    e.RoomTBL.RoomTBLToUserTBLs.Any(r=>r.ParticipatorTBL.ID== message.GeneralHeaders.UserTBL.ID)).Select(e => new MiniMeet
+                    {
+                        Title = e.Title,
+                         Time=e.JalaliDate,
+                         MeetID=e.MeetID,
+                         ID=e.ID,
+                         Room=new MicroRoomJSON
+                         {
+                             FriendlyID=e.RoomFriendlyID,
+                             Title=e.RoomTBL.Title,
+                         }
+                    }).ToList()
+                }));
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+                Statics.Log("GetAllMeeting", e);
+
+                // در صورت خطا، پاسخ خطا برگردانید
+                outputPort.Handle(new GenericResponse<GetAllMeetingResponse>(new GetAllMeetingResponse
+                {
+                    Message = "خطا در دریافت اطلاعات",
+                    Status = 500,
+                    Data = null
+                }));
+            }
+        }
+    }
+    #endregion
 
 
 

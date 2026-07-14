@@ -19,12 +19,14 @@ namespace Application.Interfaces
         public DbSet<MeetingReservationTBL> MeetingReservationTBLs { get; set; }
         public DbSet<RoleTBL> RoleTBLs { get; set; }
         public DbSet<UserTBLToRoleTBL> UserTBLToRoleTBLs { get; set; }
+        public DbSet<UserFileTBL> UserFileTBLs { get; set; }
         public DbSet<ConfigTBL> ConfigTBLs { get; set; }
         public DbSet<CertificateTBL> CertificateTBLs { get; set; }
         public DbSet<MeetingTBL> MeetingTBLs { get; set; }
         public DbSet<RoomTBL> RoomTBLs { get; set; }
         public DbSet<UserTBL> UserTBLs { get; set; }
         public DbSet<MeetCommentTBL> MeetCommentTBLs { get; set; }
+        public DbSet<MeetingLogTBL> MeetingLogTBLs { get; set; }
         public DbSet<MeetQuestionTBL> MeetQuestionTBLs { get; set; }
         public DbSet<RoomTBLToUserTBL> RoomTBLToUserTBLs { get; set; }
         public DbSet<UserTBLToMeetingTBL> UserTBLToMeetingTBLs { get; set; }
@@ -33,6 +35,7 @@ namespace Application.Interfaces
         public DbSet<ContactUsTBL> ContactUsTBL { get; set; }
         public DbSet<UserTBLToUserTBL> UserTBLToUserTBLs { get; set; }
         public DbSet<RoomTBLPlanTBL> RoomTBLPlanTBLs { get; set; }
+        public DbSet<UserTBLToMeetingTBLMuiltiJoinTBL> UserTBLToMeetingTBLMuiltiJoinTBLs { get; set; }
         public DbSet<SlideshowTBL> SlideshowTBL { get; set; }
         public DbSet<MeetPollQuizAnsTBL> MeetPollQuizAnsTBLs { get; set; }
         public DbSet<MeetPollQuizAnsTBLToUserMeetTBL> MeetPollQuizAnsTBLToUserMeetTBLs { get; set; }

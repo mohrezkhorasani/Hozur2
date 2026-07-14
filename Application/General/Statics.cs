@@ -794,4 +794,72 @@ namespace Application.General
             return result.IsValid ? result.NormalizedPhoneNumber : null;
         }
     }
+    public static class BBBWebhookHelper
+    {
+        // Predefined event types for easier use
+        public static class Events
+        {
+            public const string MeetingCreated = "meeting-created";
+            public const string MeetingDestroyed = "meeting-destroyed";
+            public const string MeetingEnded = "meeting-ended";
+            public const string UserJoined = "user-joined";
+            public const string UserLeft = "user-left";
+            public const string UserJoinedVoice = "user-joined-voice";
+            public const string UserLeftVoice = "user-left-voice";
+            public const string UserSharedCamera = "user-shared-camera";
+            public const string UserUnsharedCamera = "user-unshared-camera";
+            public const string UserStartedSharingScreen = "user-started-sharing-screen";
+            public const string UserStoppedSharingScreen = "user-stopped-sharing-screen";
+            public const string RecordingStarted = "recording-started";
+            public const string RecordingStopped = "recording-stopped";
+            public const string ParticipantJoined = "participant-joined";
+            public const string ParticipantLeft = "participant-left";
+        }
+
+        // Helper method to get all events
+        public static List<string> GetAllEvents()
+        {
+            return new List<string>
+        {
+            Events.MeetingCreated,
+            Events.MeetingDestroyed,
+            Events.MeetingEnded,
+            Events.UserJoined,
+            Events.UserLeft,
+            Events.UserJoinedVoice,
+            Events.UserLeftVoice,
+            Events.UserSharedCamera,
+            Events.UserUnsharedCamera,
+            Events.UserStartedSharingScreen,
+            Events.UserStoppedSharingScreen,
+            Events.RecordingStarted,
+            Events.RecordingStopped,
+            Events.ParticipantJoined,
+            Events.ParticipantLeft
+        };
+        }
+
+        // Helper method to get common events for recording
+        public static List<string> GetRecordingEvents()
+        {
+            return new List<string>
+        {
+            Events.RecordingStarted,
+            Events.RecordingStopped,
+            Events.MeetingEnded
+        };
+        }
+
+        // Helper method to get participant events
+        public static List<string> GetParticipantEvents()
+        {
+            return new List<string>
+        {
+            Events.UserJoined,
+            Events.UserLeft,
+            Events.ParticipantJoined,
+            Events.ParticipantLeft
+        };
+        }
+    }
 }

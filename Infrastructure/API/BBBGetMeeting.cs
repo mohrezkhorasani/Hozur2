@@ -13,6 +13,8 @@ using System.Threading.Tasks;
 using System.Xml;
 using System.Xml.Linq;
 using System.Xml.Serialization;
+using BBBHookInfo = Application.DTO.Models.BBBHookInfo;
+using BBBHookResponse = Application.DTO.Models.BBBHookResponse;
 
 namespace Infrastructure.API
 {
@@ -318,7 +320,7 @@ namespace Infrastructure.API
                 var attendees = await GetMeetingAttendeesByRoomId(roomId);
                 return attendees.FirstOrDefault(a => a.UserID == userId);
             }
-            catch (Exception e)
+            catch (Exception e) 
             {
                 Statics.Log("GetAttendeeByUserId Error", e.Message);
                 return null;
@@ -350,6 +352,7 @@ namespace Infrastructure.API
                 return null;
             }
         }
+   
         public async Task<string> GetJoinUrlAsync(MeetingTBL meet, string fullName, string userId,string nationalCode,string phone=""
             ,string vc2AuthNorm="", bool asModerator = false, string moderatorPassowrd = "")
         {
@@ -617,8 +620,9 @@ namespace Infrastructure.API
                 if (!hookExists)
                 {
                     // Create new webhook for all events
-                    await CreateAllEventsWebhookAsync(meetingID);
+                    //await CreateAllEventsWebhookAsync(meetingID);
                     Statics.Log("BBBWebhook", $"Webhook registered for meeting {meetingID}");
+
                 }
                 else
                 {
@@ -666,5 +670,286 @@ namespace Infrastructure.API
                 throw; // Re-throw to let RegisterWebhookForMeetingAsync handle it
             }
         }
+
+        // Add these methods to your BBBGetMeeting class
+
+        /// <summary>
+        /// Creates a webhook for receiving BBB callbacks
+        /// </summary>
+        /// <param name="callbackURL">The URL where BBB will send POST requests when events occur</param>
+        /// <param name="meetingID">Optional: Only receive events for a specific meeting</param>
+        /// <returns>Hook object containing hookID and callbackURL</returns>
+        public async Task<BBBHookResponse> CreateWebhookAsync(string callbackURL, string meetingID = null)
+        {
+            if (string.IsNullOrWhiteSpace(callbackURL))
+                throw new ArgumentException("callbackURL is required");
+
+            string apiCall = "hooks/create";
+
+            // Build query string
+            string queryString = $"callbackURL={Uri.EscapeDataString(callbackURL)}";
+            if (!string.IsNullOrWhiteSpace(meetingID))
+                queryString += $"&meetingID={Uri.EscapeDataString(meetingID)}";
+
+            string checksumInput = apiCall + queryString + Statics.bbb.Secret;
+            string checksum = Statics.ComputeSha1(checksumInput);
+            string url = $"{Statics.bbb.UrlAPI}{apiCall}?{queryString}&checksum={checksum}";
+
+            using HttpClient client = new HttpClient();
+            client.Timeout = TimeSpan.FromSeconds(30);
+
+            try
+            {
+                Statics.Log("BBBCreateWebhook Request", url);
+                string xmlResponse = await client.GetStringAsync(url);
+                Statics.Log("BBBCreateWebhook Response", xmlResponse);
+
+                // Deserialize XML response
+                XmlSerializer serializer = new XmlSerializer(typeof(BBBHookResponse));
+                using StringReader reader = new StringReader(xmlResponse);
+                BBBHookResponse result = (BBBHookResponse)serializer.Deserialize(reader);
+
+                if (result.ReturnCode != "SUCCESS")
+                    throw new Exception($"Failed to create webhook: {result.Message}");
+
+                return result;
+            }
+            catch (Exception e)
+            {
+                Statics.Log("BBBCreateWebhook Error", e.Message);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Creates a webhook for specific event types
+        /// </summary>
+        /// <param name="callbackURL">The URL where BBB will send POST requests when events occur</param>
+        /// <param name="eventIDs">List of specific event IDs to subscribe to (null or empty for all events)</param>
+        /// <param name="meetingID">Optional: Only receive events for a specific meeting</param>
+        /// <returns>Hook object containing hookID and callbackURL</returns>
+        public async Task<BBBHookResponse> CreateWebhookWithEventsAsync(string callbackURL, List<string> eventIDs, string meetingID = null)
+        {
+            if (string.IsNullOrWhiteSpace(callbackURL))
+                throw new ArgumentException("callbackURL is required");
+
+            string apiCall = "hooks/create";
+
+            // Build query string
+            string queryString = $"callbackURL={Uri.EscapeDataString(callbackURL)}";
+
+            if (eventIDs != null && eventIDs.Any())
+            {
+                foreach (var eventID in eventIDs)
+                    queryString += $"&eventID={Uri.EscapeDataString(eventID)}";
+            }
+
+            if (!string.IsNullOrWhiteSpace(meetingID))
+                queryString += $"&meetingID={Uri.EscapeDataString(meetingID)}";
+
+            string checksumInput = apiCall + queryString + Statics.bbb.Secret;
+            string checksum = Statics.ComputeSha1(checksumInput);
+            string url = $"{Statics.bbb.UrlAPI}{apiCall}?{queryString}&checksum={checksum}";
+
+            using HttpClient client = new HttpClient();
+            client.Timeout = TimeSpan.FromSeconds(30);
+
+            try
+            {
+                Statics.Log("BBBCreateWebhookWithEvents Request", url);
+                string xmlResponse = await client.GetStringAsync(url);
+                Statics.Log("BBBCreateWebhookWithEvents Response", xmlResponse);
+
+                XmlSerializer serializer = new XmlSerializer(typeof(BBBHookResponse));
+                using StringReader reader = new StringReader(xmlResponse);
+                BBBHookResponse result = (BBBHookResponse)serializer.Deserialize(reader);
+
+                if (result.ReturnCode != "SUCCESS")
+                    throw new Exception($"Failed to create webhook with events: {result.Message}");
+
+                return result;
+            }
+            catch (Exception e)
+            {
+                Statics.Log("BBBCreateWebhookWithEvents Error", e.Message);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Lists all registered webhooks
+        /// </summary>
+        /// <param name="meetingID">Optional: Filter hooks by meetingID</param>
+        /// <returns>List of registered webhooks</returns>
+        public async Task<List<BBBHookInfo>> ListWebhooksAsync(string meetingID = null)
+        {
+            string apiCall = "hooks/list";
+
+            string queryString = "";
+            if (!string.IsNullOrWhiteSpace(meetingID))
+                queryString = $"meetingID={Uri.EscapeDataString(meetingID)}";
+
+            string checksumInput = apiCall + queryString + Statics.bbb.Secret;
+            string checksum = Statics.ComputeSha1(checksumInput);
+            string url = $"{Statics.bbb.UrlAPI}{apiCall}?{queryString}&checksum={checksum}";
+
+                using HttpClient client = new HttpClient();
+            client.Timeout = TimeSpan.FromSeconds(30);
+
+            try
+            {
+                Statics.Log("BBBListWebhooks Request", url);
+                string xmlResponse = await client.GetStringAsync(url);
+                Statics.Log("BBBListWebhooks Response", xmlResponse);
+
+                // Parse XML manually because it has a different structure
+                var doc = XDocument.Parse(xmlResponse);
+
+                if (doc.Root?.Element("returncode")?.Value != "SUCCESS")
+                {
+                    var message = doc.Root?.Element("message")?.Value ?? "Unknown error";
+                    throw new Exception($"Failed to list webhooks: {message}");
+                }
+
+                var hooks = new List<BBBHookInfo>();
+                var hooksElement = doc.Root?.Element("hooks");
+
+                if (hooksElement != null)
+                {
+                    foreach (var hookElement in hooksElement.Elements("hook"))
+                    {
+                        var hook = new BBBHookInfo
+                        {
+                            HookID = hookElement.Element("hookID")?.Value,
+                            CallbackURL = hookElement.Element("callbackURL")?.Value,
+                            MeetingID = hookElement.Element("meetingID")?.Value,
+                            Permanent = bool.TryParse(hookElement.Element("permanent")?.Value, out bool perm) ? perm : false,
+                            RawData = hookElement.Element("rawData")?.Value == "true"
+                        };
+
+                        // Get event IDs if any
+                        var eventIDsElement = hookElement.Element("eventIDs");
+                        if (eventIDsElement != null)
+                        {
+                            hook.EventIDs = eventIDsElement.Elements("eventID")
+                                .Select(e => e.Value)
+                                .ToList();
+                        }
+
+                        hooks.Add(hook);
+                    }
+                }
+
+                return hooks;
+            }
+            catch (Exception e)
+            {
+                Statics.Log("BBBListWebhooks Error", e.Message);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Destroys/removes a specific webhook
+        /// </summary>
+        /// <param name="hookID">The ID of the webhook to destroy</param>
+        /// <returns>True if successful, false otherwise</returns>
+        public async Task<bool> DestroyWebhookAsync(string hookID)
+        {
+            if (string.IsNullOrWhiteSpace(hookID))
+                throw new ArgumentException("hookID is required");
+
+            string apiCall = "hooks/destroy";
+            string queryString = $"hookID={Uri.EscapeDataString(hookID)}";
+
+            string checksumInput = apiCall + queryString + Statics.bbb.Secret;
+            string checksum = Statics.ComputeSha1(checksumInput);
+            string url = $"{Statics.bbb.UrlAPI}{apiCall}?{queryString}&checksum={checksum}";
+
+            using HttpClient client = new HttpClient();
+            client.Timeout = TimeSpan.FromSeconds(30);
+
+            try
+            {
+                Statics.Log("BBBDestroyWebhook Request", url);
+                string xmlResponse = await client.GetStringAsync(url);
+                Statics.Log("BBBDestroyWebhook Response", xmlResponse);
+
+                var doc = XDocument.Parse(xmlResponse);
+                var returncode = doc.Root?.Element("returncode")?.Value;
+
+                return returncode?.Equals("SUCCESS", StringComparison.OrdinalIgnoreCase) == true;
+            }
+            catch (Exception e)
+            {
+                Statics.Log("BBBDestroyWebhook Error", e.Message);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Destroys all webhooks for a specific meeting
+        /// </summary>
+        /// <param name="meetingID">The meeting ID to destroy all webhooks for</param>
+        /// <returns>Number of webhooks destroyed</returns>
+        public async Task<int> DestroyAllWebhooksForMeetingAsync(string meetingID)
+        {
+            if (string.IsNullOrWhiteSpace(meetingID))
+                throw new ArgumentException("meetingID is required");
+
+            var hooks = await ListWebhooksAsync(meetingID);
+            int destroyed = 0;
+
+            foreach (var hook in hooks)
+            {
+                if (await DestroyWebhookAsync(hook.HookID))
+                    destroyed++;
+            }
+
+            Statics.Log("BBBDestroyAllWebhooks", $"Destroyed {destroyed} webhooks for meeting {meetingID}");
+            return destroyed;
+        }
+
+        /// <summary>
+        /// Gets detailed information about a specific webhook
+        /// </summary>
+        /// <param name="hookID">The ID of the webhook to get info for</param>
+        /// <returns>Webhook information or null if not found</returns>
+        public async Task<BBBHookInfo> GetWebhookInfoAsync(string hookID)
+        {
+            if (string.IsNullOrWhiteSpace(hookID))
+                throw new ArgumentException("hookID is required");
+
+            var allHooks = await ListWebhooksAsync();
+            return allHooks.FirstOrDefault(h => h.HookID == hookID);
+        }
+
+        /// <summary>
+        /// Updates an existing webhook's callback URL
+        /// </summary>
+        /// <param name="hookID">The ID of the webhook to update</param>
+        /// <param name="newCallbackURL">The new callback URL</param>
+        /// <returns>True if successful, false otherwise</returns>
+        public async Task<bool> UpdateWebhookCallbackURLAsync(string hookID, string newCallbackURL)
+        {
+            if (string.IsNullOrWhiteSpace(hookID))
+                throw new ArgumentException("hookID is required");
+            if (string.IsNullOrWhiteSpace(newCallbackURL))
+                throw new ArgumentException("newCallbackURL is required");
+
+            // BBB doesn't have a direct update endpoint, so we need to destroy and recreate
+            var hook = await GetWebhookInfoAsync(hookID);
+            if (hook == null)
+                return false;
+
+            bool destroyed = await DestroyWebhookAsync(hookID);
+            if (!destroyed)
+                return false;
+
+            var newHook = await CreateWebhookAsync(newCallbackURL, hook.MeetingID);
+            return newHook != null && newHook.ReturnCode == "SUCCESS";
+        }
+
+      
     }
 }

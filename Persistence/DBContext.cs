@@ -31,6 +31,9 @@ namespace Presistence.Entities
         public DbSet<MeetPollQuizAnsTBL> MeetPollQuizAnsTBLs { get; set; }
         public DbSet<MeetPollQuizAnsTBLToUserMeetTBL> MeetPollQuizAnsTBLToUserMeetTBLs { get; set; }
         public DbSet<MeetPollQuizTBL> MeetPollQuizTBLs { get; set; }
+        public DbSet<MeetingLogTBL> MeetingLogTBLs { get; set; }
+        public DbSet<UserFileTBL> UserFileTBLs { get; set; }
+        public DbSet<UserTBLToMeetingTBLMuiltiJoinTBL> UserTBLToMeetingTBLMuiltiJoinTBLs { get; set; }
 
         #endregion
         #region 12/07/2025  
@@ -96,7 +99,10 @@ namespace Presistence.Entities
             modelBuilder.ApplyConfiguration(new MeetingReservationTBLConfiguration());
             modelBuilder.ApplyConfiguration(new MeetPollQuizTBLConfiguration());
             modelBuilder.ApplyConfiguration(new MeetPollQuizAnsTBLToUserMeetTBLConfiguration());
+            modelBuilder.ApplyConfiguration(new UserFileTBLConfiguration());
+            modelBuilder.ApplyConfiguration(new MeetingLogTBLConfiguration());
             modelBuilder.ApplyConfiguration(new MeetPollQuizAnsTBLConfiguration());
+            modelBuilder.ApplyConfiguration(new UserTBLToMeetingTBLMuiltiJoinTBLConfiguration());
             #endregion
         }
 

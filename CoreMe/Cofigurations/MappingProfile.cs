@@ -66,6 +66,14 @@ public class MappingProfile : Profile
           .ForMember(dest => dest.GeneralHeaders, opt => opt.Ignore());
         CreateMap<UpdatePresentMinToCertOfMeetViewModel, UpdatePresentMinToCertOfMeetRequest>()
           .ForMember(dest => dest.GeneralHeaders, opt => opt.Ignore());
+        CreateMap<GetPollReportVM, GetPollReportRequest>()
+          .ForMember(dest => dest.GeneralHeaders, opt => opt.Ignore());
+        CreateMap<UploadFileStorageViewModel, UploadFileStorageRequest>()
+          .ForMember(dest => dest.GeneralHeaders, opt => opt.Ignore());
+        CreateMap<GetFileStorageVM, GetFileStorageRequest>()
+          .ForMember(dest => dest.GeneralHeaders, opt => opt.Ignore());
+        CreateMap<GetSingleFileVM, GetSingleFileRequest>()
+          .ForMember(dest => dest.GeneralHeaders, opt => opt.Ignore());
 
     }
 }

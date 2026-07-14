@@ -34,6 +34,7 @@ namespace CoreMe.Controllers
         [HttpGet("/user/CronJobCheckLiveMeetingTask")]
         public async Task<IActionResult> CronJobCheckLiveMeetingTask()
         {
+            return Ok("");
             await _ICronJobCheckLiveMeetingTaskUseCase.handleAsync(new CronJobCheckLiveMeetingTaskRequest(), _CronJobCheckLiveMeetingTaskResponse);
             return _CronJobCheckLiveMeetingTaskResponse.jsonContentResult;
         }

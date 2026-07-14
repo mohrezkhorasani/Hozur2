@@ -2,6 +2,9 @@
 using Application.DTO.Models;
 using Application.Interface.IUsecase;
 using Domain.Entity;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
 using static Application.General.Statics;
@@ -243,7 +246,6 @@ namespace Application.DTO
         public List<SharedOBJ_Certificate> Certificates { get; set; }
     }
     #endregion
-
 
 
 }

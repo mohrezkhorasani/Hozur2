@@ -49,13 +49,40 @@ namespace Presistence.Entities
 
             builder.HasOne(e => e.UserTBL).WithMany(c => c.UserTBLToMeetingTBLs)
             .HasForeignKey(x => x.UUID)
-            .HasPrincipalKey(x=>x.UUID)
+            .HasPrincipalKey(x => x.UUID)
             .OnDelete(DeleteBehavior.Restrict);
             builder.HasOne(e => e.MeetingTBL).WithMany(c => c.UserTBLToMeetingTBLs)
             .HasForeignKey(x => x.MeetID)
             .HasPrincipalKey(m => m.MeetID)
             .OnDelete(DeleteBehavior.Restrict);
-            
+
+        }
+
+    }
+    public class UserTBLToMeetingTBLMuiltiJoinTBLConfiguration : IEntityTypeConfiguration<UserTBLToMeetingTBLMuiltiJoinTBL>
+
+    {
+
+        public void Configure(EntityTypeBuilder<UserTBLToMeetingTBLMuiltiJoinTBL> builder)
+
+        {
+
+            builder.ToTable("UserTBLToMeetingTBLMuiltiJoinTBL");
+
+            builder.HasKey(x => x.ID);
+            builder.Property(x => x.ID).UseIdentityColumn(seed: 11111111, increment: 4);
+
+            builder.Property(e => e.Explain).IsRequired(false).HasMaxLength(3000);
+            builder.Property(e => e.DateInsert).HasDefaultValueSql("SYSDATETIME()");
+            builder.Property(e => e.Status).HasDefaultValue(MainEntity_Status.Deactive);
+            builder.Property(e => e.Type).HasDefaultValue(MainEntity_Types.Normal);
+
+
+
+            builder.HasOne(e => e.UserTBLToMeetingTBL).WithMany(c => c.UserTBLToMeetingTBLMuiltiJoinTBLs)
+            .HasForeignKey(x => x.IDUserTBLToMeetingTBL)
+            .OnDelete(DeleteBehavior.Restrict);
+
         }
 
     }

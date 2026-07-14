@@ -124,7 +124,7 @@ namespace Application.General
 
         public long GetTimerStayUserInMeet(UserTBLToMeetingTBL m)
         {
-            if (!m.MeetingTBL.EndDate.HasValue)
+            if (!m.MeetingTBL.EndDate.HasValue || m.MeetingTBL.IsMeetingRunning())
             {
                 m.MeetingTBL.EndDate = DateTime.UtcNow;
             }
@@ -155,6 +155,106 @@ namespace Application.General
                 seconds += (long)(end - join.Value).TotalSeconds;
             }
             return seconds;
+        }
+        public long GetTotalUniqueStayTimeInMeet(List<UserTBLToMeetingTBL> userMeetings)
+        {
+            if (userMeetings == null || userMeetings.Count == 0)
+                return 0;
+
+            // جمع‌آوری تمام بازه‌های زمانی حضور هر کاربر
+            List<(DateTime Start, DateTime End)> allIntervals = new List<(DateTime, DateTime)>();
+
+            foreach (var userMeeting in userMeetings)
+            {
+                // تنظیم زمان پایان جلسه
+                if (!userMeeting.MeetingTBL.EndDate.HasValue)
+                {
+                    userMeeting.MeetingTBL.EndDate = DateTime.UtcNow;
+                }
+
+                DateTime endOfMeeting = new[]
+                {
+            userMeeting.MeetingTBL.EndDate.Value,
+            userMeeting.MeetingTBL.DateInsert.AddHours(4)
+        }.Min();
+
+                // استخراج بازه‌های حضور این کاربر
+                var logs = userMeeting.UserTBLToMeetingTBLLogs.OrderBy(e => e.DateInsert);
+                DateTime? join = null;
+
+                foreach (var log in logs)
+                {
+                    if (!join.HasValue)
+                    {
+                        if (log.Key == "JOIN")
+                        {
+                            join = log.DateInsert;
+                        }
+                    }
+                    else
+                    {
+                        if (log.Key == "LEFT")
+                        {
+                            DateTime start = join.Value;
+                            DateTime end = log.DateInsert > endOfMeeting ? endOfMeeting : log.DateInsert;
+
+                            if (start < end)
+                            {
+                                allIntervals.Add((start, end));
+                            }
+
+                            join = null;
+                        }
+                    }
+                }
+
+                // اگر کاربر هنوز در جلسه است
+                if (join.HasValue && join.Value < endOfMeeting)
+                {
+                    allIntervals.Add((join.Value, endOfMeeting));
+                }
+            }
+
+            // اگر هیچ بازه‌ای وجود نداشت
+            if (allIntervals.Count == 0)
+                return 0;
+
+            // مرتب‌سازی بازه‌ها بر اساس زمان شروع
+            var sortedIntervals = allIntervals.OrderBy(i => i.Start).ToList();
+
+            // ادغام بازه‌های همپوشان (overlapping)
+            List<(DateTime Start, DateTime End)> mergedIntervals = new List<(DateTime, DateTime)>();
+            DateTime currentStart = sortedIntervals[0].Start;
+            DateTime currentEnd = sortedIntervals[0].End;
+
+            for (int i = 1; i < sortedIntervals.Count; i++)
+            {
+                if (sortedIntervals[i].Start <= currentEnd)
+                {
+                    // همپوشانی وجود دارد - گسترش بازه فعلی
+                    if (sortedIntervals[i].End > currentEnd)
+                    {
+                        currentEnd = sortedIntervals[i].End;
+                    }
+                }
+                else
+                {
+                    // هیچ همپوشانی نیست - بازه قبلی را ذخیره کن
+                    mergedIntervals.Add((currentStart, currentEnd));
+                    currentStart = sortedIntervals[i].Start;
+                    currentEnd = sortedIntervals[i].End;
+                }
+            }
+            mergedIntervals.Add((currentStart, currentEnd));
+
+            // محاسبه مجموع زمان‌های ادغام شده
+            long totalSeconds = 0;
+            foreach (var interval in mergedIntervals)
+            {
+                totalSeconds += (long)(interval.End - interval.Start).TotalSeconds;
+            }
+
+            return totalSeconds;
         }
 
         public async Task<MeetingTBL> NewMeeting(MeetingTBL tbl)
@@ -206,7 +306,7 @@ namespace Application.General
         public async Task<UserTBLToMeetingTBL> GetUserMeetWithoutID(UserTBLToMeetingTBL q)
         {
             return _db.UserTBLToMeetingTBLs
-            .FirstOrDefault(e => e.MeetID == q.MeetID && e.UUID == q.UUID);
+            .FirstOrDefault(e => e.MeetID == q.MeetID && e.UUID == q.UUID );
         }
 
         public async Task<bool> CheckUserGUID(UserTBL user, string q)
@@ -355,7 +455,7 @@ namespace Application.General
         {
             return await _db.UserTBLToMeetingTBLs.AnyAsync(x =>
                 x.ID == user.ID ||
-                (user.MeetID != null && x.MeetID == user.MeetID && user.UUID == x.UUID)
+                (user.MeetID != null && x.MeetID == user.MeetID && user.UUID == x.UUID )
             );
         }
 

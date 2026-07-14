@@ -843,6 +843,17 @@ namespace Application.Usecase
                     IsCertificated = false,
 
                 });
+                if (!_db.UserTBLToMeetingTBLMuiltiJoinTBLs.Any(e => e.IDUserTBLToMeetingTBL == userMeet.ID && e.UserMeetID == message.MeetUserID))
+                {
+                    _db.UserTBLToMeetingTBLMuiltiJoinTBLs.Add(new UserTBLToMeetingTBLMuiltiJoinTBL
+                    {
+                        IDUserTBLToMeetingTBL = userMeet.ID,
+                        UserMeetID=message.MeetUserID,
+                        IPList=message.GeneralHeaders.RequestedIP+"",
+                    });
+                    _db.SaveChanges();
+
+                }
                 if (userMeet.Phone != attend.Phone || userMeet.NationalCode != attend.NationalCode)
                 {
                     userMeet.Phone = string.IsNullOrEmpty(attend.Phone) ? "-null-" : attend.Phone;
@@ -2185,7 +2196,14 @@ namespace Application.Usecase
                 userid = message.GeneralHeaders.UserTBL.UUID;
                 vc2Token = message.GeneralHeaders.JWTUserToken;
             }
-            else if (string.IsNullOrEmpty(message.NationalCode))
+            else if (!string.IsNullOrEmpty(message.GeneralHeaders?.BBBUserToken))
+            {
+                userid = message.GeneralHeaders.BBBUserToken;
+                if (userid == null)
+                    userid = Statics.GenerateSecretKey(64);
+
+            }
+            else
             {
                 userid = message.GeneralHeaders.BBBUserToken;
                 if (userid == null)
@@ -2347,7 +2365,7 @@ namespace Application.Usecase
 
                 outputPort.Handle(new GenericResponse<GuarantCertificateResponse>(new GuarantCertificateResponse
                 {
-                    Message = $"ok{message.GeneralHeaders.JWTMeetingToken}\n {message.GeneralHeaders.JWTMeetingUserToken} \n {meet.MeetID} \n {user.UUID}",
+                    Message = $"ok",
                     Status = 200,
                     Number = um.ID
                 }));
@@ -2411,8 +2429,8 @@ namespace Application.Usecase
                     return;
                 }
                 Statics.Log("GenerateCertificateUseCase", "checkCert");
-                var um = _db.UserTBLToMeetingTBLs.Where(e => e.TokenJWT == message.GeneralHeaders.JWTMeetingUserToken)
-                    .Include(e => e.MeetingTBL).Include(e => e.UserTBLToMeetingTBLLogs).FirstOrDefault();
+                var um = await _db.UserTBLToMeetingTBLs.Where(e => e.TokenJWT == message.GeneralHeaders.JWTMeetingUserToken && e.MeetID==meet.MeetID)
+                    .Include(e => e.MeetingTBL).Include(e => e.UserTBLToMeetingTBLLogs).FirstOrDefaultAsync();
                 if (um == null || string.IsNullOrEmpty(um.NationalCode))
                 {
                     outputPort.Handle(new GenericResponse<GenerateCertificateResponse>(new GenerateCertificateResponse
@@ -2439,7 +2457,7 @@ namespace Application.Usecase
                         Status = 403,
                     }));
                     return;
-                }
+                }   
                 var timestay = _commonMethods.GetTimerStayUserInMeet(um);
                 if (timestay < meet.PresentMinutesToCert * 60)
                 {
@@ -4190,7 +4208,6 @@ namespace Application.Usecase
     }
     #endregion
 
-
     #region GetPollList
     public class GetPollListUseCase : IGetPollListUseCase
     {
@@ -4450,4 +4467,6 @@ namespace Application.Usecase
         }
     }
     #endregion
+
+
 }

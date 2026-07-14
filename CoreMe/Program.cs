@@ -1,4 +1,5 @@
 using Application.Cache.Handlers;
+using Application.DTO;
 using Application.General;
 using Application.Interface.IInfrastructure;
 using Application.Interface.IUsecase;
@@ -11,6 +12,7 @@ using CoreMe.Presenter;
 using Infrastracture;
 using Infrastructure.API;
 using Infrastructure.Word;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
@@ -80,7 +82,7 @@ builder.Services.AddCors(options =>
             })
             .AllowAnyHeader()
             .AllowAnyMethod()
-            .AllowCredentials(); // include this if using cookies or auth
+            .AllowCredentials().WithExposedHeaders("*"); // include this if using cookies or auth
     });
     options.AddPolicy("AllowSwagger", builder =>
     {
@@ -129,6 +131,11 @@ builder.Services.AddDbContext<DBContext>(option =>
             sqlOptions.CommandTimeout(300); // 5 دقیقه
         }
     ));
+
+builder.Services.AddSingleton<IBackgroundTaskQueue, BackgroundTaskQueue>();
+builder.Services.AddHostedService<BackgroundTaskQueueService>();
+
+
 builder.Services.AddScoped(typeof(ApiPresenter<>));
 builder.Services.AddScoped(typeof(JsonContentResult));
 builder.Services.AddScoped<IDBContext, DBContext>();
@@ -193,8 +200,62 @@ builder.Services.AddScoped<IGetPollListAdminUseCase, GetPollListAdminUseCase>();
 builder.Services.AddScoped<IEndTheMeetingWithAPIUseCase, EndTheMeetingWithAPIUseCase>();
 builder.Services.AddScoped<IUpdatePresentMinToCertOfMeetUseCase, UpdatePresentMinToCertOfMeetUseCase>();
 builder.Services.AddScoped<IGetAllLivesUseCase, GetAllLivesUseCase>();
+builder.Services.AddScoped<INewHookUseCase, NewHookUseCase>();
+builder.Services.AddScoped<IGetHooksUseCase, GetHooksUseCase>();
+builder.Services.AddScoped<IGetHookInfoUseCase, GetHookInfoUseCase>();
+builder.Services.AddScoped<IDestroyWebhookAsyncUseCase, DestroyWebhookAsyncUseCase>();
+builder.Services.AddScoped<IDestroyAllWebhooksForMeetingAsyncUseCase, DestroyAllWebhooksForMeetingAsyncUseCase>();
+builder.Services.AddScoped<IUpdateWebhookCallbackURLAsyncUseCase, UpdateWebhookCallbackURLAsyncUseCase>();
+builder.Services.AddScoped<IBBBWebhookLogUseCase, BBBWebhookLogUseCase>();
+builder.Services.AddScoped<IGetAllRoomsMiniUseCase, GetAllRoomsMiniUseCase>();
+builder.Services.AddScoped<IGetPollReportUseCase, GetPollReportUseCase>();
+builder.Services.AddScoped<IUploadFileStorageUseCase, UploadFileStorageUseCase>();
+builder.Services.AddScoped<IGetSingleFileUseCase, GetSingleFileUseCase>();
+builder.Services.AddScoped<IGetFileStorageUseCase, GetFileStorageUseCase>();
+builder.Services.AddScoped<IUploadFileStorageUseCase, UploadFileStorageUseCase>();
+builder.Services.AddScoped<IGetAllMeetingUseCase, GetAllMeetingUseCase>();
 
 
+
+#region File Limit configuration
+// تنظیمات برای IIS
+builder.Services.Configure<IISServerOptions>(options =>
+{
+    //options.MaxRequestBodySize = 2L * 1024 * 1024 * 1024; // 2GB
+    options.AllowSynchronousIO = true;
+    options.AutomaticAuthentication = true;
+    //options.MaxRequestBodyBufferSize = 2L * 1024 * 1024 * 1024;
+});
+
+builder.Services.Configure<IISOptions>(options =>
+{
+    options.ForwardClientCertificate = true;
+    options.AutomaticAuthentication = true;
+});
+
+// تنظیمات Kestrel (برای زمانی که مستقیم اجرا می‌شود)
+builder.WebHost.ConfigureKestrel(serverOptions =>
+{
+    serverOptions.Limits.MaxRequestBodySize = 2L * 1024 * 1024 * 1024;
+    serverOptions.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(30);
+    serverOptions.Limits.RequestHeadersTimeout = TimeSpan.FromMinutes(30);
+    serverOptions.Limits.MaxConcurrentConnections = 1000;
+    serverOptions.Limits.MaxConcurrentUpgradedConnections = 1000;
+});
+
+// تنظیمات فرم برای آپلود
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.ValueLengthLimit = int.MaxValue;
+    options.MultipartBodyLengthLimit = 2L * 1024 * 1024 * 1024; // 2GB
+    options.MemoryBufferThreshold = int.MaxValue;
+    options.MultipartBoundaryLengthLimit = int.MaxValue;
+    options.MultipartHeadersLengthLimit = int.MaxValue;
+    options.MultipartBodyLengthLimit = 2L * 1024 * 1024 * 1024;
+});
+
+
+#endregion
 
 builder.Services.AddScoped<ISendSMS , SendSMS>();
 
@@ -257,7 +318,6 @@ var app = builder.Build();
 // if (app.Environment.IsDevelopment())
 // {
 //app.UseCors("AllowAllOrigins");
-app.UseCors("AllowAllOrigins");
 
 app.UseSwagger();
 app.UseSwaggerUI(c =>
@@ -273,7 +333,9 @@ app.UseSwaggerUI(c =>
 //app.UseCors("AllowHekmateSubdomains");
 
 app.UseStaticFiles();
-
+app.UseRouting();
+app.UseCors("AllowAllOrigins");
+    
 //app.UseHttpsRedirection();
 
 // --- فعال کردن احراز هویت ---

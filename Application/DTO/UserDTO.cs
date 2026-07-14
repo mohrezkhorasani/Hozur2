@@ -727,6 +727,31 @@ namespace Application.DTO
     }
     #endregion
 
+    #region GetAllRoomsMini
+    public class GetAllRoomsMiniRequest : NewUserRequest, IUseCaseRequest<GenericResponse<GetAllRoomsMiniResponse>>
+    {
+        public string Query { get; set; }
+        public string? UserName { get; set; }
+    }
+
+    public class GetAllRoomsMiniResponse : BaseParentResponce
+    {
+        public List<MicroRoomJSON> Data = new List<MicroRoomJSON>();
+    }
+    #endregion
+    #region GetAllMeeting
+    public class GetAllMeetingRequest : NewUserRequest, IUseCaseRequest<GenericResponse<GetAllMeetingResponse>>
+    {
+        public string Query { get; set; }
+        public string? UserName { get; set; }
+    }
+
+    public class GetAllMeetingResponse : BaseParentResponce
+    {
+        public List<MiniMeet> Data = new List<MiniMeet>();
+    }
+    #endregion
+
 
     #region GetAllLives
     public class GetAllLivesRequest : GetLivesRequest, IUseCaseRequest<GenericResponse<GetAllLivesResponse>>
@@ -769,6 +794,24 @@ namespace Application.DTO
     {
         public List<PollJSON> Data = new List<PollJSON>();
     }
+    #endregion
+
+
+    #region Request/Response Models
+    public class GetPollReportRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<GetPollReportResponse>>
+    {
+        public string MeetID { get; set; }
+        public long? QID { get; set; }      // nullable - if provided, report for specific question
+        public string? UserID { get; set; }  // nullable - if provided, report for specific user
+    }
+
+    public class GetPollReportResponse : BaseParentResponce
+    {
+        public List<PollReportJSON> Data { get; set; } = new List<PollReportJSON>();
+        public int TotalParticipants { get; set; }
+    }
+
+
     #endregion
 
 }

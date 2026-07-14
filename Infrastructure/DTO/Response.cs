@@ -130,6 +130,56 @@ namespace Infrastructure.DTO
         [XmlElement("owner")]
         public long OwnerID { get; set; }
     }
+    // Add these response model classes
+
+    [XmlRoot("response")]
+    public class BBBHookResponse
+    {
+        [XmlElement("returncode")]
+        public string ReturnCode { get; set; }
+
+        [XmlElement("message")]
+        public string Message { get; set; }
+
+        [XmlElement("messageKey")]
+        public string MessageKey { get; set; }
+
+        [XmlElement("hookID")]
+        public string HookID { get; set; }
+
+        [XmlElement("callbackURL")]
+        public string CallbackURL { get; set; }
+    }
+
+    public class BBBHookInfo
+    {
+        public string HookID { get; set; }
+        public string CallbackURL { get; set; }
+        public string MeetingID { get; set; }
+        public bool Permanent { get; set; }
+        public bool RawData { get; set; }
+        public List<string> EventIDs { get; set; } = new List<string>();
+    }
+
+    // Optional: Add constants for common event types
+    public static class BBBWebhookEvents
+    {
+        public const string MeetingCreated = "meeting-created";
+        public const string MeetingDestroyed = "meeting-destroyed";
+        public const string MeetingEnded = "meeting-ended";
+        public const string UserJoined = "user-joined";
+        public const string UserLeft = "user-left";
+        public const string UserJoinedVoice = "user-joined-voice";
+        public const string UserLeftVoice = "user-left-voice";
+        public const string UserSharedCamera = "user-shared-camera";
+        public const string UserUnsharedCamera = "user-unshared-camera";
+        public const string UserStartedSharingScreen = "user-started-sharing-screen";
+        public const string UserStoppedSharingScreen = "user-stopped-sharing-screen";
+        public const string RecordingStarted = "recording-started";
+        public const string RecordingStopped = "recording-stopped";
+        public const string ParticipantJoined = "participant-joined";
+        public const string ParticipantLeft = "participant-left";
+    }
 
     [XmlRoot("response")]
     public class BBBCreateResponse

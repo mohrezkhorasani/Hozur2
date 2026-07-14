@@ -11,6 +11,7 @@ using Domain.Entity;
 using MediatR;
 using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -360,10 +361,15 @@ namespace Application.Usecase
                             // استخراج از IPList (یا هر فیلد دیگه‌ای که لاگ‌ها رو داره)
                             if (e.UserTBLToMeetingTBLLogs.Count > 0 && string.IsNullOrEmpty(e.UserTBLToMeetingTBLLogs.First().OS))
                             {
-                                var lines = e.UserTBLToMeetingTBLLogs.First().OS
-                                    .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
-                                    .Select(l => l.Trim())
-                                    .Where(l => l.Contains("/$$"));
+                                var lines = new List<string>();
+                                if (!string.IsNullOrEmpty(e.UserTBLToMeetingTBLLogs.First().OS))
+                                {
+                                    lines = e.UserTBLToMeetingTBLLogs.First().OS
+                                      .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                                      .Select(l => l.Trim())
+                                      .Where(l => l.Contains("/$$")).ToList();
+                                }
+
 
                                 var firstValidLine = lines.FirstOrDefault(); // یا LastOrDefault() برای آخرین دستگاه
 
@@ -1665,4 +1671,610 @@ namespace Application.Usecase
     }
     #endregion
 
+
+
+    #region UploadFileStorage
+    public class UploadFileStorageRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<UploadFileStorageResponse>>
+    {
+        public List<IFormFile> Files { get; set; }
+        public string UploadPath { get; set; } // Optional: custom path, e.g., "images/products" or "documents/invoices"
+        public string BaseUrl { get; set; } // Optional: base URL for generating file links
+    }
+
+    public class UploadFileStorageResponse : BaseParentResponce
+    {
+        public List<string> URLs { get; set; }
+        public List<string> FileNames { get; set; } // Optional: return original file names
+        public List<string> SavedPaths { get; set; } // Optional: return physical saved paths
+        public List<long> FileSizes { get; set; } // Optional: return file sizes in bytes
+    }
+
+    public interface IUploadFileStorageUseCase
+    {
+        Task handleAsync(UploadFileStorageRequest message, IOutPutPort<GenericResponse<UploadFileStorageResponse>> outputPort);
+    }
+
+    public class UploadFileStorageUseCase : IUploadFileStorageUseCase
+    {
+        private readonly IWebHostEnvironment _hostingEnvironment;
+        private readonly IConfiguration _configuration;
+        private readonly IDBContext _db;
+
+        public UploadFileStorageUseCase(IWebHostEnvironment hostingEnvironment, IConfiguration configuration, IDBContext db)
+        {
+            _hostingEnvironment = hostingEnvironment;
+            _configuration = configuration;
+            _db = db;
+        }
+
+        public async Task handleAsync(UploadFileStorageRequest message, IOutPutPort<GenericResponse<UploadFileStorageResponse>> outputPort)
+        {
+            try
+            {
+                // Check user permission
+                if (message.GeneralHeaders?.UserTBL == null || !message.GeneralHeaders.UserTBL.VerifyUserPermissions("ftp"))
+                {
+                    throw new Exception("NotAccess");
+                }
+
+                // Validate files
+                if (message.Files == null || message.Files.Count == 0)
+                {
+                    outputPort.Handle(new GenericResponse<UploadFileStorageResponse>(new UploadFileStorageResponse
+                    {
+                        Message = "هیچ فایلی برای آپلود انتخاب نشده است",
+                        Status = 400,
+                    }));
+                    return;
+                }
+
+                // Validate file count (limit to 10 files)
+                if (message.Files.Count > 10)
+                {
+                    outputPort.Handle(new GenericResponse<UploadFileStorageResponse>(new UploadFileStorageResponse
+                    {
+                        Message = "حداکثر 10 فایل می‌تواند آپلود شود",
+                        Status = 400,
+                    }));
+                    return;
+                }
+
+                // Allowed file extensions for photos, videos, and sounds
+                var allowedExtensions = new[] { 
+                // Images
+                ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".svg", ".ico", ".tiff", ".tif",
+                // Videos
+                ".mp4", ".avi", ".mov", ".wmv", ".flv", ".mkv", ".webm", ".m4v", ".mpg", ".mpeg", ".3gp", ".ogv",
+                // Sounds/Audio
+                ".mp3", ".wav", ".ogg", ".m4a", ".flac", ".aac", ".wma", ".opus", ".webm"
+            };
+
+                // Maximum file size: 2GB = 2 * 1024 * 1024 * 1024 bytes
+                const long maxFileSize = 2L * 1024 * 1024 * 1024; // 2 GB
+
+                var uploadedUrls = new List<string>();
+                var uploadedFileNames = new List<string>();
+                var uploadedPaths = new List<string>();
+                var uploadedFileSizes = new List<long>();
+
+                // Determine upload directory
+                string baseUploadPath;
+                if (!string.IsNullOrEmpty(message.UploadPath))
+                {
+                    // Use custom path provided in request
+                    baseUploadPath = Path.Combine(@"C:\hekmatFiles", message.UploadPath);
+                }
+                else
+                {
+                    // Default path from configuration or webroot
+                    var defaultPath = _configuration["UploadSettings:DefaultPath"] ?? "uploads";
+                    baseUploadPath = Path.Combine(_hostingEnvironment.WebRootPath, defaultPath);
+                }
+
+                // Create directory if not exists
+                if (!Directory.Exists(baseUploadPath))
+                {
+                    Directory.CreateDirectory(baseUploadPath);
+                }
+
+                // Process each file
+                foreach (var file in message.Files)
+                {
+                    // Validate file size (2GB max)
+                    if (file.Length > maxFileSize)
+                    {
+                        outputPort.Handle(new GenericResponse<UploadFileStorageResponse>(new UploadFileStorageResponse
+                        {
+                            Message = $"فایل {file.FileName} بزرگتر از حد مجاز (2GB) است. حجم فایل: {(file.Length / 1024.0 / 1024 / 1024):F2} GB",
+                            Status = 400,
+                        }));
+                        return;
+                    }
+
+                    // Validate file extension
+                    var fileExtension = Path.GetExtension(file.FileName).ToLower();
+                    if (!allowedExtensions.Contains(fileExtension))
+                    {
+                        outputPort.Handle(new GenericResponse<UploadFileStorageResponse>(new UploadFileStorageResponse
+                        {
+                            Message = $"فرمت فایل {file.FileName} مجاز نیست. فرمت‌های مجاز: تصاویر، ویدئوها و فایل‌های صوتی",
+                            Status = 400,
+                        }));
+                        return;
+                    }
+
+                    // Determine file type category for better organization
+                    string fileCategory = GetFileCategory(fileExtension);
+
+                    // Create unique filename to avoid conflicts
+                    var uniqueFileName = $"{Guid.NewGuid()}{fileExtension}";
+
+                    // Create organized subdirectories: Category/Year/Month
+                    var yearFolder = DateTime.Now.ToString("yyyy");
+                    var monthFolder = DateTime.Now.ToString("MM");
+                    var finalUploadPath = Path.Combine(baseUploadPath, fileCategory, yearFolder, monthFolder);
+
+                    if (!Directory.Exists(finalUploadPath))
+                    {
+                        Directory.CreateDirectory(finalUploadPath);
+                    }
+
+                    var filePath = Path.Combine(finalUploadPath, uniqueFileName);
+
+                    // Save file to disk with progress support (optional)
+                    await SaveFileWithProgressAsync(file, filePath);
+
+                    // Generate URL for accessing the file
+                    string fileUrl;
+                    if (!string.IsNullOrEmpty(message.BaseUrl))
+                    {
+                        // Use custom base URL from request
+                        var relativePath = Path.Combine(message.UploadPath ?? "uploads", fileCategory, yearFolder, monthFolder, uniqueFileName)
+                            .Replace("\\", "/");
+                        fileUrl = $"{message.BaseUrl.TrimEnd('/')}/{relativePath}";
+                    }
+                    else
+                    {
+                        // Generate relative URL path
+                        var relativePath = Path.Combine(message.UploadPath ?? "uploads", fileCategory, yearFolder, monthFolder, uniqueFileName)
+                            .Replace("\\", "/");
+                        fileUrl = $"/{relativePath}";
+                    }
+
+                    // Add to response lists
+                    uploadedUrls.Add(fileUrl);
+                    uploadedFileNames.Add(file.FileName);
+                    uploadedPaths.Add(filePath);
+                    uploadedFileSizes.Add(file.Length);
+
+                    // Save to database
+                    _db.UserFileTBLs.Add(new UserFileTBL
+                    {
+                        FriendlyID = Statics.GenerateRandomRoomFriendlyID(),
+                        IDUserTBL = message.GeneralHeaders.UserTBL.ID,
+                        URL = fileUrl,
+                        Title = file.FileName,
+                        FileSize = file.Length,
+                        FileType = fileCategory,
+                        MimeType = file.ContentType,
+                        Status = MainEntity_Status.FILE_INSERTED,
+                        Type = MainEntity_Types.Normal,
+                        DateInsert = DateTime.Now
+                    });
+                }
+
+                await _db.SaveChangesAsync();
+
+                // Success response
+                outputPort.Handle(new GenericResponse<UploadFileStorageResponse>(new UploadFileStorageResponse
+                {
+                    URLs = uploadedUrls,
+                    FileNames = uploadedFileNames,
+                    SavedPaths = uploadedPaths,
+                    FileSizes = uploadedFileSizes,
+                    Message = $"{uploadedUrls.Count} فایل با موفقیت آپلود شد",
+                    Status = 200,
+                }));
+            }
+            catch (Exception ex)
+            {
+                // Error response
+                outputPort.Handle(new GenericResponse<UploadFileStorageResponse>(new UploadFileStorageResponse
+                {
+                    Message = $"خطا در آپلود فایل‌ها: {ex.Message}",
+                    Status = 500,
+                }));
+            }
+        }
+
+        private string GetFileCategory(string fileExtension)
+        {
+            // Image extensions
+            var imageExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".svg", ".ico", ".tiff", ".tif" };
+            // Video extensions
+            var videoExtensions = new[] { ".mp4", ".avi", ".mov", ".wmv", ".flv", ".mkv", ".webm", ".m4v", ".mpg", ".mpeg", ".3gp", ".ogv" };
+            // Audio extensions
+            var audioExtensions = new[] { ".mp3", ".wav", ".ogg", ".m4a", ".flac", ".aac", ".wma", ".opus" };
+
+            if (imageExtensions.Contains(fileExtension))
+                return "images";
+            else if (videoExtensions.Contains(fileExtension))
+                return "videos";
+            else if (audioExtensions.Contains(fileExtension))
+                return "audios";
+            else
+                return "others";
+        }
+
+        private async Task SaveFileWithProgressAsync(IFormFile file, string filePath)
+        {
+            // For large files (2GB), it's better to use buffered stream
+            const int bufferSize = 81920; // 80KB buffer for better performance with large files
+
+            using (var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize, useAsync: true))
+            using (var inputStream = file.OpenReadStream())
+            {
+                await inputStream.CopyToAsync(fileStream, bufferSize);
+            }
+        }
+    }
+    #endregion
+
+
+    #region GetFileStorage
+    public class GetFileStorageRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<GetFileStorageResponse>>
+    {
+        public string? FileID { get; set; } // Optional: get specific file by ID
+        public string? UserID { get; set; } // Optional: filter by user ID
+        public string? FileType { get; set; } // Optional: filter by type (images/videos/audios)
+        public DateTime? FromDate { get; set; } // Optional: filter from date
+        public DateTime? ToDate { get; set; } // Optional: filter to date
+        public int PageNumber { get; set; } = 1; // Pagination
+        public int PageSize { get; set; } = 20; // Pagination
+        public string? SearchTerm { get; set; } // Optional: search by filename
+        public string? SortBy { get; set; } = "DateInsert"; // DateInsert, FileName, FileSize
+        public bool SortDescending { get; set; } = true;
+    }
+
+    public class GetFileStorageResponse : BaseParentResponce
+    {
+        public List<FileStorageDto> Files { get; set; }
+        public int TotalCount { get; set; }
+        public int PageNumber { get; set; }
+        public int PageSize { get; set; }
+        public int TotalPages => (int)Math.Ceiling((double)TotalCount / PageSize);
+    }
+
+    public class FileStorageDto
+    {
+        public long ID { get; set; }
+        public string FriendlyID { get; set; }
+        public string URL { get; set; }
+        public string Title { get; set; }
+        public string FileName { get; set; }
+        public long FileSize { get; set; }
+        public string FileSizeFormatted => GetFileSizeFormatted();
+        public string FileType { get; set; } // images/videos/audios
+        public string MimeType { get; set; }
+        public DateTime DateInsert { get; set; }
+        public string DateInsertFormatted => DateInsert.ToString("yyyy/MM/dd HH:mm:ss");
+
+        // User information who uploaded the file
+        public UserInfoDto UploadedBy { get; set; }
+
+        // File metadata
+        public Dictionary<string, string> Metadata { get; set; }
+
+        private string GetFileSizeFormatted()
+        {
+            if (FileSize >= 1024 * 1024 * 1024)
+                return $"{FileSize / 1024.0 / 1024 / 1024:F2} GB";
+            if (FileSize >= 1024 * 1024)
+                return $"{FileSize / 1024.0 / 1024:F2} MB";
+            if (FileSize >= 1024)
+                return $"{FileSize / 1024.0:F2} KB";
+            return $"{FileSize} B";
+        }
+    }
+
+    public class UserInfoDto
+    {
+        public long ID { get; set; }
+        public string UUID { get; set; }
+        public string FullName { get; set; }
+        public string Username { get; set; }
+        public string Email { get; set; }
+        public string? Avatar { get; set; }
+    }
+
+    public interface IGetFileStorageUseCase
+    {
+        Task handleAsync(GetFileStorageRequest message, IOutPutPort<GenericResponse<GetFileStorageResponse>> outputPort);
+    }
+
+    public class GetFileStorageUseCase : IGetFileStorageUseCase
+    {
+        private readonly IDBContext _db;
+        private readonly IConfiguration _configuration;
+
+        public GetFileStorageUseCase(IDBContext db, IConfiguration configuration)
+        {
+            _db = db;
+            _configuration = configuration;
+        }
+
+        public async Task handleAsync(GetFileStorageRequest message, IOutPutPort<GenericResponse<GetFileStorageResponse>> outputPort)
+        {
+            try
+            {
+                // Check user permission (optional - based on your requirements)
+                bool isAdmin = message.GeneralHeaders?.UserTBL?.VerifyUserPermissions("ftp") == true;
+                bool isViewingOwnFiles = message.UserID != null && message.UserID == message.GeneralHeaders?.UserTBL?.ID.ToString();
+
+                // If not admin and not viewing own files, restrict access
+                if (!isAdmin && !isViewingOwnFiles && message.UserID != null)
+                {
+                    outputPort.Handle(new GenericResponse<GetFileStorageResponse>(new GetFileStorageResponse
+                    {
+                        Message = "شما دسترسی لازم برای مشاهده فایل‌های کاربران دیگر را ندارید",
+                        Status = 403,
+                    }));
+                    return;
+                }
+
+                // Build query
+                var query = _db.UserFileTBLs
+                    .Include(f => f.UserTBL) // Assuming there's a navigation property to UserTBL
+                    .AsQueryable();
+
+                // Apply filters
+                if (!string.IsNullOrEmpty(message.FileID))
+                {
+                    query = query.Where(f => f.FriendlyID == message.FileID || f.ID.ToString() == message.FileID);
+                }
+
+                if (!string.IsNullOrEmpty(message.UserID))
+                {
+                    query = query.Where(f => f.UserTBL.UUID == message.UserID || f.UserTBL.ID.ToString() == message.UserID);
+                }
+                else if (!isAdmin)
+                {
+                    // If not admin and no specific user requested, show only current user's files
+                    query = query.Where(f => f.IDUserTBL == message.GeneralHeaders.UserTBL.ID);
+                }
+
+                if (!string.IsNullOrEmpty(message.FileType))
+                {
+                    query = query.Where(f => f.FileType == message.FileType);
+                }
+
+                if (message.FromDate.HasValue)
+                {
+                    query = query.Where(f => f.DateInsert >= message.FromDate.Value);
+                }
+
+                if (message.ToDate.HasValue)
+                {
+                    var toDate = message.ToDate.Value.Date.AddDays(1);
+                    query = query.Where(f => f.DateInsert < toDate);
+                }
+
+                if (!string.IsNullOrEmpty(message.SearchTerm))
+                {
+                    query = query.Where(f => f.Title.Contains(message.SearchTerm) ||
+                                            f.URL.Contains(message.SearchTerm) ||
+                                            f.URL.Contains(message.SearchTerm));
+                }
+
+                // Get total count before pagination
+                var totalCount = await query.CountAsync();
+
+                // Apply sorting
+                query = ApplySorting(query, message.SortBy, message.SortDescending);
+
+                // Apply pagination
+                var files = await query
+                    .Skip((message.PageNumber - 1) * message.PageSize)
+                    .Take(message.PageSize)
+                    .Select(f => new FileStorageDto
+                    {
+                        ID = f.ID,
+                        FriendlyID = f.FriendlyID,
+                        URL = f.URL,
+                        Title = f.Title,
+                        FileName = f.Title, // Or use original filename if stored separately
+                        FileSize = f.FileSize,
+                        FileType = f.FileType,
+                        MimeType = f.MimeType,
+                        DateInsert = f.DateInsert,
+                        UploadedBy = new UserInfoDto
+                        {
+                            ID = f.UserTBL.ID,
+                            UUID = f.UserTBL.UUID,
+                            FullName = f.UserTBL.GetName(),
+                            Username = f.UserTBL.Username,
+                            Email = f.UserTBL.Email,
+                            Avatar = f.UserTBL.AvatarPath,
+                        },
+                        Metadata = new Dictionary<string, string>
+                        {
+                        { "Extension", Path.GetExtension(f.URL) },
+                        { "ContentType", f.MimeType ?? "Unknown" }
+                        }
+                    })
+                    .ToListAsync();
+
+                // Success response
+                outputPort.Handle(new GenericResponse<GetFileStorageResponse>(new GetFileStorageResponse
+                {
+                    Files = files,
+                    TotalCount = totalCount,
+                    PageNumber = message.PageNumber,
+                    PageSize = message.PageSize,
+                    Message = $"{files.Count} فایل یافت شد",
+                    Status = 200,
+                }));
+            }
+            catch (Exception ex)
+            {
+                // Error response
+                outputPort.Handle(new GenericResponse<GetFileStorageResponse>(new GetFileStorageResponse
+                {
+                    Message = $"خطا در دریافت فایل‌ها: {ex.Message}",
+                    Status = 500,
+                }));
+            }
+        }
+
+        private IQueryable<UserFileTBL> ApplySorting(IQueryable<UserFileTBL> query, string sortBy, bool descending)
+        {
+            return sortBy?.ToLower() switch
+            {
+                "filename" => descending
+                    ? query.OrderByDescending(f => f.Title)
+                    : query.OrderBy(f => f.Title),
+                "filesize" => descending
+                    ? query.OrderByDescending(f => f.FileSize)
+                    : query.OrderBy(f => f.FileSize),
+                "filetype" => descending
+                    ? query.OrderByDescending(f => f.FileType)
+                    : query.OrderBy(f => f.FileType),
+                _ => descending
+                    ? query.OrderByDescending(f => f.DateInsert)
+                    : query.OrderBy(f => f.DateInsert),
+            };
+        }
+    }
+    #endregion
+
+    #region GetSingleFile
+    public class GetSingleFileRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<GetSingleFileResponse>>
+    {
+        public string FileID { get; set; } // Required: file ID or FriendlyID
+        public bool IncludeDownloadLink { get; set; } = false; // Generate temporary download link
+    }
+
+    public class GetSingleFileResponse : BaseParentResponce
+    {
+        public FileStorageDto File { get; set; }
+        public string? TemporaryDownloadUrl { get; set; } // One-time or time-limited download URL
+        public DateTime? DownloadUrlExpiry { get; set; }
+    }
+
+    public interface IGetSingleFileUseCase
+    {
+        Task handleAsync(GetSingleFileRequest message, IOutPutPort<GenericResponse<GetSingleFileResponse>> outputPort);
+    }
+
+    public class GetSingleFileUseCase : IGetSingleFileUseCase
+    {
+        private readonly IDBContext _db;
+        private readonly IConfiguration _configuration;
+
+        public GetSingleFileUseCase(IDBContext db, IConfiguration configuration)
+        {
+            _db = db;
+            _configuration = configuration;
+        }
+
+        public async Task handleAsync(GetSingleFileRequest message, IOutPutPort<GenericResponse<GetSingleFileResponse>> outputPort)
+        {
+            try
+            {
+                // Find the file
+                var file = await _db.UserFileTBLs
+                    .Include(f => f.UserTBL)
+                    .FirstOrDefaultAsync(f => f.FriendlyID == message.FileID || f.ID.ToString() == message.FileID);
+
+                if (file == null)
+                {
+                    outputPort.Handle(new GenericResponse<GetSingleFileResponse>(new GetSingleFileResponse
+                    {
+                        Message = "فایل مورد نظر یافت نشد",
+                        Status = 404,
+                    }));
+                    return;
+                }
+
+                // Check permission
+                bool isAdmin = message.GeneralHeaders?.UserTBL?.VerifyUserPermissions("ftp") == true;
+                bool isOwner = file.IDUserTBL == message.GeneralHeaders?.UserTBL?.ID;
+
+                if (!isAdmin && !isOwner)
+                {
+                    outputPort.Handle(new GenericResponse<GetSingleFileResponse>(new GetSingleFileResponse
+                    {
+                        Message = "شما دسترسی لازم برای مشاهده این فایل را ندارید",
+                        Status = 403,
+                    }));
+                    return;
+                }
+
+                // Prepare response
+                var fileDto = new FileStorageDto
+                {
+                    ID = file.ID,
+                    FriendlyID = file.FriendlyID,
+                    URL = file.URL,
+                    Title = file.Title,
+                    FileName = file.Title,
+                    FileSize = file.FileSize,
+                    FileType = file.FileType,
+                    MimeType = file.MimeType,
+                    DateInsert = file.DateInsert,
+                    UploadedBy = new UserInfoDto
+                    {
+                        ID = file.UserTBL.ID,
+                        UUID = file.UserTBL.UUID,
+                        FullName = file.UserTBL.GetName(),
+                        Username = file.UserTBL.Username,
+                        Email = file.UserTBL.Email,
+                        Avatar = file.UserTBL.AvatarPath,
+                    },
+                    Metadata = new Dictionary<string, string>
+                {
+                    { "Extension", Path.GetExtension(file.URL) },
+                    { "ContentType", file.MimeType ?? "Unknown" }
+                }
+                };
+
+                string? tempDownloadUrl = null;
+                DateTime? expiry = null;
+
+                // Generate temporary download link if requested
+                if (message.IncludeDownloadLink)
+                {
+                    var token = GenerateDownloadToken(file.FriendlyID);
+                    tempDownloadUrl = $"/api/files/download/{token}";
+                    expiry = DateTime.Now.AddMinutes(30); // Link expires in 30 minutes
+                }
+
+                outputPort.Handle(new GenericResponse<GetSingleFileResponse>(new GetSingleFileResponse
+                {
+                    File = fileDto,
+                    TemporaryDownloadUrl = tempDownloadUrl,
+                    DownloadUrlExpiry = expiry,
+                    Message = "فایل با موفقیت یافت شد",
+                    Status = 200,
+                }));
+            }
+            catch (Exception ex)
+            {
+                outputPort.Handle(new GenericResponse<GetSingleFileResponse>(new GetSingleFileResponse
+                {
+                    Message = $"خطا در دریافت فایل: {ex.Message}",
+                    Status = 500,
+                }));
+            }
+        }
+
+        private string GenerateDownloadToken(string fileId)
+        {
+            // Simple token generation - you can enhance this with JWT or other methods
+            var token = Convert.ToBase64String(Guid.NewGuid().ToByteArray());
+            // Store token in cache or database with expiry
+            return $"{fileId}/{token}";
+        }
+    }
+    #endregion
 }

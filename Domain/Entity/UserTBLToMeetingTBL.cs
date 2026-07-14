@@ -37,6 +37,7 @@ namespace Domain.Entity
         public ICollection<MeetQuestionTBL> MeetQuestionTBLs { get; set; }
         public ICollection<MeetCommentTBL> MeetCommentTBLs { get; set; }
         public ICollection<MeetPollQuizAnsTBLToUserMeetTBL> MeetPollQuizAnsTBLToUserMeetTBLs { get; set; }
+        public ICollection<UserTBLToMeetingTBLMuiltiJoinTBL> UserTBLToMeetingTBLMuiltiJoinTBLs { get; set; }
 
         public string ReturnTypeString()
         {
