@@ -10,6 +10,7 @@
 ## 📌 Workflow Rules
 1. **Git Commits**: Every major task completion or logical milestone will be committed with a descriptive commit message.
 2. **Progress Updates**: This file (`PROGRESS.md`) will be updated after significant changes or at the end of each session.
+3. **Conciseness**: Keep this file concise and focused on top priorities. Summarize past logs if it gets too long.
 
 ---
 
