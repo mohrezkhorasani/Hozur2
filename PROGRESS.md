@@ -21,13 +21,19 @@
 - **Last Updated**: 2026-08-03
 
 ### Recent Active Work & Completed Tasks
-- **Frontend (UserList.jsx)**: Added role filter dropdown UI control and filtering logic to `/adminlay/users` user management page.
-- **Backend (LogicalController.cs)**: Refactored `GetTopTeachers` endpoint to exclude `MEET_IGNORE` meetings, fix missing `RoomFriendlyID` filter on direct teacher queries, and deduplicate merged teacher counts.
+- **Edit User Info Feature**:
+  - **Backend (`LogicalController.cs`)**: Added `[HttpPost("/user/EditUserInfo")]` API endpoint and `EditUserInfoVM` model to update `Firstname`, `LastName`, `IsHekmatShobe`, `IsMemberVIP`, `Status`, and `AvatarPath`.
+  - **Frontend API (`AdminAPI.jsx`)**: Added `EditUserInfo` fetch function.
+  - **Frontend Modal (`EditUserModal.jsx`)**: Created modal component for editing user details.
+  - **Frontend Page (`UserList.jsx`)**: Integrated `EditUserModal` with edit button icon in table actions column.
+- **Frontend Role Filter (`UserList.jsx`)**: Added role filter dropdown UI control and filtering logic to `/adminlay/users`.
+- **Backend `GetTopTeachers` (`LogicalController.cs`)**: Refactored `GetTopTeachers` endpoint to exclude `MEET_IGNORE` meetings, fix missing `RoomFriendlyID` filter, and deduplicate merged teacher counts.
 - **SQL Scripts**: Created T-SQL queries for updating short/null meetings to `MEET_IGNORE` (-99) and randomizing `EndDate` for meetings with >2 participants.
 
 ---
 
 ## 🎯 Active Status & Completed Fixes
+- [x] Edit User Info API endpoint, frontend API function, and `EditUserModal` component
 - [x] Add role filter in `/adminlay/users` frontend (`UserList.jsx`)
 - [x] Fix `GetTopTeachers` endpoint in `LogicalController.cs`
 - [x] T-SQL queries for `MeetingTBL` cleanup (duration < 30m / null `EndDate` randomization)

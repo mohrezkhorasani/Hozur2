@@ -378,6 +378,66 @@ namespace CoreMe.Controllers
             });
         }
 
+        [HttpPost("/user/EditUserInfo")]
+        public async Task<IActionResult> EditUserInfo([FromBody] EditUserInfoVM model)
+        {
+            if (model == null || model.UserId <= 0)
+            {
+                return Ok(new
+                {
+                    message = "شناسه کاربر معتبر نیست",
+                    status = 400
+                });
+            }
+
+            var user = await _db.UserTBLs.FirstOrDefaultAsync(u => u.ID == model.UserId);
+            if (user == null)
+            {
+                return Ok(new
+                {
+                    message = "کاربر یافت نشد",
+                    status = 404
+                });
+            }
+
+            if (model.Firstname != null) user.Firstname = model.Firstname;
+            if (model.LastName != null) user.LastName = model.LastName;
+            if (model.IsHekmatShobe.HasValue) user.IsHekmatShobe = model.IsHekmatShobe.Value;
+            if (model.IsMemberVIP.HasValue) user.IsMemberVIP = model.IsMemberVIP.Value;
+            if (model.Status.HasValue) user.Status = model.Status.Value;
+            if (model.AvatarPath != null) user.AvatarPath = model.AvatarPath;
+
+            _db.UserTBLs.Update(user);
+            await _db.SaveChangesAsync();
+
+            return Ok(new
+            {
+                message = "اطلاعات کاربر با موفقیت بروزرسانی شد",
+                status = 200,
+                data = new
+                {
+                    id = user.ID,
+                    firstname = user.Firstname,
+                    lastname = user.LastName,
+                    isHekmatShobe = user.IsHekmatShobe,
+                    isMemberVIP = user.IsMemberVIP,
+                    status = (int)user.Status,
+                    avatarPath = user.AvatarPath
+                }
+            });
+        }
+
         #endregion
+    }
+
+    public class EditUserInfoVM
+    {
+        public long UserId { get; set; }
+        public string? Firstname { get; set; }
+        public string? LastName { get; set; }
+        public bool? IsHekmatShobe { get; set; }
+        public bool? IsMemberVIP { get; set; }
+        public MainEntity_Status? Status { get; set; }
+        public string? AvatarPath { get; set; }
     }
 }
