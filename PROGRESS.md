@@ -20,21 +20,20 @@
 - **Frontend Path**: `F:\jsb\pesteh\bbb`
 - **Last Updated**: 2026-08-03
 
-### Recent Active Work & Uncommitted Changes (Backend)
-- **Controllers**: `AdminController`, `BBBController`, `TaskController`, `HandleNavigationController`, `LogicalController`, `NajmController`.
-- **Use Cases & Business Logic**: `UserUseCase`, `MeetUseCase`, `AdminUseCase`, `BBBUseCase`.
+### Recent Active Work & Completed Tasks (Backend)
+- **LogicalController.cs**: Refactored `GetTopTeachers` endpoint to exclude `MEET_IGNORE` meetings, fix missing `RoomFriendlyID` filter on direct teacher queries, and deduplicate merged teacher counts.
+- **SQL Scripts**: Created T-SQL queries for updating short/null meetings to `MEET_IGNORE` (-99) and randomizing `EndDate` for meetings with >2 participants.
 - **Entities & Persistence**: `UserTBL`, `RoomTBL`, `PaymentTBL`, `UserTBLLogs`, EF Core Migrations (`db560` through `db630`).
-- **Helpers**: PDF Generation, SMS integration (`SendSMS.cs`), Word service (`WordService.cs`).
 
 ---
 
-## 🎯 Next Steps / Active Tasks
-- [ ] Task tracking checklist for current session (to be updated as tasks are assigned).
+## 🎯 Active Status & Completed Fixes
+- [x] Fix `GetTopTeachers` endpoint in `LogicalController.cs`
+- [x] T-SQL queries for `MeetingTBL` cleanup (duration < 30m / null `EndDate` randomization)
 
 ---
 
 ## 📜 Commit History Summary
+- `fcc2354` - docs: add conciseness guideline to PROGRESS.md
+- `dede5f0` - docs: add PROGRESS.md handoff tracking file
 - `0177225` - e2
-- `957e6aa` - af
-- `5b62762` - 5555
-- `db6777c` - Stop tracking ignored folders
