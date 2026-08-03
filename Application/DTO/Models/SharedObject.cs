@@ -1,4 +1,4 @@
-﻿using Domain.Entity;
+using Domain.Entity;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -54,16 +54,35 @@ namespace Application.DTO.Models
         public DateTime DateInsert { get; set; }
         public string NickName { get; set; } = "";
     }
+    public class MiniUserToMeetJSON
+    {
+        public long ID { get; set; }
+        public long UserMeetID { get; set; }
+        public string Fullname { get; set; }
+        public bool? IsVIPMember { get; set; }
+        public bool? IsRegistered { get; set; }
+    }
     public class MiniUserJSON
     {
         public long ID { get; set; }
         public string UID { get; set; }
         public string Fullname { get; set; }
+        public string? Firstname { get; set; }
+        public string? LastName { get; set; }
         public string? Username { get; set; }
         public string? Email { get; set; }
         public string? Role { get; set; }
         public bool? IsValid { get; set; }
+        public MainEntity_Status? Status { get; set; }
+        public bool? IsHekmatShobe { get; set; }
+        public bool? IsVIPMember { get; set; }
+        public string? AvatarPath { get; set; }
         public List<string> Permissions { get; set; } = [];
+    }
+    public class MicroUserJSON
+    {
+        public long ID { get; set; }
+        public string Fullname { get; set; }
     }
     public class MiniShobeJSON
     {
@@ -83,12 +102,22 @@ namespace Application.DTO.Models
         public string Question { get; set; }
         public MainEntity_Status Status { get; set; } = MainEntity_Status.LOG_NORMAL;
         public List<PoolAnsJSON> Answers { get; set; }
-        public MainEntity_Types Type{ get; set; }
+        public MainEntity_Types Type { get; set; }
     }
     public class PoolAnsJSON
     {
         public long ID { get; set; }
-        public string Content{ get; set; }
+        public string Content { get; set; }
+    }
+    public class MiniLogJSON
+    {
+        public long ID { get; set; }
+        public string Content { get; set; }
+        public MicroUserJSON User { get; set; }
+        public string Key { get; set; }
+        public string Value { get; set; }
+        public string IP { get; set; }
+        public DateTime Date { get; set; }
     }
     public class MiniPlanJSON
     {
@@ -120,6 +149,9 @@ namespace Application.DTO.Models
         public string MeetID { get; set; }
         public string Title { get; set; }
         public string Time { get; set; }
+        public string Date { get; set; }
+        public DateTime EndDateTime { get; set; }
+        public int PartiCount { get; set; }
         public MicroRoomJSON Room { get; set; }
     }
     public class MiniRoomJSON
@@ -145,7 +177,7 @@ namespace Application.DTO.Models
     {
         public int Month { get; set; } //farvardin is 0
         public int Year { get; set; } //Jalali = 1405
-        public List<ActivityItem> Activities{ get; set; }
+        public List<ActivityItem> Activities { get; set; }
     }
     public class ActivityItem
     {
@@ -202,7 +234,7 @@ namespace Application.DTO.Models
         public List<string> EventIDs { get; set; } = new List<string>();
     }
 
-  
+
     public class AttendeeInfo
     {
         public string UserID { get; set; }

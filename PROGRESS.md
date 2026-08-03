@@ -21,18 +21,17 @@
 - **Last Updated**: 2026-08-03
 
 ### Recent Active Work & Completed Tasks
-- **Edit User Info Feature**:
-  - **Backend (`LogicalController.cs`)**: Added `[HttpPost("/user/EditUserInfo")]` API endpoint and `EditUserInfoVM` model to update `Firstname`, `LastName`, `IsHekmatShobe`, `IsMemberVIP`, `Status`, and `AvatarPath`.
-  - **Frontend API (`AdminAPI.jsx`)**: Added `EditUserInfo` fetch function.
-  - **Frontend Modal (`EditUserModal.jsx`)**: Created modal component for editing user details.
-  - **Frontend Page (`UserList.jsx`)**: Integrated `EditUserModal` with edit button icon in table actions column.
-- **Frontend Role Filter (`UserList.jsx`)**: Added role filter dropdown UI control and filtering logic to `/adminlay/users`.
-- **Backend `GetTopTeachers` (`LogicalController.cs`)**: Refactored `GetTopTeachers` endpoint to exclude `MEET_IGNORE` meetings, fix missing `RoomFriendlyID` filter, and deduplicate merged teacher counts.
-- **SQL Scripts**: Created T-SQL queries for updating short/null meetings to `MEET_IGNORE` (-99) and randomizing `EndDate` for meetings with >2 participants.
+- **Edit User Info & Avatar Upload**:
+  - **Backend (`AdminUseCase.cs` & `SharedObject.cs`)**: Added `Status`, `Firstname`, `LastName`, `IsHekmatShobe`, `IsVIPMember`, `AvatarPath`, and `IsValid` status mapping to `AdminGetUserList` API response (`MiniUserJSON`).
+  - **Backend (`LogicalController.cs`)**: Updated `/user/EditUserInfo` to accept `[FromForm]` with `IFormFile? AvatarFile` and save image files to `/wwwroot/uploads/avatars/`.
+  - **Frontend (`AdminAPI.jsx`)**: Updated `EditUserInfo` helper function to transmit `FormData` supporting file uploads.
+  - **Frontend Modal (`EditUserModal.jsx`)**: Replaced pitch-black backdrop with semi-transparent blurred overlay (`bg-black/40 backdrop-blur-sm`). Replaced URL input with **Drag & Drop image dropzone + File Picker**. Added status selector dropdown.
+  - **Frontend User List (`UserList.jsx`)**: Added user status code badge to table rows alongside active/disabled status button.
 
 ---
 
 ## 🎯 Active Status & Completed Fixes
+- [x] Fixed Edit User Modal backdrop, added Drag & Drop avatar file picker, and mapped `Status` field in `AdminGetUserList`
 - [x] Edit User Info API endpoint, frontend API function, and `EditUserModal` component
 - [x] Add role filter in `/adminlay/users` frontend (`UserList.jsx`)
 - [x] Fix `GetTopTeachers` endpoint in `LogicalController.cs`

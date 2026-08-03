@@ -379,7 +379,7 @@ namespace CoreMe.Controllers
         }
 
         [HttpPost("/user/EditUserInfo")]
-        public async Task<IActionResult> EditUserInfo([FromBody] EditUserInfoVM model)
+        public async Task<IActionResult> EditUserInfo([FromForm] EditUserInfoVM model)
         {
             if (model == null || model.UserId <= 0)
             {
@@ -405,7 +405,23 @@ namespace CoreMe.Controllers
             if (model.IsHekmatShobe.HasValue) user.IsHekmatShobe = model.IsHekmatShobe.Value;
             if (model.IsMemberVIP.HasValue) user.IsMemberVIP = model.IsMemberVIP.Value;
             if (model.Status.HasValue) user.Status = model.Status.Value;
-            if (model.AvatarPath != null) user.AvatarPath = model.AvatarPath;
+
+            if (model.AvatarFile != null && model.AvatarFile.Length > 0)
+            {
+                var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "avatars");
+                if (!Directory.Exists(uploadsFolder)) Directory.CreateDirectory(uploadsFolder);
+                var uniqueFileName = $"{Guid.NewGuid()}_{Path.GetFileName(model.AvatarFile.FileName)}";
+                var filePath = Path.Combine(uploadsFolder, uniqueFileName);
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await model.AvatarFile.CopyToAsync(stream);
+                }
+                user.AvatarPath = $"/uploads/avatars/{uniqueFileName}";
+            }
+            else if (model.AvatarPath != null)
+            {
+                user.AvatarPath = model.AvatarPath;
+            }
 
             _db.UserTBLs.Update(user);
             await _db.SaveChangesAsync();
@@ -439,5 +455,6 @@ namespace CoreMe.Controllers
         public bool? IsMemberVIP { get; set; }
         public MainEntity_Status? Status { get; set; }
         public string? AvatarPath { get; set; }
+        public IFormFile? AvatarFile { get; set; }
     }
 }

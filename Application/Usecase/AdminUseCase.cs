@@ -1,4 +1,4 @@
-﻿using Application.DTO;
+using Application.DTO;
 using Application.DTO.Generals;
 using Application.DTO.Models;
 using Application.General;
@@ -89,8 +89,14 @@ namespace Application.Usecase
                 {
                     Email = e.Email,
                     Fullname = e.GetName(),
+                    Firstname = e.Firstname,
+                    LastName = e.LastName,
                     ID = e.ID,
-                    IsValid = false,
+                    IsValid = e.Status == MainEntity_Status.USER_ACTIVE || e.Status == MainEntity_Status.Active || (int)e.Status == 100,
+                    Status = e.Status,
+                    IsHekmatShobe = e.IsHekmatShobe,
+                    IsVIPMember = e.IsMemberVIP,
+                    AvatarPath = e.AvatarPath,
                     Permissions = e.GetUserPermissions(),
                     Role = e.GetRole(),
                     UID = e.UUID,
@@ -481,7 +487,7 @@ namespace Application.Usecase
             {
                 Action = "Update",
                 FriendlyID = room.FriendlyID,
-            }); _= _mediator.Publish(new RoomUpdatedEvent
+            }); _ = _mediator.Publish(new RoomUpdatedEvent
             {
                 Action = "Update",
                 RoomId = room.ID,
@@ -557,6 +563,7 @@ namespace Application.Usecase
                             e.FriendlyID,
                             e.Avatar,
                             e.Title,
+                            e.Logo,
                             e.DateInsert,
                             plan = e.RoomTBLPlanTBLs.OrderBy(p => p.StartDate).ToList(),
                             e.OwnerTBL,
@@ -583,7 +590,7 @@ namespace Application.Usecase
                         RoomID = room.FriendlyID,
                         Title = room.Title,
                         Created = room.DateInsert,
-                        Avatar = room.Avatar,
+                        Avatar = room.Logo,
                         LastMeet = room.Meetings
                             .OrderByDescending(m => m.DateInsert)
                             .FirstOrDefault()?.DateInsert ?? room.DateInsert,
@@ -1082,7 +1089,7 @@ namespace Application.Usecase
                                     UserMeetID = u.IDUserTBLToMeetingTBL ?? 0,
                                     Content = u.Content,
                                     DateInsert = u.DateInsert,
-                                    NickName=u.UserTBLToMeetingTBL.UserNickName
+                                    NickName = u.UserTBLToMeetingTBL.UserNickName
 
                                 }).ToList()
                             });
@@ -1129,7 +1136,7 @@ namespace Application.Usecase
                                 {
                                     UserMeetID = u.IDUserTBLToMeetingTBL ?? 0,
                                     Content = u.Content,
-                                    NickName=u.UserTBLToMeetingTBL.UserNickName,
+                                    NickName = u.UserTBLToMeetingTBL.UserNickName,
                                     DateInsert = u.DateInsert,
                                 }).ToList()
                             });
@@ -1198,18 +1205,29 @@ namespace Application.Usecase
                 {
                     Message = "ok",
                     Status = 200,
-                    Data = _db.MeetingTBLs.Include(e => e.RoomTBL).Where(e=>e.RoomTBL.IDOwnerTBL==message.GeneralHeaders.UserTBL.ID ||
-                    e.RoomTBL.RoomTBLToUserTBLs.Any(r=>r.ParticipatorTBL.ID== message.GeneralHeaders.UserTBL.ID)).Select(e => new MiniMeet
+                    Data = _db.MeetingTBLs.Where(e => e.RoomTBL.IDOwnerTBL == message.GeneralHeaders.UserTBL.ID ||
+                    e.RoomTBL.RoomTBLToUserTBLs.Any(r => r.ParticipatorTBL.ID == message.GeneralHeaders.UserTBL.ID))
+                    .Include(e => e.RoomTBL).ThenInclude(e=>e.OwnerTBL).Include(e => e.UserTBLToMeetingTBLs).OrderByDescending(e=>e.ID)
+                    .Skip(message.Count.Value * message.Page.Value).Take(message.Count.Value)
+                    .Select(e => new MiniMeet
                     {
                         Title = e.Title,
-                         Time=e.JalaliDate,
-                         MeetID=e.MeetID,
-                         ID=e.ID,
-                         Room=new MicroRoomJSON
-                         {
-                             FriendlyID=e.RoomFriendlyID,
-                             Title=e.RoomTBL.Title,
-                         }
+                        Time = $"{e.DateInsert.ToString("HH:mm")}",
+                        Date = $"{e.JalaliDate}",
+                        MeetID = e.MeetID,
+                        ID = e.ID,
+                        EndDateTime=e.EndDate.HasValue?e.EndDate.Value:DateTime.MinValue,
+                        PartiCount=e.UserTBLToMeetingTBLs.Count(),
+                        Room = new MicroRoomJSON
+                        {
+                            FriendlyID = e.RoomFriendlyID,
+                            Owner= new MiniUserJSON
+                            {
+                                Fullname=e.RoomTBL.OwnerTBL.GetName(),
+                                ID=e.RoomTBL.OwnerTBL.ID
+                            },
+                            Title = e.RoomTBL.Title,
+                        }
                     }).ToList()
                 }));
             }
@@ -1231,6 +1249,85 @@ namespace Application.Usecase
     #endregion
 
 
+
+    #region GetUserMeetLogs
+    public class GetUserMeetLogsUseCase : IGetUserMeetLogsUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        private IMemoryCache _cache { get; }
+
+        public GetUserMeetLogsUseCase(IDBContext repository,
+            IMemoryCache _cache,
+            IConfiguration configuration)
+        {
+            _db = repository;
+            this._cache = _cache;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+        }
+
+        public async Task handleAsync(GetUserMeetLogsRequest message,
+        IOutPutPort<GenericResponse<GetUserMeetLogsResponse>> outputPort)
+        {
+            try
+            {
+                if (message.GeneralHeaders.UserTBL == null)
+                    return;
+                if (!message.GeneralHeaders.UserTBL.VerifyUserPermissions("create_meeting"))
+                {
+                    throw new Exception("FORBIDDEN ! 403");
+                }
+                if(!_db.UserTBLToMeetingTBLs.Any(e=>e.ID==message.UserMeetID ))
+                {
+                    throw new Exception("FORBIDDEN ! 404");
+                }
+                if(!message.GeneralHeaders.UserTBL.VerifyUserPermissions("manage_admins") 
+                    && !_db.UserTBLToMeetingTBLs.Any(e=>e.MeetingTBL.RoomTBL.IDOwnerTBL == message.GeneralHeaders.UserTBL.ID))
+                {
+                    throw new Exception("FORBIDDEN ! 403");
+
+                }
+                outputPort.Handle(new GenericResponse<GetUserMeetLogsResponse>(new GetUserMeetLogsResponse
+                {
+                    Message = "ok",
+                    Status = 200,
+                    Data = _db.UserTBLToMeetingTBLLogs.Where(e => e.IDUserTBLToMeetingTBL == message.UserMeetID)
+                    .Include(e => e.UserTBLToMeetingTBL).ThenInclude(e => e.UserTBL).OrderBy(e => e.DateInsert)
+                    .Skip(message.Count.Value * message.Page.Value).Take(message.Count.Value)
+                    .Select(e => new MiniLogJSON
+                    {
+                        ID = e.ID,
+                        User = new MicroUserJSON
+                        {
+                            ID=e.UserTBLToMeetingTBL.UserTBL.ID,
+                            Fullname=e.UserTBLToMeetingTBL.UserTBL.GetName()
+                        },
+                        Content=Statics.GetContentFromLog(e.Key,e.Value),
+                        Date =e.DateInsert,
+                        Key=e.Key,
+                        IP=e.OS,
+                        Value=e.Value
+                    }).ToList(),
+                    TotalCount= _db.UserTBLToMeetingTBLLogs.Count(e => e.IDUserTBLToMeetingTBL == message.UserMeetID)
+                }));
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+                Statics.Log("GetUserMeetLogs", e);
+
+                // در صورت خطا، پاسخ خطا برگردانید
+                outputPort.Handle(new GenericResponse<GetUserMeetLogsResponse>(new GetUserMeetLogsResponse
+                {
+                    Message = "خطا در دریافت اطلاعات",
+                    Status = 500,
+                    Data = null
+                }));
+            }
+        }
+    }
+    #endregion
 
 
 
