@@ -25,6 +25,10 @@
 - **Last Updated**: 2026-08-29
  
 ### Recent Active Work & Completed Tasks
+- **BBB End Meeting Interception & Custom Modal with Najm Sync ([component.jsx](file:///F:/bbb/bbb-plugin-before-close-end-meeting/src/plugin-hello-world/component.jsx), [endMeetingConfirmModal.jsx](file:///F:/bbb/bbb-plugin-before-close-end-meeting/src/plugin-hello-world/endMeetingConfirmModal.jsx))**:
+  - **`endMeetingButton` Override**: Intercepted `#endMeetingButton` clicks in the 3-dots dropdown menu to prevent BBB's default popup.
+  - **Custom End Meeting Dialog**: Added modal with **لغو عملیات**, **بستن جلسه برای همه**, and **ارسال اطلاعات به سامانه نجم** checkbox (with automatic fallback to `MemberModal` if members unorganized, and trigger of `confirmEndMeeting` upon completion).
+  - **Plugin Bundle**: Rebuilt production bundle `PluginBeforeCloseEndMeeting.js`.
 - **Join Room Page Redesign & National Code OTP Verification ([JoinForm.jsx](file:///F:/jsb/pesteh/bbb/src/Pages/JoinForm.jsx))**:
   - **National Code Lookup for Assembly Members (من از اعضاء مجمع هستم)**: Replaced raw phone number input with 10-digit National Code (کد ملی).
   - **Masked Phone Number Notice**: Upon sending OTP SMS via `SendOTPConfirmation`, the backend looks up the member's registered phone, sends the code, and returns the masked number (e.g. `0912*****49` / `912*****49`) displayed clearly to the user.
