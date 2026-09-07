@@ -22,24 +22,66 @@
 - **Backend Branch**: `CoreMe`
 - **Backend Solution**: `CoreMe.sln`
 - **Frontend Path**: `F:\jsb\pesteh\bbb`
-- **Last Updated**: 2026-08-29
+- **Last Updated**: 2026-09-07
  
-### Recent Active Work & Completed Tasks
-- **BBB End Meeting Interception & Custom Modal with Najm Sync ([component.jsx](file:///F:/bbb/bbb-plugin-before-close-end-meeting/src/plugin-hello-world/component.jsx), [endMeetingConfirmModal.jsx](file:///F:/bbb/bbb-plugin-before-close-end-meeting/src/plugin-hello-world/endMeetingConfirmModal.jsx))**:
-  - **`endMeetingButton` Override**: Intercepted `#endMeetingButton` clicks in the 3-dots dropdown menu to prevent BBB's default popup.
-  - **Custom End Meeting Dialog**: Added modal with **لغو عملیات**, **بستن جلسه برای همه**, and **ارسال اطلاعات به سامانه نجم** checkbox (with automatic fallback to `MemberModal` if members unorganized, and trigger of `confirmEndMeeting` upon completion).
+- **Poll-Based Synchronized Attendance Verification ([component.jsx](file:///F:/bbb/bbb-plugin-event-handler/src/plugin-hello-world/component.jsx), [manifest.json](file:///F:/bbb/bbb-plugin-event-handler/manifest.json), [02-event-handler.md](file:///F:/bbb/md/02-event-handler.md))**:
+  - **Single Poll Fetch for Meeting**: Moderator/presenter fetches all meeting polls via `GET https://core.hekmateislami.com/user/GetPollList` only once at session start and broadcasts them across `poll_attendance_channel` (`DataChannelTypes.LATEST_ITEM`). Late joiners automatically sync the questions without making backend requests.
+  - **Question Filtering**: Filters strictly for types `625` (scored) and `627` (unscored) with non-empty answer options (excluding `626` free-text).
+  - **Synchronized Awareness Prompts**: Every 20-30 minutes, moderator/presenter broadcasts an active attendance event (`POLL_ATTENDANCE_ACTIVE`) with a unique `checkId` and a randomly picked question. All students simultaneously see and answer the exact same question.
+  - **Attendance Logging (`POLL_ATTENDANCE_VERIFIED`)**: When a student responds, logs the answer to `POST /user/NewUserMeetingLog` with `keyLog: "POLL_ATTENDANCE_VERIFIED"`, submits the option to `POST /user/AnswerPollList`, and notifies moderators via toast.
+  - **Fallback**: Retained the 20 Persian/Islamic Shia attendance themes as an automatic fallback if a meeting has no poll questions.
+  - **Production Bundle**: Rebuilt `dist/EventHandler.js` bundle (253 KiB) with 0 errors.
+- **Poll Report PDF Export (Questions and Results Only) ([SeeMeetingPollReport.jsx](file:///F:/jsb/pesteh/bbb/src/Pages/Profile/SeeMeetingPollReport.jsx))**:
+  - Added **دانلود PDF** action button next to **خروجی Excel** on `/polls/:meetid/report`.
+  - Implemented printable layout using `html2pdf.js` containing exclusively the questions and their results (vote counts, percentages, progress bars, scores, and user text responses).
+  - Excluded all UI clutter (no navigation header, no statistics cards, no charts, no filter panels, and no pagination).
+- **Admin Certificate Generation TokenJWT Fix & Multi-Row Synchronization ([MeetUseCase.cs](file:///F:/DOTNET/New%20folder/Application/Usecase/MeetUseCase.cs), [UserUseCase.cs](file:///F:/DOTNET/New%20folder/Application/Usecase/UserUseCase.cs), [CommonMethods.cs](file:///F:/DOTNET/New%20folder/Application/General/CommonMethods.cs))**:
+  - **TokenJWT "creating..." Resolution**: In `GenerateCertificateWithUserMeetIDUseCase`, resolved issues where `TokenJWT` remained `"creating..."` by borrowing the real JWT from existing active session rows or generating a cryptographically valid JWT using `Statics.GenerateJWTUser`. Also updated `GetMeetingURLUseCase` to generate a real JWT upon initial join link request instead of storing `"creating..."`.
+  - **Multi-Row Sibling Consolidation**: When an attendee has multiple entries in `UserTBLToMeetingTBL` for the same meeting (e.g. initial URL request vs active BBB session with duration), `GenerateCertificateWithUserMeetIDUseCase` discovers all sibling rows matching by `NationalCode`, `Phone`, `UUID`, or `UserTBL.ID`.
+  - **Bidirectional Sync**: Prioritizes the active row with highest `TimeSpendSeconds` and valid `TokenJWT`. Simultaneously propagates `IsCertificated = true`, `CertificateFileURL`, and `CertificateTBL` records across all sibling records so both the active BBB plugin session and the Admin dashboard display certificate availability.
+  - **Protected Certificate Flags**: In `CommonMethods.NewUserMeeting`, prevented resetting existing `IsCertificated = true` back to `false` and preserved recorded `TimeSpendSeconds`.
+- **Admin Certificate Generation by Phone and National Code**:
+  - **Backend Support ([MeetDTO.cs](file:///F:/DOTNET/New%20folder/Application/DTO/MeetDTO.cs), [MeetUseCase.cs](file:///F:/DOTNET/New%20folder/Application/Usecase/MeetUseCase.cs), [CommonMethods.cs](file:///F:/DOTNET/New%20folder/Application/General/CommonMethods.cs), [AdminVM.cs](file:///F:/DOTNET/New%20folder/CoreMe/vm/AdminVM.cs), [AdminController.cs](file:///F:/DOTNET/New%20folder/CoreMe/Controllers/AdminController.cs))**:
+    - Enhanced `GenerateCertificateWithUserMeetIDRequest` with `Phone`, `MeetID`, and `Name`.
+    - Enhanced `GenerateCertificateWithUserMeetIDUseCase` to lookup/match participant by `ID` or by `MeetID` + `NationalCode`/`Phone`, bypass user duration restrictions, update user records with provided phone/national code, create/update `CertificateTBL`, generate official PDF certificate via `WordService`, upload to server via `IScpUploader`, and return direct PDF link.
+    - Updated `AdminController` with `POST /room/GenerateCertificateWithUserMeetID` and query parameter support on `GET /room/GenerateCertificateWithUserMeetID/{umid}`.
+    - Updated `CommonMethods.GetNationalCode` and `GetMembersOfMeetUseCase` to map `Phone`, `NationalCode`, and `CertificateURL`.
+  - **Frontend Support ([GetRooms.jsx](file:///F:/jsb/pesteh/bbb/src/api/GetRooms.jsx), [MiniCalanderMeetingsModal.jsx](file:///F:/jsb/pesteh/bbb/src/Component/Home/MiniCalanderMeetingsModal.jsx))**:
+    - Updated `GenerateCertificateWithUserMeetID` API in `GetRooms.jsx` to support POST payload with `nationalCode`, `phone`, `isMale`, `meetID`, and `name`.
+    - In `MiniCalanderMeetingsModal.jsx`: Added **صدور گواهی** / **مدیریت گواهی** action buttons to each attendee row in the participant list table.
+    - Added **+ صدور گواهینامه با کد ملی و موبایل** toolbar button to issue certificates for participants directly.
+    - Added dedicated certificate generation modal with pre-filled attendee info, national code & phone validation, gender selector, live status updates, and copyable/clickable PDF download link.
+    - Expanded search filter to match by national code and phone number.
+- **BBB Plugins Cookie Optimization & SessionStorage/LocalStorage Migration**:
+  - **JWT Claims Migration to `sessionStorage` ([cookieExpiremanager.jsx](file:///F:/bbb/bbb-plugin-new-meeting/src/plugin-hello-world/cookieExpiremanager.jsx), [component.jsx](file:///F:/bbb/bbb-plugin-new-meeting/src/plugin-hello-world/component.jsx), [jwtClaimsManager.jsx](file:///F:/bbb/bbb-plugin-show-timer/src/plugin-hello-world/jwtClaimsManager.jsx))**: Replaced storing JWT claims in 24-hour cookies with tab-scoped `sessionStorage` (`${meetId}~uauth~${claimKey}~${extId}`), freeing up browser cookie header payload space and auto-cleaning legacy cookies.
+  - **Timer Keys Migration & 5-Hour Auto-Eviction in `show-timer` ([jwtClaimsManager.jsx](file:///F:/bbb/bbb-plugin-show-timer/src/plugin-hello-world/jwtClaimsManager.jsx), [component.jsx](file:///F:/bbb/bbb-plugin-show-timer/src/plugin-hello-world/component.jsx))**: Replaced `htimerpresenter` and `timerPresenter` cookies with `localStorage` keys containing `meetId` and creation timestamp `${meetId}~${extId}~(htimerPresenter|timerPresenter)~${Date.now()}`. Implemented 5-hour automatic lifecycle cleanup routines running on startup and periodically every 60s.
+  - **National Code `_na` & Guarantee `_certificated` Storage in `get-certificate` ([component.jsx](file:///F:/bbb/bbb-plugin-get-certificate/src/plugin-generate-certificate/component.jsx))**: Migrated national code cache `${userToken}_na` and certificate guaranteed flag `${meetingId}_certificated` from cookies to `localStorage`. Implemented `cleanupMismatchedNaKeys` (removes cached national codes if user extId/token does not match) and `cleanupOldCertificatedKeys` (auto-removes expired certificated keys > 12h or foreign meetings).
+  - **Production Builds**: Rebuilt bundles for `bbb-plugin-new-meeting` (`PluginNewMeeting.js`), `bbb-plugin-show-timer` (`ShowTimer.js`), and `bbb-plugin-get-certificate` (`PluginGenerateCertification.js`) with 0 errors.
+- **BBB Presenter Panel Live User Attendance Timer & VIP/Registered Styling ([component.jsx](file:///F:/bbb/bbb-plugin-show-timer/src/plugin-hello-world/component.jsx), [jwtClaimsManager.jsx](file:///F:/bbb/bbb-plugin-show-timer/src/plugin-hello-world/jwtClaimsManager.jsx), [he.jsx](file:///F:/bbb/bbb-plugin-show-timer/src/plugin-hello-world/he.jsx))**:
+  - **Fixed Name Overflow / Truncation**: Relocated the live timer badge to the subtext line (`.sc-gOqvNp`) beneath attendee names, giving the name element (`.sc-lmEHzG`) 100% full width so names are never hidden or truncated.
+  - **Moderator-Only VIP & Registered Element Styling (Zero Extra Tags)**: Modifies existing DOM elements (row background gradient, accent border, avatar glow ring, and bold name text) visible only to moderators to uniquely highlight **VIP Members** (Gold/Amber glow) and **Registered Members** (Emerald glow), with VIP taking precedence.
+  - **Fixed Timer Fast-Advance Acceleration**: Replaced raw increment counters with `Date.now()` timestamp delta calculations, preventing speedups caused by rapid `MutationObserver` triggers or React re-renders.
+  - **Conditional Minutes vs Seconds Formatting**: Displays seconds for durations $< 1$ min (e.g. `۴۵ ثانیه`) and minutes/hours for durations $\ge 1$ min (e.g. `۵ دقیقه`, `۱ ساعت و ۱۰ دقیقه`) in Persian numerals.
+- **BBB End Meeting Interception & Najm Sync Integration ([component.jsx](file:///F:/bbb/bbb-plugin-before-close-end-meeting/src/plugin-hello-world/component.jsx), [endMeetingConfirmModal.jsx](file:///F:/bbb/bbb-plugin-before-close-end-meeting/src/plugin-hello-world/endMeetingConfirmModal.jsx), [CommonMethods.cs](file:///F:/DOTNET/New%20folder/Application/General/CommonMethods.cs))**:
+  - **`endMeetingButton` Override & Checkbox Sync**: Intercepted `#endMeetingButton` clicks, and passed the **ارسال اطلاعات به سامانه نجم** (`sendToNajm`) checkbox state directly to the API `/user/EndTheMeeting`.
+  - **Backend Support ([UserVM.cs](file:///F:/DOTNET/New%20folder/CoreMe/vm/UserVM.cs), [UserDTO.cs](file:///F:/DOTNET/New%20folder/Application/DTO/UserDTO.cs), [UserUseCase.cs](file:///F:/DOTNET/New%20folder/Application/Usecase/UserUseCase.cs))**: Added `SendToNajm` boolean field to `EndTheMeetingViewModel` and `EndTheMeetingRequest`. In `EndTheMeetingUseCase`, when `SendToNajm` is checked, it invokes `_commonMethods.SyncWithNajm(meet, user)`.
+  - **`CommonMethods.SyncWithNajm` Placeholder**: Created `SyncWithNajm` in `CommonMethods.cs` that logs the sync process to console/statics and returns a random HTTP status code (200, 201, 204, 400, 500) for future implementation.
   - **Plugin Bundle**: Rebuilt production bundle `PluginBeforeCloseEndMeeting.js`.
 - **Join Room Page Redesign & National Code OTP Verification ([JoinForm.jsx](file:///F:/jsb/pesteh/bbb/src/Pages/JoinForm.jsx))**:
   - **National Code Lookup for Assembly Members (من از اعضاء مجمع هستم)**: Replaced raw phone number input with 10-digit National Code (کد ملی).
   - **Masked Phone Number Notice**: Upon sending OTP SMS via `SendOTPConfirmation`, the backend looks up the member's registered phone, sends the code, and returns the masked number (e.g. `0912*****49` / `912*****49`) displayed clearly to the user.
   - **Backend Support ([UserUseCase.cs](file:///F:/DOTNET/New%20folder/Application/Usecase/UserUseCase.cs), [UserDTO.cs](file:///F:/DOTNET/New%20folder/Application/DTO/UserDTO.cs), [BBBController.cs](file:///F:/DOTNET/New%20folder/CoreMe/Controllers/BBBController.cs))**: Enhanced `SendOTPConfirmation` and `ConfirmOTP` to query by `NationalCode`, validate `IsMemberVIP`, and return `MaskedPhone`, `Fullname`, and auth token.
   - **UI/UX Modernization**: Redesigned the Join Room page with Islamic spiritual aesthetics, emerald & gold glassmorphism, responsive cards, live session indicators, reservation forms, and certificate management.
-- **Member Presence Modal - Virtual/In-Person Mode & Add Hozuri User ([MemberModal.jsx](file:///F:/bbb/bbb-plugin-before-close-end-meeting/src/plugin-hello-world/memberModal.jsx))**:
+- **Member Presence Modal - Input Typing Fix, Pointer Events & Interactive Role Badges ([MemberModal.jsx](file:///F:/bbb/bbb-plugin-before-close-end-meeting/src/plugin-hello-world/memberModal.jsx), [EndMeetingConfirmModal.jsx](file:///F:/bbb/bbb-plugin-before-close-end-meeting/src/plugin-hello-world/endMeetingConfirmModal.jsx))**:
+  - **`ReactDOM.createPortal` & Direct `document.body` Mounting**: Moved modal DOM rendering out of BBB's plugin host div directly into `document.body` with `z-[9999999]` and `pointerEvents: 'auto'`, completely bypassing parent plugin wrapper pointer event blocks.
+  - **Capture-Phase Keyboard & Pointer Protection**: Attached native capture-phase event listeners (`keydown`, `keyup`, `keypress`, `mousedown`, `pointerdown`) to `modalRef` to prevent BigBlueButton's document/window level shortcut handlers from intercepting user keystrokes and focus.
+  - **Input Focusability & Auto-Focus**: Added explicit `pointerEvents: 'auto'`, `userSelect: 'text'`, and auto-focus timeouts on `hozuriFirstname`, `hozuriLastName`, `hozuriNationalCode`, and `searchTerm`.
+  - **Clickable Role Badge Toggle (⭐ عضو مجمع / مهمان / ✓ ثبت‌نام شده)**: Turned static badges into interactive toggle buttons that instantly switch member status between **⭐ عضو مجمع** (VIP Member) and **مهمان / ثبت‌نام شده** (Guest/Regular) with a single click, and passed `isMember: member.isVIPMember` to `/user/EditMemberList`.
   - **Virtual vs In-Person Tagging**: Added one-click toggle button on each attendee row to toggle between **🌐 مجازی (Virtual)** and **🏛️ حضوری (In-Person)**.
   - **Filter Tabs**: Added fast filter tabs: *همه (All)*, *🏛️ حضوری (In-Person)*, *🌐 مجازی (Virtual)*, and *⭐ اعضای مجمع (VIP)*.
   - **Add Hozuri User Form**: Added `+ ثبت حاضرین حضوری` button and card form accepting **نام (First Name)**, **نام خانوادگی (Last Name)**, and **کد ملی (National Code)**.
   - **Backend API Support**: Added `POST /user/AddHozuriMember` and enhanced `POST /user/EditMemberList` & `GET /user/GetTheMembers` in [LogicalController.cs](file:///F:/DOTNET/New%20folder/CoreMe/Controllers/LogicalController.cs) and [UserUseCase.cs](file:///F:/DOTNET/New%20folder/Application/Usecase/UserUseCase.cs).
-  - **Plugin Bundle**: Rebuilt `PluginBeforeCloseEndMeeting.js` bundle.
+  - **Plugin Bundle**: Rebuilt `PluginBeforeCloseEndMeeting.js` production bundle.
 - **BigBlueButton Plugins Documentation Suite (`F:\bbb\md`)**:
   - Created centralized `F:\bbb\md/` documentation directory with master index [README.md](file:///F:/bbb/md/README.md).
   - Documented all 13 BBB plugins, .NET Greenlight API, deployment scripts, data channels architecture matrix, and API contracts.
@@ -55,6 +97,7 @@
 ---
 
 ## 🎯 Active Status & Completed Fixes
+- [x] Live user presence timer badges in presenter/moderator user panel (`[data-test="userListContainer"]`) in [component.jsx](file:///F:/bbb/bbb-plugin-show-timer/src/plugin-hello-world/component.jsx) and [he.jsx](file:///F:/bbb/bbb-plugin-show-timer/src/plugin-hello-world/he.jsx) with `user_live_timer` data channel sync
 - [x] Payment Method (`paymentType`) field added to Add Payment Modal, Payment Table, Backend API, and PDF generator
 - [x] Expanded floating cell inline editor popup with larger inputs and action buttons in `/pay/list` ([PaymentList.jsx](file:///F:/jsb/pesteh/payment/src/Pages/tools/PaymentList.jsx))
 - [x] Bank Name column & PDF generator formatting (`123456 - بانک سامان`) ([PDFGeneratorForPaymentTools.cs](file:///F:/DOTNET/New%20folder/CoreMe/PDFGeneratorForPaymentTools.cs))
