@@ -41,11 +41,11 @@ builder.Services.AddCors(options =>
 
             var uri = new Uri(origin);
             var host = uri.Host.ToLower();
-            
+
             // Allow local dev + production subdomains
             return host == "localhost"
                    || host == "127.0.0.1"
-                   || host== "192.168.0.122"
+                   || host == "192.168.0.122"
                    || host.EndsWith(".hekmateislami.com")
                    || host == "hekmateislami.com"
                    || host == "hek.either.ir"
@@ -115,7 +115,8 @@ Statics.bbb = new Application.General.BBBConfig
 
 
 builder.Services.AddControllers();
-builder.Services.AddMediatR(cfg => {
+builder.Services.AddMediatR(cfg =>
+{
     cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly());
     cfg.RegisterServicesFromAssembly(typeof(HekmatShobeCacheInvalidationHandler).Assembly);
     cfg.RegisterServicesFromAssembly(typeof(HekmatPlanCacheHandler).Assembly);
@@ -154,6 +155,7 @@ builder.Services.AddScoped<IStartNewMeetUseCase, StartNewMeetUseCase>();
 builder.Services.AddScoped<IGetMeetingURLUseCase, GetMeetingURLUseCase>();
 builder.Services.AddScoped<IGetRoomsUseCase, GetRoomsUseCase>();
 builder.Services.AddScoped<IGuarantCertificateUseCase, GuarantCertificateUseCase>();
+builder.Services.AddScoped<IGetTheMembersUseCase, GetTheMembersUseCase>();
 builder.Services.AddScoped<IEndTheMeetingUseCase, EndTheMeetingUseCase>();
 builder.Services.AddScoped<ICronJobCheckLiveMeetingTaskUseCase, CronJobCheckLiveMeetingTaskUseCase>();
 builder.Services.AddScoped<IBackupDBUseCase, BackupDBUseCase>();
@@ -168,7 +170,9 @@ builder.Services.AddScoped<IVerifyTokenUseCase, VerifyTokenUseCase>();
 builder.Services.AddScoped<ILoginUserPanelUseCase, LoginUserPanelUseCase>();
 builder.Services.AddScoped<IGetLivesPublicUseCase, GetLivesPublicUseCase>();
 builder.Services.AddScoped<IContactusUseCase, ContactusUseCase>();
+builder.Services.AddScoped<IConfirmOTPUseCase, ConfirmOTPUseCase>();
 builder.Services.AddScoped<IGetSlideShowUseCase, GetSlideShowUseCase>();
+builder.Services.AddScoped<ISendOTPConfirmationUseCase, SendOTPConfirmationUseCase>();
 builder.Services.AddScoped<IGetProfileInfoUseCase, GetProfileInfoUseCase>();
 builder.Services.AddScoped<IGetReservationUseCase, GetReservationUseCase>();
 builder.Services.AddScoped<INewReservationUseCase, NewReservationUseCase>();
@@ -195,6 +199,7 @@ builder.Services.AddScoped<IGetLiveWithIDUseCase, GetLiveWithIDUseCase>();
 builder.Services.AddScoped<IGetMembersOfMeetOnlyCertificatedUseCase, GetMembersOfMeetOnlyCertificatedUseCase>();
 builder.Services.AddScoped<IAnswerPollListUseCase, AnswerPollListUseCase>();
 builder.Services.AddScoped<IGetPollListUseCase, GetPollListUseCase>();
+builder.Services.AddScoped<IGetUnansweredPollListUseCase, GetUnansweredPollListUseCase>();
 builder.Services.AddScoped<IAddPollQuizUseCase, AddPollQuizUseCase>();
 builder.Services.AddScoped<IGetPollListAdminUseCase, GetPollListAdminUseCase>();
 builder.Services.AddScoped<IEndTheMeetingWithAPIUseCase, EndTheMeetingWithAPIUseCase>();
@@ -213,7 +218,11 @@ builder.Services.AddScoped<IUploadFileStorageUseCase, UploadFileStorageUseCase>(
 builder.Services.AddScoped<IGetSingleFileUseCase, GetSingleFileUseCase>();
 builder.Services.AddScoped<IGetFileStorageUseCase, GetFileStorageUseCase>();
 builder.Services.AddScoped<IUploadFileStorageUseCase, UploadFileStorageUseCase>();
+builder.Services.AddScoped<IGetUserMeetLogsUseCase, GetUserMeetLogsUseCase>();
 builder.Services.AddScoped<IGetAllMeetingUseCase, GetAllMeetingUseCase>();
+builder.Services.AddScoped<IGetAttendsInBBBForAdminUseCase, GetAttendsInBBBForAdminUseCase>();
+builder.Services.AddScoped<IEditRoomUseCase, EditRoomUseCase>();
+builder.Services.AddScoped<ISencCheckListOfAttendsUseCase, SencCheckListOfAttendsUseCase>();
 
 
 
@@ -257,7 +266,7 @@ builder.Services.Configure<FormOptions>(options =>
 
 #endregion
 
-builder.Services.AddScoped<ISendSMS , SendSMS>();
+builder.Services.AddScoped<ISendSMS, SendSMS>();
 
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
@@ -278,6 +287,15 @@ builder.Services.AddScoped<IWordService>(sp =>
     var wwwroot = env.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
     return new WordService(wwwroot);
 });
+
+builder.Services.AddScoped<IPaymentPDFGenerator>(sp =>
+{
+    var env = sp.GetRequiredService<IWebHostEnvironment>();
+    var wwwroot = env.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+    return new PaymentPDFGenerator(wwwroot);
+});
+
+
 #endregion
 Directory.CreateDirectory("logs");
 File.AppendAllText($"logs/std-{DateTime.Today:yyyy-MM-dd}.log",
@@ -335,7 +353,7 @@ app.UseSwaggerUI(c =>
 app.UseStaticFiles();
 app.UseRouting();
 app.UseCors("AllowAllOrigins");
-    
+
 //app.UseHttpsRedirection();
 
 // --- فعال کردن احراز هویت ---
@@ -371,4 +389,3 @@ app.MapWhen(context => context.Request.Host.Host.Equals("vcfile.hekmateislami.co
 
 TelegramHelper.Initialize(app.Services.GetRequiredService<IServiceScopeFactory>());
 app.Run();
-    

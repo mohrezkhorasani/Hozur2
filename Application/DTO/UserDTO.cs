@@ -1,4 +1,4 @@
-﻿using Application.DTO.Generals;
+using Application.DTO.Generals;
 using Application.DTO.Models;
 using Application.Interface.IUsecase;
 using Domain.Entity;
@@ -136,6 +136,34 @@ namespace Application.DTO
     #endregion
 
 
+    #region GetAttendsInBBBForAdmin
+    public class GetAttendsInBBBForAdminRequest : NewUserRequest, IUseCaseRequest<GenericResponse<GetAttendsInBBBForAdminResponse>>
+    {
+
+    }
+    public class GetAttendsInBBBForAdminResponse : BaseParentResponce
+    {
+        public Object Data { get; set; }
+
+    }
+    #endregion
+    #region SencCheckListOfAttends
+    public class SencCheckListOfAttendsRequest : NewUserRequest, IUseCaseRequest<GenericResponse<SencCheckListOfAttendsResponse>>
+    {
+        public List<AttendListItem> Attends { get; set; }
+    }
+    public class AttendListItem
+    {
+        public long ID { get; set; }
+        public bool IsMember { get; set; }
+    }
+    public class SencCheckListOfAttendsResponse : BaseParentResponce
+    {
+
+    }
+    #endregion
+
+
     //NewUserMeetings
     #region NewUserMettings
     public class NewUserMettingsRequest : NewUserRequest, IUseCaseRequest<GenericResponse<NewUserMettingsResponse>>
@@ -206,6 +234,8 @@ namespace Application.DTO
     {
     }
     #endregion
+
+
 
     //Get Rooms
     #region GetRooms
@@ -316,7 +346,7 @@ namespace Application.DTO
         public List<MiniCalendarActivity> Data = new List<MiniCalendarActivity>();
     }
     #endregion
-
+        
     #region NewQuestion
     public class NewQuestionRequest : NewUserRequest, IUseCaseRequest<GenericResponse<NewQuestionResponse>>
     {
@@ -387,14 +417,25 @@ namespace Application.DTO
     }
     #endregion
 
+    #region GetTheMembers
+    public class GetTheMembersRequest : NewUserRequest, IUseCaseRequest<GenericResponse<GetTheMembersResponse>>
+    {
+    }
+
+    public class GetTheMembersResponse : BaseParentResponce
+    {
+        public List<MiniUserToMeetJSON> Data { get; set; }
+
+    }
+    #endregion
     #region EndTheMeeting
     public class EndTheMeetingRequest : NewUserRequest, IUseCaseRequest<GenericResponse<EndTheMeetingResponse>>
     {
+        public bool SendToNajm { get; set; } = false;
     }
 
     public class EndTheMeetingResponse : BaseParentResponce
     {
-
     }
     #endregion
     #region EndTheMeetingWithAPI
@@ -429,6 +470,9 @@ namespace Application.DTO
         public string? Dabir { get; set; }
         public bool HasCert { get; set; } = true;
         public DateTime StartDate { get; set; }
+        public IFormFile? Banner { get; set; }
+        public IFormFile? BannerPresentation { get; set; }
+        public bool IsBannerAndPresentationSame { get; set; } = true;
     }
 
     public class NewPlanRoomResponse : BaseParentResponce
@@ -610,6 +654,16 @@ namespace Application.DTO
         public List<PollJSON> Data = new List<PollJSON>();
     }
     #endregion
+    #region GetUnansweredPollList
+    public class GetUnansweredPollListRequest : NewUserRequest, IUseCaseRequest<GenericResponse<GetUnansweredPollListResponse>>
+    {
+    }
+
+    public class GetUnansweredPollListResponse : BaseParentResponce
+    {
+        public List<PollJSON> Data = new List<PollJSON>();
+    }
+    #endregion
     #region AnswerPollList
     public class AnswerPollListRequest : NewUserRequest, IUseCaseRequest<GenericResponse<AnswerPollListResponse>>
     {
@@ -640,7 +694,35 @@ namespace Application.DTO
 
 
 
+    #region SendOTPConfirmation
+    public class SendOTPConfirmationRequest : NewUserRequest, IUseCaseRequest<GenericResponse<SendOTPConfirmationResponse>>
+    {
+        public string? Phone { get; set; }
+        public string? NationalCode { get; set; }
+    }
 
+    public class SendOTPConfirmationResponse : BaseParentResponce
+    {
+        public string Guid { get; set; }
+        public string? MaskedPhone { get; set; }
+        public string? Phone { get; set; }
+    }
+    #endregion
+    #region ConfirmOTP
+    public class ConfirmOTPRequest : NewUserRequest, IUseCaseRequest<GenericResponse<ConfirmOTPResponse>>
+    {
+        public string Code { get; set; }
+        public string Guid { get; set; }
+    }
+
+    public class ConfirmOTPResponse : BaseParentResponce
+    {
+        public string Token { get; set; }
+        public string? Fullname { get; set; }
+        public string? NationalCode { get; set; }
+        public string? MaskedPhone { get; set; }
+    }
+    #endregion
 
 
     //Admins
@@ -749,6 +831,19 @@ namespace Application.DTO
     public class GetAllMeetingResponse : BaseParentResponce
     {
         public List<MiniMeet> Data = new List<MiniMeet>();
+    }
+    #endregion
+
+    #region GetUserMeetLogs
+    public class GetUserMeetLogsRequest : NewUserRequest, IUseCaseRequest<GenericResponse<GetUserMeetLogsResponse>>
+    {
+        public long? UserMeetID{ get; set; }
+    }
+
+    public class GetUserMeetLogsResponse : BaseParentResponce
+    {
+        public List<MiniLogJSON> Data = new List<MiniLogJSON>();
+        public int TotalCount { get; set; }
     }
     #endregion
 

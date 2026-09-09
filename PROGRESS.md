@@ -22,8 +22,15 @@
 - **Backend Branch**: `CoreMe`
 - **Backend Solution**: `CoreMe.sln`
 - **Frontend Path**: `F:\jsb\pesteh\bbb`
-- **Last Updated**: 2026-09-07
+- **Last Updated**: 2026-09-09
  
+- **Unanswered Polls API & Duplicate Answer Prevention ([UserUseCase.cs](file:///F:/DOTNET/New%20folder/Application/Usecase/UserUseCase.cs), [BBBController.cs](file:///F:/DOTNET/New%20folder/CoreMe/Controllers/BBBController.cs), [QuestionModal.jsx](file:///F:/bbb/bbb-plugin-get-certificate/src/plugin-generate-certificate/QuestionModal.jsx))**:
+  - **New Unanswered Poll API (`GET /user/GetUnansweredPollList` & `GET /user/GetPoll`)**: Created a dedicated endpoint for attendee poll questions that excludes questions already answered by the current user. Retained existing `GET /user/GetPollList` without modification for meeting-wide moderator fetching.
+  - **Dual-Layer Answer Detection**: `GetUnansweredPollListUseCase` consolidates sibling attendee records (`UserTBLToMeetingTBL`) by UUID, User ID, National Code, and Phone number. It identifies already-answered questions by querying both `MeetPollQuizAnsTBLToUserMeetTBLs` and attendance log entries in `UserTBLToMeetingTBLLogs` (`keyLog == "POLL_ATTENDANCE_VERIFIED"`).
+  - **AnswerPollList Idempotency**: Enhanced `AnswerPollListUseCase` to check whether an answer option has already been recorded for that user-meeting session before inserting, preventing duplicate rows in the database.
+  - **Certificate QuestionModal Integration**: Updated `QuestionModal.jsx` in `bbb-plugin-get-certificate` to call `/user/GetUnansweredPollList` with both `authbbb` and standard `Authorization` headers. If all questions have already been answered (e.g. during live attendance in `event-handler`), it automatically sets the poll completion flag in `localStorage`, fires `pollCompletedCallback()`, and closes the modal immediately so the user seamlessly receives their certificate.
+  - **Production Bundle**: Rebuilt `dist/PluginGenerateCertification.js` (686 KiB) with 0 errors.
+
 - **Poll-Based Synchronized Attendance Verification ([component.jsx](file:///F:/bbb/bbb-plugin-event-handler/src/plugin-hello-world/component.jsx), [manifest.json](file:///F:/bbb/bbb-plugin-event-handler/manifest.json), [02-event-handler.md](file:///F:/bbb/md/02-event-handler.md))**:
   - **Server-Compatible Data Channel Routing (`online_users_keysents`)**: Resolved `TypeError: pushEntry is not a function` ("function not exist") and inactive useEffect listeners by routing poll attendance sync through `online_users_keysents` with `subChannelName: "poll_attendance"`. Because `online_users_keysents` is already registered on BBB server manifests with full push permissions across all roles, BBB core reliably provides the push entry function without requiring server manifest updates or BBB server restarts.
   - **PushEntry Lifecycle Refs & Stale-Closure Defense**: Wrapped `pushEntry` in `setKeySentRef` and `setPollAttendanceChannelRef` with dynamic fallback helper `sendPollAttendance`. Eliminated stale-closure bugs in the interval timer and added asynchronous retry loops in `fetchPolls` so broadcasts never fail if BBB core is initializing.

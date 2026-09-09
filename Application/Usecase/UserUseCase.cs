@@ -1,4 +1,4 @@
-﻿using Application.DTO;
+using Application.DTO;
 using Application.DTO.Generals;
 using Application.DTO.Models;
 using Application.General;
@@ -12,6 +12,7 @@ using Domain.Entity;
 using MediatR;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
@@ -38,6 +39,7 @@ using System.Threading.Tasks;
 
 namespace Application.Usecase
 {
+
     #region NewUser
     public class NewUserUseCase : INewUserUseCase
     {
@@ -265,10 +267,11 @@ namespace Application.Usecase
                     {
                         ID = user.ID,
                         UID = user.UUID?.ToString() ?? userIdClaim.Value,
-                        Fullname = user.Firstname ?? fullnameClaim?.Value ?? "",
+                        Fullname = user.GetName() ?? fullnameClaim?.Value ?? "",
                         Username = user.Username ?? usernameClaim?.Value ?? "",
                         Email = user.Email ?? emailClaim?.Value ?? "",
                         Role = user.GetRole() ?? roleClaim?.Value ?? "User",
+                        IsVIPMember = user.IsMemberVIP,
                         IsValid = true,
                         Permissions = user.GetUserPermissions() // متد برای گرفتن دسترسی‌ها
                     };
@@ -763,6 +766,115 @@ namespace Application.Usecase
     }
     #endregion
 
+    #region SencCheckListOfAttends
+    public class SencCheckListOfAttendsUseCase : ISencCheckListOfAttendsUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+
+        public SencCheckListOfAttendsUseCase(IDBContext repository,
+            IConfiguration configuration)
+        {
+            _db = repository;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+        }
+
+        public async Task handleAsync(SencCheckListOfAttendsRequest message,
+            IOutPutPort<GenericResponse<SencCheckListOfAttendsResponse>> outputPort)
+        {
+            var init = await _commonMethods.Initialize<SencCheckListOfAttendsRequest>(message);
+            var user = init.Item1;
+            var meet = init.Item2;
+
+            if (!await _commonMethods.CheckUserAccessibilityToMeet(user, meet, "SencCheckListOfAttends"))
+            {
+                outputPort.Handle(new GenericResponse<SencCheckListOfAttendsResponse>(new SencCheckListOfAttendsResponse
+                {
+                    Message = "forbidden",
+                    Status = 403,
+                }));
+                return;
+            }
+            var r = _db.UserTBLToMeetingTBLs.Where(e => e.MeetID == meet.MeetID).Include(e => e.UserTBL).ToList();
+            if (message.Attends != null && message.Attends.Count > 0)
+            {
+                foreach (var a in message.Attends)
+                {
+                    if (r.Any(e => a.ID == e.UserTBL.ID))
+                    {
+                        var userTBL = r.FirstOrDefault(e => a.ID == e.UserTBL.ID);
+                        userTBL.IsMember = a.IsMember;
+                        userTBL.Explain = $"last={DateTime.UtcNow}";
+                        _db.Update(userTBL);
+                    }
+                }
+                _db.SaveChanges();
+            }
+            outputPort.Handle(new GenericResponse<SencCheckListOfAttendsResponse>(new SencCheckListOfAttendsResponse
+            {
+                Message = "ok",
+                Status = 0200,
+            }));
+            return;
+        }
+    }
+    #endregion
+
+    #region GetAttendsInBBBForAdmin
+    public class GetAttendsInBBBForAdminUseCase : IGetAttendsInBBBForAdminUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+
+        public GetAttendsInBBBForAdminUseCase(IDBContext repository,
+            IConfiguration configuration)
+        {
+            _db = repository;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+        }
+
+        public async Task handleAsync(GetAttendsInBBBForAdminRequest message,
+            IOutPutPort<GenericResponse<GetAttendsInBBBForAdminResponse>> outputPort)
+        {
+            var init = await _commonMethods.Initialize<GetAttendsInBBBForAdminRequest>(message);
+            var user = init.Item1;
+            var meet = init.Item2;
+
+            if (!await _commonMethods.CheckUserAccessibilityToMeet(user, meet, "GetAttendsInBBBForAdmin"))
+            {
+                outputPort.Handle(new GenericResponse<GetAttendsInBBBForAdminResponse>(new GetAttendsInBBBForAdminResponse
+                {
+                    Message = "forbidden",
+                    Status = 403,
+                }));
+                return;
+            }
+            var r = _db.UserTBLToMeetingTBLs.Where(e => e.MeetID == meet.MeetID).Include(e => e.UserTBL)
+                .Select(e => new
+                {
+                    e.Role,
+                    userID = e.UserTBL.ID,
+                    e.ID,
+                    name = e.UserTBL.GetName(),
+                    UserNickName = e.UserNickName,
+                    e.UserTBL.IsMemberVIP,
+                    hasAccount = e.UserTBL.Type == MainEntity_Types.USER_USER
+                }).ToList();
+
+
+            outputPort.Handle(new GenericResponse<GetAttendsInBBBForAdminResponse>(new GetAttendsInBBBForAdminResponse
+            {
+                Message = "forbidden",
+                Status = 403,
+                Data = r
+            }));
+
+        }
+    }
+    #endregion
+
     #region NewUserMettings
     public class NewUserMettingsUseCase : INewUserMettingsUseCase
     {
@@ -804,7 +916,19 @@ namespace Application.Usecase
                     _db.Update(user);
                     _db.SaveChanges();
                 }
-                string jwtUser = Statics.GenerateJWTUser(user);
+                if (!user.AllowedGUID.Any())
+                {
+                    Guid g = Guid.NewGuid();
+                    while (_db.UserTBLs.Any(e => e.AllowedGUID.Any(r => r == g)))
+                    {
+                        g = Guid.NewGuid();
+                    }
+                    user.AddGuid(g);
+
+                }
+                _db.Update(user);
+                _db.SaveChanges();
+
                 var meet = await _commonMethods.GetMeetWithoutID(message.MeetID);
                 if (meet == null)
                 {
@@ -815,6 +939,10 @@ namespace Application.Usecase
                     }));
                     return;
                 }
+
+                var userMeet = await _db.UserTBLToMeetingTBLs.FirstOrDefaultAsync(e => e.MeetID == meet.MeetID && e.UUID == message.UUID);
+                string jwtUser = Statics.GenerateJWTUser(user, userMeet);
+
                 var attend = await bbb.GetAttendeeByUserId(meet.RoomFriendlyID, message.ExtId);
 
 
@@ -825,7 +953,7 @@ namespace Application.Usecase
                     _db.SaveChanges();
                 }
 
-                var userMeet = await _commonMethods.NewUserMeeting(new UserTBLToMeetingTBL
+                userMeet = await _commonMethods.NewUserMeeting(new UserTBLToMeetingTBL
                 {
                     MeetID = meet.MeetID,
                     UUID = message.UUID,
@@ -834,6 +962,7 @@ namespace Application.Usecase
                     Type = UserTBL.MapRoleToType(message.Role),
                     Status = MainEntity_Status.MEETING_STARTED_LATER,
                     Role = message.Role,
+                    IsMember = user.IsMemberVIP,
                     UserMeetID = message.MeetUserID,
                     Phone = string.IsNullOrEmpty(attend.Phone) ? "" : attend.Phone,
                     NationalCode = string.IsNullOrEmpty(attend.NationalCode) ? "" : attend.NationalCode,
@@ -841,15 +970,17 @@ namespace Application.Usecase
                     UserNickName = message.NickName,
                     TimeSpendSeconds = 0,
                     IsCertificated = false,
-
                 });
+
+
+
                 if (!_db.UserTBLToMeetingTBLMuiltiJoinTBLs.Any(e => e.IDUserTBLToMeetingTBL == userMeet.ID && e.UserMeetID == message.MeetUserID))
                 {
                     _db.UserTBLToMeetingTBLMuiltiJoinTBLs.Add(new UserTBLToMeetingTBLMuiltiJoinTBL
                     {
                         IDUserTBLToMeetingTBL = userMeet.ID,
-                        UserMeetID=message.MeetUserID,
-                        IPList=message.GeneralHeaders.RequestedIP+"",
+                        UserMeetID = message.MeetUserID,
+                        IPList = message.GeneralHeaders.RequestedIP + "",
                     });
                     _db.SaveChanges();
 
@@ -922,7 +1053,7 @@ namespace Application.Usecase
             }
         }
     }
-    #endregion
+    #endregion              //
 
     #region NewUserMeetingLog
     public class NewUserMeetingLogUseCase : INewUserMeetingLogUseCase
@@ -1238,6 +1369,157 @@ namespace Application.Usecase
     }
     #endregion
 
+    #region EditRoom
+    public class EditRoomRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<EditRoomResponse>>
+    {
+        public string FriendlyID { get; set; }
+        public string RoomTitle { get; set; }
+        public IFormFile LogoFile { get; set; }
+        // Optional additional properties
+        // public string Description { get; set; }
+        // public string Category { get; set; }
+    }
+
+    public class EditRoomResponse : BaseParentResponce
+    {
+        public string FriendlyID { get; set; }
+        public string RoomTitle { get; set; }
+        public string Logo { get; set; }
+    }
+    public interface IEditRoomUseCase : IUseCaseRequestHandler<EditRoomRequest, GenericResponse<EditRoomResponse>> { }
+
+    public class EditRoomUseCase : IEditRoomUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        private readonly IConfiguration _configuration;
+
+        public EditRoomUseCase(IDBContext repository,
+            IConfiguration configuration,
+            IWebHostEnvironment hostingEnvironment)
+        {
+            _db = repository;
+            _configuration = configuration;
+            hosting = hostingEnvironment;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+        }
+
+        public async Task handleAsync(EditRoomRequest message,
+            IOutPutPort<GenericResponse<EditRoomResponse>> outputPort)
+        {
+            try
+            {
+                var user = message.GeneralHeaders?.UserTBL;
+
+                if (user == null)
+                {
+                    outputPort.Handle(new GenericResponse<EditRoomResponse>(new EditRoomResponse
+                    {
+                        Message = "User does not have permission to edit rooms",
+                        Status = 403,
+                    })); return;
+                }
+                // Check if user has permission
+                if (!user.VerifyUserPermissions("create_rooms_for_others"))
+                {
+                    outputPort.Handle(new GenericResponse<EditRoomResponse>(new EditRoomResponse
+                    {
+                        Message = "User does not have permission to edit rooms",
+                        Status = 403,
+                    }));
+                    return;
+                }
+
+                // Find the room to edit
+                var existingRoom = _db.RoomTBLs.FirstOrDefault(e => e.FriendlyID == message.FriendlyID);
+                if (existingRoom == null)
+                {
+                    outputPort.Handle(new GenericResponse<EditRoomResponse>(new EditRoomResponse
+                    {
+                        Message = "Room not found",
+                        Status = 404,
+                    }));
+                    return;
+                }
+
+                // Check if user owns this room
+                if (existingRoom.IDOwnerTBL != user.ID && !user.VerifyUserPermissions("manage_admins"))
+                {
+                    outputPort.Handle(new GenericResponse<EditRoomResponse>(new EditRoomResponse
+                    {
+                        Message = "You don't have permission to edit this room",
+                        Status = 403,
+                    }));
+                    return;
+                }
+
+                // Update room properties
+                existingRoom.Title = message.RoomTitle;
+
+                // Handle logo upload if provided
+                if (message.LogoFile != null && message.LogoFile.Length > 0)
+                {
+                    // Delete old logo if exists
+                    if (!string.IsNullOrEmpty(existingRoom.Logo))
+                    {
+                        var oldLogoPath = Path.Combine("C:\\hekmatFiles\\img\\rooms\\logo", existingRoom.Logo);
+                        if (File.Exists(oldLogoPath))
+                        {
+                            File.Delete(oldLogoPath);
+                        }
+                    }
+
+                    // Save new logo
+                    var uploadsFolder = Path.Combine("C:\\hekmatFiles\\img\\rooms\\logo");
+                    if (!Directory.Exists(uploadsFolder))
+                    {
+                        Directory.CreateDirectory(uploadsFolder);
+                    }
+
+                    var uniqueFileName = Guid.NewGuid().ToString() + "_." + message.LogoFile.FileName.Split(".")[1];
+                    var filePath = Path.Combine(uploadsFolder, uniqueFileName);
+
+                    using (var fileStream = new FileStream(filePath, FileMode.Create))
+                    {
+                        await message.LogoFile.CopyToAsync(fileStream);
+                    }
+
+                    existingRoom.Logo = Statics.CombinePath(Statics.URLFiles, "/img/rooms/logo", uniqueFileName);
+                }
+
+                // Update other properties if needed
+                existingRoom.UpdatedAt = DateTime.Now;
+                // existingRoom.Description = message.Description; // if you have this field
+                // existingRoom.Category = message.Category; // if you have this field
+
+                _db.RoomTBLs.Update(existingRoom);
+                _db.SaveChanges();
+
+                // Prepare response
+                var response = new EditRoomResponse
+                {
+                    Message = "Room updated successfully",
+                    Status = 200,
+                    FriendlyID = existingRoom.FriendlyID,
+                    RoomTitle = existingRoom.Title,
+                    Logo = existingRoom.Logo
+                };
+
+                outputPort.Handle(new GenericResponse<EditRoomResponse>(response));
+            }
+            catch (Exception ex)
+            {
+                outputPort.Handle(new GenericResponse<EditRoomResponse>(new EditRoomResponse
+                {
+                    Message = $"Error updating room: {ex.Message}",
+                    Status = 500,
+                }));
+            }
+        }
+    }
+    #endregion
+
     #region GetRooms
     public class GetRoomsUseCase : IGetRoomsUseCase
     {
@@ -1305,7 +1587,7 @@ namespace Application.Usecase
                 }
                 if (!await _db.RoomTBLs.AnyAsync((e => (
                             string.IsNullOrEmpty(message.Query) ||
-                                e.Title.Contains(message.Query)) && e.IDOwnerTBL == idUser
+                                e.Title.Contains(message.Query)) && e.IDOwnerTBL == idUser || e.RoomTBLToUserTBLs.Any(r => r.ParticipatorTBL.ID == idUser)
                             //((e.IDOwnerTBL != idUser && e.OwnerTBL.Username == message.UserName) || (e.IDOwnerTBL == idUser && message.UserName == null) ||
                             //(e.IDOwnerTBL == idUser && message.UserName == e.OwnerTBL.Username))
                             )))
@@ -1325,7 +1607,7 @@ namespace Application.Usecase
                     var rooms = await _db.RoomTBLs
                         .Where(e => (
                             string.IsNullOrEmpty(message.Query) ||
-                                e.Title.Contains(message.Query)) && e.IDOwnerTBL == idUser
+                                e.Title.Contains(message.Query)) && e.IDOwnerTBL == idUser || e.RoomTBLToUserTBLs.Any(r => r.ParticipatorTBL.ID == idUser)
                         //((e.IDOwnerTBL != idUser && e.OwnerTBL.Username == message.UserName) || 
                         //(e.IDOwnerTBL == idUser && message.UserName == null) ||
                         //(e.IDOwnerTBL == idUser && message.UserName == e.OwnerTBL.Username)) 
@@ -1333,7 +1615,7 @@ namespace Application.Usecase
                                 //.Include(e => e.MeetingTBLs)
                                 //    .ThenInclude(m => m.UserTBLToMeetingTBLs)
                                 //        .ThenInclude(um => um.UserTBL)
-                                .Include(e => e.OwnerTBL)
+                                .Include(e => e.OwnerTBL).Include(e => e.RoomTBLToUserTBLs)
                         .OrderByDescending(e => e.DateInsert)
                         .Select(e => new
                         {
@@ -1342,6 +1624,8 @@ namespace Application.Usecase
                             e.DateInsert,
                             plan = e.RoomTBLPlanTBLs.OrderBy(e => e.StartDate).ToList(),
                             e.OwnerTBL,
+                            isAdmin = _commonMethods.VerifyAdminAccessOfRoom(e, message.GeneralHeaders.UserTBL),
+
                             e.Avatar,
                             //Meetings = e.MeetingTBLs.Select(m => new
                             //{
@@ -1386,6 +1670,7 @@ namespace Application.Usecase
                         //    .Distinct()
                         //    .Count(),
                         Avatar = room.Avatar,
+                        IsAdmin = room.isAdmin,
                         PlanJSONs = room.plan.Any() ? room.plan.Select(r => new MiniPlanJSON
                         {
                             Id = r.ID,
@@ -1628,11 +1913,13 @@ namespace Application.Usecase
             IOutPutPort<GenericResponse<GetRoomByFriendlyIDResponse>> outputPort)
         {
             long id = 0;
+            string uuid = "";
             try
             {
                 if (message.GeneralHeaders?.UserTBL?.ID != null)
                 {
                     id = message.GeneralHeaders.UserTBL.ID;
+                    uuid = message.GeneralHeaders.UserTBL.UUID;
                 }
             }
             catch (Exception e) { }
@@ -1646,7 +1933,7 @@ namespace Application.Usecase
                 {
                     RoomID = e.FriendlyID,
                     Title = e.Title,
-                    IsAdmin = e.IDOwnerTBL == id,
+                    IsAdmin = e.IDOwnerTBL == id || e.RoomTBLToUserTBLs.Any(r => r.UUIDParticipatorTBL == uuid),
                     NextMeet = e.RoomTBLPlanTBLs.Any(e => e.StartDate > DateTime.Now) ? e.RoomTBLPlanTBLs.Where(e => e.StartDate > DateTime.Now).First().StartDate : DateTime.MaxValue,
                     LatestTitle = e.RoomTBLPlanTBLs.Any(e => e.StartDate > DateTime.Now) ? e.RoomTBLPlanTBLs.Where(e => e.StartDate > DateTime.Now).First().Title : "",
                     Avatar = e.Avatar,
@@ -2200,21 +2487,32 @@ namespace Application.Usecase
             {
                 userid = message.GeneralHeaders.BBBUserToken;
                 if (userid == null)
-                    userid = Statics.GenerateSecretKey(64);
+                    userid = "userVc2-Anonymous_" + Statics.GenerateSecretKey(32);
 
             }
             else
             {
                 userid = message.GeneralHeaders.BBBUserToken;
                 if (userid == null)
-                    userid = Statics.GenerateSecretKey(64);
+                    userid = "userVc2-Anonymous_" + Statics.GenerateSecretKey(32);
+            }
+            if (userid == "undefined")
+            {
+                outputPort.Handle(new GenericResponse<GetMeetingURLResponse>(new GetMeetingURLResponse
+                {
+                    Message = "خطایی رخ داد. لطفا صفحه را ریلود کنید و دوباره تلاش کنید!",
+                    Status = 500,
+                    Link = null
+                }));
+                return;
             }
             bool modir = false;
             if (message.AsModerator)
             {
                 if (message.GeneralHeaders?.UserTBL?.ID != null)
                 {
-                    if (_db.RoomTBLs.Any(e => e.FriendlyID == message.MeetiID && e.IDOwnerTBL == message.GeneralHeaders.UserTBL.ID))
+                    if (_db.RoomTBLs.Any(e => e.FriendlyID == message.MeetiID && e.IDOwnerTBL == message.GeneralHeaders.UserTBL.ID ||
+                    e.RoomTBLToUserTBLs.Any(r => r.ParticipatorTBL.ID == message.GeneralHeaders.UserTBL.ID && r.Type == MainEntity_Types.ROOMTOUSER_ADMIN)))
                     {
                         modir = true;
                     }
@@ -2253,7 +2551,55 @@ namespace Application.Usecase
             //};
 
             var meets = await IBBBGetMeetings.GetJoinUrlAsync(meet, message.FullName, userid, message.NationalCode, message.PhoneNumber, vc2Token, modir, await _commonMethods.ReturnPassword(message.MeetiID, modir));
-
+            if (userid != null)
+            {
+                if (!_db.UserTBLToMeetingTBLs.Any(e => e.MeetID == meet.MeetID && e.UUID == userid))
+                {
+                    if (!_db.UserTBLs.Any(e => e.UUID == userid))
+                    {
+                        _db.UserTBLs.Add(new UserTBL
+                        {
+                            UUID = userid,
+                            ExtId = new List<string> { userid },
+                            AllowedGUID = new List<Guid> { Guid.NewGuid() },
+                            Type = MainEntity_Types.USER_VIEWER,
+                            Status = MainEntity_Status.USER_ACTIVATED_BY_REQUEST_JOIN_MEET,
+                        });
+                        _db.SaveChanges();
+                    }
+                    var newUserMeet = new UserTBLToMeetingTBL
+                    {
+                        IsMember = true,
+                        MeetID = meet.MeetID,
+                        IPList = new List<string> { message.GeneralHeaders.RequestedIP },
+                        IsRemoved = false,
+                        IsCertificated = false,
+                        NationalCode = message.NationalCode + "",
+                        Phone = message.PhoneNumber + "",
+                        UUID = userid,
+                        Status = MainEntity_Status.USERMEET_REQUESTED,
+                        Type = MainEntity_Types.Normal,
+                        UserNickName = message.FullName,
+                        UserMeetID = "-",
+                    };
+                    var u = _db.UserTBLs.FirstOrDefault(e => e.UUID == userid);
+                    if (u != null)
+                    {
+                        if (u.AllowedGUID == null || !u.AllowedGUID.Any())
+                        {
+                            u.AddGuid(Guid.NewGuid());
+                            _db.SaveChanges();
+                        }
+                        newUserMeet.TokenJWT = Statics.GenerateJWTUser(u, newUserMeet);
+                    }
+                    else
+                    {
+                        newUserMeet.TokenJWT = "";
+                    }
+                    _db.UserTBLToMeetingTBLs.Add(newUserMeet);
+                    _db.SaveChanges();
+                }
+            }
             outputPort.Handle(new GenericResponse<GetMeetingURLResponse>(new GetMeetingURLResponse
             {
                 Message = "ok",
@@ -2429,7 +2775,7 @@ namespace Application.Usecase
                     return;
                 }
                 Statics.Log("GenerateCertificateUseCase", "checkCert");
-                var um = await _db.UserTBLToMeetingTBLs.Where(e => e.TokenJWT == message.GeneralHeaders.JWTMeetingUserToken && e.MeetID==meet.MeetID)
+                var um = await _db.UserTBLToMeetingTBLs.Where(e => e.TokenJWT == message.GeneralHeaders.JWTMeetingUserToken && e.MeetID == meet.MeetID)
                     .Include(e => e.MeetingTBL).Include(e => e.UserTBLToMeetingTBLLogs).FirstOrDefaultAsync();
                 if (um == null || string.IsNullOrEmpty(um.NationalCode))
                 {
@@ -2457,8 +2803,8 @@ namespace Application.Usecase
                         Status = 403,
                     }));
                     return;
-                }   
-                var timestay = _commonMethods.GetTimerStayUserInMeet(um);
+                }
+                var timestay = _commonMethods.GetTimerStayUserInMeet(um,meet.EndDate.HasValue);
                 if (timestay < meet.PresentMinutesToCert * 60)
                 {
                     outputPort.Handle(new GenericResponse<GenerateCertificateResponse>(new GenerateCertificateResponse
@@ -2649,6 +2995,75 @@ namespace Application.Usecase
     }
     #endregion
 
+    #region GetTheMembers
+    public class GetTheMembersUseCase : IGetTheMembersUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        private IBBBGetMeetings bbb { get; }
+        public GetTheMembersUseCase(IDBContext repository,
+            IConfiguration configuration,
+            IBBBGetMeetings bbb
+            )
+        {
+            _db = repository;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+            this.bbb = bbb;
+        }
+
+        public async Task handleAsync(GetTheMembersRequest message,
+            IOutPutPort<GenericResponse<GetTheMembersResponse>> outputPort)
+        {
+            var init = await _commonMethods.Initialize<GetTheMembersRequest>(message);
+            var user = init.Item1;
+            var meet = init.Item2;
+            if (meet == null || user == null)
+            {
+                outputPort.Handle(new GenericResponse<GetTheMembersResponse>(new GetTheMembersResponse
+                {
+                    Message = "forbidden",
+                    Status = 403,
+                }));
+                return;
+            }
+
+            if (!_db.UserTBLToMeetingTBLs.Any(e => e.UUID == user.UUID && e.MeetID == meet.MeetID) &&
+               !user.VerifyUserPermissions("manage_admins"))
+            {
+                outputPort.Handle(new GenericResponse<GetTheMembersResponse>(new GetTheMembersResponse
+                {
+                    Message = "دسترسی ندارید",
+                    Status = 400
+                }));
+                return;
+            }
+
+            var data = _db.UserTBLToMeetingTBLs.Where(e => e.MeetID == meet.MeetID).Include(e => e.UserTBL).Select(e => new MiniUserToMeetJSON
+            {
+                ID = e.UserTBL.ID,
+                Fullname = e.UserTBL.GetName(),
+                IsRegistered = !string.IsNullOrEmpty(e.UserTBL.Email) || !string.IsNullOrEmpty(e.UserTBL.NationalCode),
+                IsVIPMember = e.IsMember,
+                UserMeetID = e.ID,
+                IsHozuri = e.Explain == "HOZURI",
+                AttendanceType = e.Explain == "HOZURI" ? "hozuri" : "virtual",
+                NationalCode = !string.IsNullOrEmpty(e.NationalCode) ? e.NationalCode : e.UserTBL.NationalCode
+            }).ToList();
+
+
+            outputPort.Handle(new GenericResponse<GetTheMembersResponse>(new GetTheMembersResponse
+            {
+                Message = "ended",
+                Status = 200,
+                Data = data
+
+            }));
+
+        }
+    }
+    #endregion
+
     #region EndTheMeeting From BBB
     public class EndTheMeetingUseCase : IEndTheMeetingUseCase
     {
@@ -2681,6 +3096,7 @@ namespace Application.Usecase
                 }));
                 return;
             }
+
             if (!_db.UserTBLToMeetingTBLs.Any(e => e.UUID == user.UUID && e.MeetID == meet.MeetID) &&
                !user.VerifyUserPermissions("manage_admins"))
             {
@@ -2700,6 +3116,13 @@ namespace Application.Usecase
                 _db.Update(meet);
                 _db.SaveChanges();
             }
+
+            if (message.SendToNajm)
+            {
+                var najmStatusCode = await _commonMethods.SyncWithNajm(meet, user);
+                Statics.Log("EndTheMeeting", $"Najm sync executed with status code: {najmStatusCode}");
+            }
+
             outputPort.Handle(new GenericResponse<EndTheMeetingResponse>(new EndTheMeetingResponse
             {
                 Message = "ended",
@@ -2730,6 +3153,7 @@ namespace Application.Usecase
         public async Task handleAsync(EndTheMeetingWithAPIRequest message,
             IOutPutPort<GenericResponse<EndTheMeetingWithAPIResponse>> outputPort)
         {
+            long idUser = message.GeneralHeaders.UserTBL.ID;
             if (!message.GeneralHeaders.UserTBL.VerifyUserPermissions("create_meeting"))
             {
                 outputPort.Handle(new GenericResponse<EndTheMeetingWithAPIResponse>(new EndTheMeetingWithAPIResponse
@@ -2739,7 +3163,7 @@ namespace Application.Usecase
                 }));
                 return;
             }
-            if (!_db.RoomTBLs.Any(e => e.IDOwnerTBL == message.GeneralHeaders.UserTBL.ID && e.FriendlyID == message.FriendlyID))
+            if (!_db.RoomTBLs.Any(e => e.IDOwnerTBL == message.GeneralHeaders.UserTBL.ID && e.FriendlyID == message.FriendlyID || (e.RoomTBLToUserTBLs.Any(r => r.ParticipatorTBL.ID == idUser))))
             {
                 outputPort.Handle(new GenericResponse<EndTheMeetingWithAPIResponse>(new EndTheMeetingWithAPIResponse
                 {
@@ -2748,7 +3172,8 @@ namespace Application.Usecase
                 }));
                 return;
             }
-            var meet = await _db.MeetingTBLs.FirstOrDefaultAsync(e => e.RoomFriendlyID == message.FriendlyID && !e.EndDate.HasValue && e.IDCreator == message.GeneralHeaders.UserTBL.ID);
+            var meet = await _db.MeetingTBLs.FirstOrDefaultAsync(e => e.RoomFriendlyID == message.FriendlyID &&
+            !e.EndDate.HasValue);
 
             if (meet == null)
             {
@@ -2759,7 +3184,7 @@ namespace Application.Usecase
                 }));
                 return;
             }
-            meet.Status = MainEntity_Status.MEETING_END;
+            meet.Status = MainEntity_Status.MEETING_END_BY_HANDY;
             meet.EndDate = DateTime.UtcNow;
 
             bool ended = await bbb.EndMeetingAsync(meet.MeetID.Split("-")[0], "mp");
@@ -2972,7 +3397,16 @@ namespace Application.Usecase
         public async Task handleAsync(GetSlideShowRequest message,
             IOutPutPort<GenericResponse<GetSlideShowResponse>> outputPort)
         {
-
+            if (_db.SlideshowTBL.Any(e => e.DateExpire != null && e.DateExpire < DateTime.UtcNow && e.Status == MainEntity_Status.Enabled))
+            {
+                var r = _db.SlideshowTBL.Where(e => e.DateExpire < DateTime.UtcNow && e.Status == MainEntity_Status.Enabled).ToList();
+                foreach (var q in r)
+                {
+                    q.Status = MainEntity_Status.Disable;
+                    _db.Update(q);
+                }
+                _db.SaveChanges();
+            }
             if (!_db.SlideshowTBL.Any(e => e.Status == MainEntity_Status.Enabled))
             {
                 outputPort.Handle(new GenericResponse<GetSlideShowResponse>(new GetSlideShowResponse
@@ -2999,7 +3433,7 @@ namespace Application.Usecase
                     Href = e.Href,
                     ID = e.ID,
                     Link = Statics.CombinePath(Statics.URLFiles, e.Path),
-                    Type = e.Explain,
+                    Type = string.IsNullOrEmpty(e.Explain) ? "image" : e.Explain,
                     Position = e.Status == MainEntity_Status.Enabled ? e.Position : 0,
                     Title = e.Name
                 }).ToList();
@@ -3012,7 +3446,7 @@ namespace Application.Usecase
                     ID = e.ID,
                     Link = Statics.CombinePath(Statics.URLFiles, e.Path),
                     Position = e.Status == MainEntity_Status.Enabled ? e.Position : 0,
-                    Type = e.Explain,
+                    Type = string.IsNullOrEmpty(e.Explain) ? "image" : e.Explain,
                     Title = e.Name
                 }).ToList();
             }
@@ -3278,6 +3712,285 @@ namespace Application.Usecase
             {
                 Message = "ok",
                 Status = 200,
+            }));
+
+        }
+    }
+    #endregion
+
+    #region SendOTPConfirmation
+    public class SendOTPConfirmationUseCase : ISendOTPConfirmationUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        private IBBBGetMeetings IBBBGetMeetings { get; }
+        private IScpUploader IScpUploader { get; }
+        private ISendSMS sms { get; }
+        public SendOTPConfirmationUseCase(IDBContext repository,
+            IConfiguration configuration,
+            IBBBGetMeetings bBBGetMeetings,
+            IScpUploader IScpUploader,
+            ISendSMS sms
+            )
+        {
+            _db = repository;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+            IBBBGetMeetings = bBBGetMeetings;
+            this.IScpUploader = IScpUploader;
+            this.sms = sms;
+        }
+
+
+
+
+        public async Task handleAsync(SendOTPConfirmationRequest message,
+            IOutPutPort<GenericResponse<SendOTPConfirmationResponse>> outputPort)
+        {
+            UserTBL? user = null;
+            string targetPhone = "";
+
+            if (!string.IsNullOrWhiteSpace(message.NationalCode))
+            {
+                var nationalCode = message.NationalCode.Trim();
+                user = await _db.UserTBLs.FirstOrDefaultAsync(e => e.NationalCode == nationalCode && e.IsMemberVIP);
+                if (user == null)
+                {
+                    var userExists = await _db.UserTBLs.AnyAsync(e => e.NationalCode == nationalCode);
+                    if (userExists)
+                    {
+                        outputPort.Handle(new GenericResponse<SendOTPConfirmationResponse>(new SendOTPConfirmationResponse
+                        {
+                            Message = "شما به عنوان عضو مجمع ثبت نشده‌اید. لطفاً با دبیرخانه تماس بگیرید",
+                            Status = 403,
+                        }));
+                        return;
+                    }
+                    outputPort.Handle(new GenericResponse<SendOTPConfirmationResponse>(new SendOTPConfirmationResponse
+                    {
+                        Message = "کد ملی وارد شده در لیست اعضای مجمع یافت نشد",
+                        Status = 404,
+                    }));
+                    return;
+                }
+
+                if (string.IsNullOrWhiteSpace(user.PhoneNumber))
+                {
+                    outputPort.Handle(new GenericResponse<SendOTPConfirmationResponse>(new SendOTPConfirmationResponse
+                    {
+                        Message = "شماره موبایلی برای این کد ملی ثبت نشده است. لطفاً با دبیرخانه تماس بگیرید",
+                        Status = 400,
+                    }));
+                    return;
+                }
+                targetPhone = user.PhoneNumber;
+            }
+            else if (!string.IsNullOrWhiteSpace(message.Phone))
+            {
+                targetPhone = message.Phone;
+            }
+            else
+            {
+                outputPort.Handle(new GenericResponse<SendOTPConfirmationResponse>(new SendOTPConfirmationResponse
+                {
+                    Message = "لطفاً کد ملی خود را وارد نمایید",
+                    Status = 400,
+                }));
+                return;
+            }
+
+            var validator = PhoneValidator.Verify(targetPhone);
+            if (!validator.IsValid)
+            {
+                outputPort.Handle(new GenericResponse<SendOTPConfirmationResponse>(new SendOTPConfirmationResponse
+                {
+                    Message = "شماره همراه ثبت شده نامعتبر است",
+                    Status = 400,
+                }));
+                return;
+            }
+
+            if (user == null)
+            {
+                user = await _db.UserTBLs.FirstOrDefaultAsync(e => e.PhoneNumber == validator.NormalizedPhoneNumber && e.IsMemberVIP);
+                if (user == null)
+                {
+                    outputPort.Handle(new GenericResponse<SendOTPConfirmationResponse>(new SendOTPConfirmationResponse
+                    {
+                        Message = "شماره یا کاربر عضو مجمع یافت نشد",
+                        Status = 404,
+                    }));
+                    return;
+                }
+            }
+
+            if (_db.UserTBLLogs.Count(e => e.Key == UserTBLLogs.KEY_SMS && e.IDUser == user.ID && e.DateInsert.AddHours(+5) > DateTime.UtcNow) > 5)
+            {
+                outputPort.Handle(new GenericResponse<SendOTPConfirmationResponse>(new SendOTPConfirmationResponse
+                {
+                    Message = "تعداد درخواست پیامک بیش از حد مجاز بود. لطفاً کمی بعد تلاش کنید",
+                    Status = 403,
+                }));
+                return;
+            }
+
+            int code = new Random().Next(1000, 9999);
+            byte[] otph, otps;
+            _commonMethods.CreatePasswordHash(code.ToString(), out otph, out otps);
+            user.OTPHash = otph;
+            user.OTPSalt = otps;
+            user.AddIP(message.GeneralHeaders.RequestedIP);
+            var g = Guid.NewGuid();
+            while (_db.UserTBLs.Any(r => r.AllowedGUID.Any(e => e == g)))
+            {
+                g = Guid.NewGuid();
+            }
+            user.AddGuid(g);
+            _db.Update(user);
+            _db.UserTBLLogs.Add(new UserTBLLogs
+            {
+                Key = UserTBLLogs.KEY_SMS,
+                Value = "",
+                IDUser = user.ID,
+                DateInsert = DateTime.UtcNow,
+            });
+            string guid = Guid.NewGuid().ToString();
+            _db.UserTBLLogs.Add(new UserTBLLogs
+            {
+                Key = UserTBLLogs.KEY_CODE,
+                Value = guid.ToString(),
+                IDUser = user.ID,
+                Explain = code.ToString(),
+                DateInsert = DateTime.UtcNow,
+            });
+            user.OTPExpire = DateTime.UtcNow.AddHours(1);
+            _db.SaveChanges();
+
+            await sms.SendOTP(validator.NormalizedPhoneNumber, code);
+
+            string rawNumber = validator.NormalizedPhoneNumber;
+            string maskedNumber = "";
+            if (rawNumber.Length >= 10)
+            {
+                if (rawNumber.StartsWith("0"))
+                {
+                    maskedNumber = rawNumber.Substring(0, 4) + "*****" + rawNumber.Substring(rawNumber.Length - 2);
+                }
+                else
+                {
+                    maskedNumber = "0" + rawNumber.Substring(0, 3) + "*****" + rawNumber.Substring(rawNumber.Length - 2);
+                }
+            }
+            else
+            {
+                maskedNumber = rawNumber;
+            }
+
+            outputPort.Handle(new GenericResponse<SendOTPConfirmationResponse>(new SendOTPConfirmationResponse
+            {
+                Message = "ok",
+                Guid = guid,
+                MaskedPhone = maskedNumber,
+                Phone = maskedNumber,
+                Status = 200,
+            }));
+
+        }
+    }
+    #endregion
+
+    #region ConfirmOTP
+    public class ConfirmOTPUseCase : IConfirmOTPUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        private IBBBGetMeetings IBBBGetMeetings { get; }
+        private IScpUploader IScpUploader { get; }
+        private ISendSMS sms { get; }
+        public ConfirmOTPUseCase(IDBContext repository,
+            IConfiguration configuration,
+            IBBBGetMeetings bBBGetMeetings,
+            IScpUploader IScpUploader,
+            ISendSMS sms
+            )
+        {
+            _db = repository;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+            IBBBGetMeetings = bBBGetMeetings;
+            this.IScpUploader = IScpUploader;
+            this.sms = sms;
+        }
+
+
+
+
+        public async Task handleAsync(ConfirmOTPRequest message,
+            IOutPutPort<GenericResponse<ConfirmOTPResponse>> outputPort)
+        {
+            var userLog = await _db.UserTBLLogs.Where(e => e.Value == message.Guid).Include(e => e.User).OrderByDescending(e => e.ID).FirstOrDefaultAsync();
+            if (userLog == null)
+            {
+                outputPort.Handle(new GenericResponse<ConfirmOTPResponse>(new ConfirmOTPResponse
+                {
+                    Message = "کد شما یا منقضی شده یا وجود ندارد دوباره تلاش کنید",
+                    Status = 400,
+                })); return;
+            }
+            var validator = PhoneValidator.Verify(userLog.User.PhoneNumber);
+            if (!validator.IsValid)
+            {
+                outputPort.Handle(new GenericResponse<ConfirmOTPResponse>(new ConfirmOTPResponse
+                {
+                    Message = "شماره اشتباهه",
+                    Status = 400,
+                })); return;
+            }
+            if (!_db.UserTBLs.Any(e => e.PhoneNumber == validator.NormalizedPhoneNumber && e.IsMemberVIP))
+            {
+                outputPort.Handle(new GenericResponse<ConfirmOTPResponse>(new ConfirmOTPResponse
+                {
+                    Message = "شماره یافت نشد",
+                    Status = 404,
+                })); return;
+            }
+            var user = userLog.User;
+
+            if (!user.OTPExpire.HasValue || user.OTPExpire.Value < DateTime.UtcNow)
+            {
+                outputPort.Handle(new GenericResponse<ConfirmOTPResponse>(new ConfirmOTPResponse
+                {
+                    Message = "کد شما منقضی شده است",
+                    Status = 403,
+                }));
+                return;
+            }
+
+            string token = "";
+            var verify = _commonMethods.VerifyPasswordHash(message.Code, user.OTPHash, user.OTPSalt);
+            if (verify)
+            {
+                token = Statics.GenerateJWTLoginVC2(user, message.GeneralHeaders);
+                user.OTPSalt = Array.Empty<byte>();
+                user.OTPHash = Array.Empty<byte>();
+                user.OTPExpire = DateTime.MinValue;
+                _db.Update(user);
+                _db.SaveChanges();
+            }
+
+            string rawNumber = validator.NormalizedPhoneNumber;
+            string maskedNumber = rawNumber.Length >= 10
+                ? (rawNumber.StartsWith("0") ? rawNumber.Substring(0, 4) + "*****" + rawNumber.Substring(rawNumber.Length - 2) : "0" + rawNumber.Substring(0, 3) + "*****" + rawNumber.Substring(rawNumber.Length - 2))
+                : rawNumber;
+
+            outputPort.Handle(new GenericResponse<ConfirmOTPResponse>(new ConfirmOTPResponse
+            {
+                Message = verify ? "ok" : "کد وارد شده نادرست میباشد!",
+                Status = verify ? 200 : 403,
+                Token = token,
+                Fullname = verify ? user.GetName() : null,
+                NationalCode = verify ? user.NationalCode : null,
+                MaskedPhone = maskedNumber
             }));
 
         }
@@ -3589,7 +4302,7 @@ namespace Application.Usecase
         {
             try
             {
-                if (!message.GeneralHeaders.UserTBL.VerifyUserPermissions("create_meeting"))
+                if (!message.GeneralHeaders.UserTBL.VerifyUserPermissions("create_meeting") )
                 {
                     outputPort.Handle(new GenericResponse<NewPlanRoomResponse>(new NewPlanRoomResponse
                     {
@@ -3598,7 +4311,7 @@ namespace Application.Usecase
                     }));
                     return;
                 }
-                if (!_db.RoomTBLs.Any(e => e.IDOwnerTBL == message.GeneralHeaders.UserTBL.ID && e.FriendlyID == message.FriendlyID))
+                if (!_db.RoomTBLs.Any(e => (e.IDOwnerTBL == message.GeneralHeaders.UserTBL.ID || e.RoomTBLToUserTBLs.Any(r=>r.UUIDParticipatorTBL== message.GeneralHeaders.UserTBL.UUID) && e.FriendlyID == message.FriendlyID )))
                 {
                     outputPort.Handle(new GenericResponse<NewPlanRoomResponse>(new NewPlanRoomResponse
                     {
@@ -3609,7 +4322,46 @@ namespace Application.Usecase
                 }
                 var room = _db.RoomTBLs.Where(e => e.FriendlyID == message.FriendlyID).First();
 
-                _db.RoomTBLPlanTBLs.Add(new RoomTBLPlanTBL
+
+                string bannerURL = "";
+                string bannerPresentationURL = "";
+                var uploadPath = @"C:\hekmatFiles\img\plan_baner";
+                if (!Directory.Exists(uploadPath))
+                {
+                    Directory.CreateDirectory(uploadPath);
+                }
+                if (message.Banner != null && message.Banner.Length > 0)
+                {
+                    var fileExtension = Path.GetExtension(message.Banner.FileName).ToLower();
+                    var uniqueFileName = $"{Guid.NewGuid()}{fileExtension}";
+                    var filePath = Path.Combine(uploadPath, uniqueFileName);
+
+                    using (var stream = new FileStream(filePath, FileMode.Create))
+                    {
+                        await message.Banner.CopyToAsync(stream);
+                    }
+                    var fileLink = $"/img/plan_baner/{uniqueFileName}";
+                    bannerURL = Statics.CombinePath(Statics.URLFiles, fileLink);
+                }
+                if (message.IsBannerAndPresentationSame)
+                {
+                    bannerPresentationURL = bannerURL;
+                }
+                else if (message.BannerPresentation != null && message.BannerPresentation.Length > 0)
+                {
+                    var fileExtension = Path.GetExtension(message.BannerPresentation.FileName).ToLower();
+                    var uniqueFileName = $"{Guid.NewGuid()}{fileExtension}";
+                    var filePath = Path.Combine(uploadPath, uniqueFileName);
+
+                    using (var stream = new FileStream(filePath, FileMode.Create))
+                    {
+                        await message.BannerPresentation.CopyToAsync(stream);
+                    }
+                    var fileLink = $"/img/plan_baner/{uniqueFileName}";
+                    bannerPresentationURL = Statics.CombinePath(Statics.URLFiles, fileLink);
+
+                }
+                var plan = new RoomTBLPlanTBL
                 {
                     IDRoomTBL = room.ID,
                     StartDate = message.StartDate.AddHours(-17),
@@ -3618,7 +4370,23 @@ namespace Application.Usecase
                     Teachers = message.Teacher,
                     Dabir = message.Dabir,
                     Title = message.Title,
-                });
+                    PresentationFileURL = bannerPresentationURL,
+                };
+
+                _db.RoomTBLPlanTBLs.Add(plan);
+                if (!string.IsNullOrWhiteSpace(bannerURL))
+                {
+                    _db.SlideshowTBL.Add(new SlideshowTBL
+                    {
+                        DateExpire = plan.StartDate.Value.AddHours(5),
+                        Href = $"/rooms/{plan.RoomTBL.FriendlyID}/join",
+                        Name = plan.Title,
+                        Path = bannerURL.Replace(Statics.URLFiles, ""),
+                        Position = 2,
+                        Type = MainEntity_Types.Normal,
+                        Status = MainEntity_Status.Enabled
+                    });
+                }
                 _db.SaveChanges();
                 await _mediator.Publish(new PlanUpdateEvent
                 {
@@ -3669,8 +4437,11 @@ namespace Application.Usecase
         {
             try
             {
-                if (!_db.RoomTBLs.Any(e => e.IDOwnerTBL == message.GeneralHeaders.UserTBL.ID && e.FriendlyID == message.FriendlyID) &&
-                                !message.GeneralHeaders.UserTBL.VerifyUserPermissions("manage_admins"))
+                if (!_db.RoomTBLs.Any(e => e.IDOwnerTBL == message.GeneralHeaders.UserTBL.ID && e.FriendlyID == message.FriendlyID
+
+                ) &&
+                                !message.GeneralHeaders.UserTBL.VerifyUserPermissions("manage_admins")
+                                )
                 {
                     outputPort.Handle(new GenericResponse<GetPlanRoomResponse>(new GetPlanRoomResponse
                     {
@@ -3691,7 +4462,9 @@ namespace Application.Usecase
 
                     var room = _db.RoomTBLs.Where(e => e.FriendlyID == message.FriendlyID).First();
 
-                    var list = _db.RoomTBLPlanTBLs.Where(e => e.IDRoomTBL == room.ID).Include(e => e.RoomTBL)
+                    var list = _db.RoomTBLPlanTBLs.Where(e => e.IDRoomTBL == room.ID
+                                && (e.Status == MainEntity_Status.Enabled || e.Status == MainEntity_Status.MEETING_STARTED_LATER)
+                    ).Include(e => e.RoomTBL)
                         .ToList();
 
                     cachedData = list.OrderByDescending(e => e.StartDate).Select(e => new MiniPlanJSON
@@ -3778,7 +4551,9 @@ namespace Application.Usecase
                     // Data not in cache, retrieve from database
                     Statics.Log("GetPlanRoomPublicUseCase", "Cache miss - retrieving from database");
 
-                    var list = _db.RoomTBLPlanTBLs.Where(e => e.StartDate.HasValue && e.StartDate.Value > DateTime.Now && e.RoomTBL.IsPublicRoom).Include(e => e.RoomTBL).ThenInclude(e => e.OwnerTBL)
+                    var list = _db.RoomTBLPlanTBLs
+                        .Where(e => e.StartDate.HasValue && e.StartDate.Value > DateTime.Now && e.RoomTBL.IsPublicRoom
+                        && (e.Status == MainEntity_Status.Enabled || e.Status == MainEntity_Status.MEETING_STARTED_LATER)).Include(e => e.RoomTBL).ThenInclude(e => e.OwnerTBL)
                         .ToList();
 
                     cachedData = list.OrderBy(e => e.StartDate).Select(e => new MiniPlanJSON
@@ -3961,7 +4736,8 @@ namespace Application.Usecase
         {
             try
             {
-                if (!_db.RoomTBLPlanTBLs.Any(e => e.RoomTBL.IDOwnerTBL == message.GeneralHeaders.UserTBL.ID && e.ID == message.IDPlan) &&
+                if (!_db.RoomTBLPlanTBLs.Any(e => (e.RoomTBL.IDOwnerTBL == message.GeneralHeaders.UserTBL.ID
+                    || e.RoomTBL.RoomTBLToUserTBLs.Any(r => r.UUIDParticipatorTBL == message.GeneralHeaders.UserTBL.UUID)) && e.ID == message.IDPlan) &&
                                 !message.GeneralHeaders.UserTBL.VerifyUserPermissions("manage_admins"))
                 {
                     outputPort.Handle(new GenericResponse<DeletePlanRoomResponse>(new DeletePlanRoomResponse
@@ -3972,9 +4748,11 @@ namespace Application.Usecase
                     return;
                 }
                 var room = _db.RoomTBLPlanTBLs.Where(e => e.ID == message.IDPlan).Include(e => e.RoomTBL).First();
-                _db.RoomTBLPlanTBLs.Remove(room);
+                room.Status = MainEntity_Status.Delete;
 
+                _db.Update(room);
                 _db.SaveChanges();
+
                 await _mediator.Publish(new PlanUpdateEvent
                 {
                     FriendlyID = room.RoomTBL.FriendlyID,
@@ -3987,6 +4765,7 @@ namespace Application.Usecase
                     Status = 200,
                 }));
             }
+
             catch (Exception e)
             {
                 Statics.Log("DeletePlanRoomUseCase", e);
@@ -4320,6 +5099,137 @@ namespace Application.Usecase
     }
     #endregion
 
+    #region GetUnansweredPollList
+    public class GetUnansweredPollListUseCase : IGetUnansweredPollListUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        private readonly IMemoryCache _memoryCache;
+        private readonly IConfiguration _configuration;
+        private readonly IMediator _mediator;
+        public GetUnansweredPollListUseCase(IDBContext repository,
+            IConfiguration configuration,
+            IMediator _mediator,
+            IMemoryCache memoryCache)
+        {
+            _db = repository;
+            _configuration = configuration;
+            this._mediator = _mediator;
+            _memoryCache = memoryCache;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+        }
+
+        public async Task handleAsync(GetUnansweredPollListRequest message,
+            IOutPutPort<GenericResponse<GetUnansweredPollListResponse>> outputPort)
+        {
+            try
+            {
+                var init = await _commonMethods.Initialize<GetUnansweredPollListRequest>(message);
+                var user = init.Item1;
+                var meet = init.Item2;
+
+                if (user == null || meet == null)
+                {
+                    outputPort.Handle(new GenericResponse<GetUnansweredPollListResponse>(new GetUnansweredPollListResponse
+                    {
+                        Message = "دسترسی ندارید",
+                        Status = 400,
+                        Data = new List<PollJSON>()
+                    }));
+                    return;
+                }
+
+                // 1. Get all questions for this meeting
+                var allPolls = await _db.MeetPollQuizTBLs
+                    .Where(e => (e.IsForAll || e.IDMeetingTBL == meet.ID) && e.Status == MainEntity_Status.LOG_NORMAL)
+                    .Include(e => e.MeetPollQuizAnsTBLs)
+                    .ToListAsync();
+
+                // 2. Discover all userMeet IDs for this user in this meeting
+                var userMeetIds = await _db.UserTBLToMeetingTBLs
+                    .Where(e => (e.MeetID == meet.MeetID || (e.MeetingTBL != null && e.MeetingTBL.MeetID == meet.MeetID)) &&
+                        (
+                            e.UUID == user.UUID ||
+                            (user.ID > 0 && e.UserTBL != null && e.UserTBL.ID == user.ID) ||
+                            (!string.IsNullOrEmpty(user.NationalCode) && (e.NationalCode == user.NationalCode || (e.UserTBL != null && e.UserTBL.NationalCode == user.NationalCode))) ||
+                            (!string.IsNullOrEmpty(user.PhoneNumber) && (e.Phone == user.PhoneNumber || (e.UserTBL != null && e.UserTBL.PhoneNumber == user.PhoneNumber)))
+                        )
+                    )
+                    .Select(e => e.ID)
+                    .ToListAsync();
+
+                // 3. Collect answered question IDs
+                var answeredQuestionIds = new HashSet<long>();
+
+                if (userMeetIds.Count > 0)
+                {
+                    // A. Answers recorded in MeetPollQuizAnsTBLToUserMeetTBLs
+                    var answeredFromDb = await _db.MeetPollQuizAnsTBLToUserMeetTBLs
+                        .Where(ans => ans.IDUserTBLToMeetingTBL.HasValue && userMeetIds.Contains(ans.IDUserTBLToMeetingTBL.Value))
+                        .Select(ans => ans.MeetPollQuizAnsTBL.IDQuizTBL)
+                        .Distinct()
+                        .ToListAsync();
+
+                    foreach (var qId in answeredFromDb)
+                    {
+                        answeredQuestionIds.Add(qId);
+                    }
+
+                    // B. Also check UserTBLToMeetingTBLLogs for POLL_ATTENDANCE_VERIFIED
+                    var pollAttendanceLogs = await _db.UserTBLToMeetingTBLLogs
+                        .Where(l => userMeetIds.Contains(l.IDUserTBLToMeetingTBL) && l.Key == "POLL_ATTENDANCE_VERIFIED" && !string.IsNullOrEmpty(l.Value))
+                        .Select(l => l.Value)
+                        .ToListAsync();
+
+                    foreach (var log in pollAttendanceLogs)
+                    {
+                        var match = System.Text.RegularExpressions.Regex.Match(log, @"شناسه سوال:\s*(\d+)");
+                        if (match.Success && long.TryParse(match.Groups[1].Value, out long qId))
+                        {
+                            answeredQuestionIds.Add(qId);
+                        }
+                    }
+                }
+
+                // 4. Return only questions not yet answered
+                var unansweredPolls = allPolls
+                    .Where(e => !answeredQuestionIds.Contains(e.ID))
+                    .Select(e => new PollJSON
+                    {
+                        ID = e.ID,
+                        Question = e.Question,
+                        Type = e.Type,
+                        Answers = e.MeetPollQuizAnsTBLs != null && e.MeetPollQuizAnsTBLs.Count > 0
+                            ? e.MeetPollQuizAnsTBLs.OrderBy(r => r.Score).Select(r => new PoolAnsJSON
+                            {
+                                Content = r.Answer,
+                                ID = r.ID
+                            }).ToList()
+                            : new List<PoolAnsJSON>(),
+                    }).ToList();
+
+                outputPort.Handle(new GenericResponse<GetUnansweredPollListResponse>(new GetUnansweredPollListResponse
+                {
+                    Message = "ok",
+                    Status = 200,
+                    Data = unansweredPolls
+                }));
+            }
+            catch (Exception e)
+            {
+                Statics.Log("GetUnansweredPollListUseCase", e);
+                outputPort.Handle(new GenericResponse<GetUnansweredPollListResponse>(new GetUnansweredPollListResponse
+                {
+                    Message = "error",
+                    Status = 400,
+                    Data = new List<PollJSON>()
+                }));
+            }
+        }
+    }
+    #endregion
+
     #region AnswerPollList
     public class AnswerPollListUseCase : IAnswerPollListUseCase
     {
@@ -4364,18 +5274,39 @@ namespace Application.Usecase
                           .Include(e => e.UserTBLToMeetingTBLLogs)
                           .FirstOrDefault(e => e.MeetID == meet.MeetID && e.UUID == user.UUID);
 
-                foreach (var i in message.AnswerItemRequestJSONs)
+                if (userMeet == null)
                 {
-                    _db.MeetPollQuizAnsTBLToUserMeetTBLs.Add(new MeetPollQuizAnsTBLToUserMeetTBL
-                    {
-                        Content = i.Content,
-                        IDMeetPollQuizAnsTBL = i.ID,
-                        IDUserTBLToMeetingTBL = userMeet.ID,
-                        Type = MainEntity_Types.Normal,
-                        Status = MainEntity_Status.Default,
-                    });
+                    userMeet = _db.UserTBLToMeetingTBLs
+                        .FirstOrDefault(e => (e.MeetID == meet.MeetID || (e.MeetingTBL != null && e.MeetingTBL.MeetID == meet.MeetID)) &&
+                            (
+                                e.UUID == user.UUID ||
+                                (user.ID > 0 && e.UserTBL != null && e.UserTBL.ID == user.ID) ||
+                                (!string.IsNullOrEmpty(user.NationalCode) && e.NationalCode == user.NationalCode) ||
+                                (!string.IsNullOrEmpty(user.PhoneNumber) && e.Phone == user.PhoneNumber)
+                            )
+                        );
                 }
-                _db.SaveChanges();
+
+                if (userMeet != null && message.AnswerItemRequestJSONs != null)
+                {
+                    foreach (var i in message.AnswerItemRequestJSONs)
+                    {
+                        // Avoid duplicate answers
+                        if (!_db.MeetPollQuizAnsTBLToUserMeetTBLs.Any(a => a.IDUserTBLToMeetingTBL == userMeet.ID && a.IDMeetPollQuizAnsTBL == i.ID))
+                        {
+                            _db.MeetPollQuizAnsTBLToUserMeetTBLs.Add(new MeetPollQuizAnsTBLToUserMeetTBL
+                            {
+                                Content = i.Content,
+                                IDMeetPollQuizAnsTBL = i.ID,
+                                IDUserTBLToMeetingTBL = userMeet.ID,
+                                Type = MainEntity_Types.Normal,
+                                Status = MainEntity_Status.Default,
+                            });
+                        }
+                    }
+                    _db.SaveChanges();
+                }
+
                 outputPort.Handle(new GenericResponse<AnswerPollListResponse>(new AnswerPollListResponse
                 {
                     Message = "ok",
@@ -4467,6 +5398,5 @@ namespace Application.Usecase
         }
     }
     #endregion
-
 
 }

@@ -1,4 +1,4 @@
-﻿
+
 
 using Application.DTO;
 using Application.DTO.Generals;
@@ -10,6 +10,8 @@ namespace Application.Interface.IUsecase
     public interface IVerifyTokenUseCase : IUseCaseRequestHandler<VerifyTokenRequest, GenericResponse<VerifyTokenResponse>> { }
     public interface ISignInUserPanelUseCase : IUseCaseRequestHandler<SignInUserPanelRequest, GenericResponse<SignInUserPanelResponse>> { }
     public interface INewMeetingUseCase : IUseCaseRequestHandler<NewMeetingRequest, GenericResponse<NewMeetingResponse>> { }
+    public interface IGetAttendsInBBBForAdminUseCase : IUseCaseRequestHandler<GetAttendsInBBBForAdminRequest, GenericResponse<GetAttendsInBBBForAdminResponse>> { }
+    public interface ISencCheckListOfAttendsUseCase : IUseCaseRequestHandler<SencCheckListOfAttendsRequest, GenericResponse<SencCheckListOfAttendsResponse>> { }
     public interface IUpdateMeetingUseCase : IUseCaseRequestHandler<UpdateMeetingRequest, GenericResponse<UpdateMeetingResponse>> { }
     public interface INewUserMettingsUseCase : IUseCaseRequestHandler<NewUserMettingsRequest, GenericResponse<NewUserMettingsResponse>> { }
     public interface INewUserMeetingLogUseCase : IUseCaseRequestHandler<NewUserMeetingLogRequest, GenericResponse<NewUserMeetingLogResponse>> { }
@@ -27,6 +29,7 @@ namespace Application.Interface.IUsecase
     public interface IGetRoomByFriendlyIDUseCase : IUseCaseRequestHandler<GetRoomByFriendlyIDRequest, GenericResponse<GetRoomByFriendlyIDResponse>> { }
     public interface INewRoomUseCase : IUseCaseRequestHandler<NewRoomRequest, GenericResponse<NewRoomResponse>> { }
     public interface IGenerateCertificateUseCase : IUseCaseRequestHandler<GenerateCertificateRequest, GenericResponse<GenerateCertificateResponse>> { }
+    public interface IGetTheMembersUseCase : IUseCaseRequestHandler<GetTheMembersRequest, GenericResponse<GetTheMembersResponse>> { }
     public interface IEndTheMeetingUseCase : IUseCaseRequestHandler<EndTheMeetingRequest, GenericResponse<EndTheMeetingResponse>> { }
     public interface IEndTheMeetingWithAPIUseCase : IUseCaseRequestHandler<EndTheMeetingWithAPIRequest, GenericResponse<EndTheMeetingWithAPIResponse>> { }
     public interface INewQuestionUseCase : IUseCaseRequestHandler<NewQuestionRequest, GenericResponse<NewQuestionResponse>> { }
@@ -40,6 +43,7 @@ namespace Application.Interface.IUsecase
     public interface IFollowProfileUseCase : IUseCaseRequestHandler<FollowProfileRequest, GenericResponse<FollowProfileResponse>> { }
     public interface IGetHekmatShobeUseCase : IUseCaseRequestHandler<GetHekmatShobeRequest, GenericResponse<GetHekmatShobeResponse>> { }
     public interface IGetPollListUseCase : IUseCaseRequestHandler<GetPollListRequest, GenericResponse<GetPollListResponse>> { }
+    public interface IGetUnansweredPollListUseCase : IUseCaseRequestHandler<GetUnansweredPollListRequest, GenericResponse<GetUnansweredPollListResponse>> { }
     public interface IAnswerPollListUseCase : IUseCaseRequestHandler<AnswerPollListRequest, GenericResponse<AnswerPollListResponse>> { }
     public interface IUpdatePresentMinToCertOfMeetUseCase : IUseCaseRequestHandler<UpdatePresentMinToCertOfMeetRequest, GenericResponse<UpdatePresentMinToCertOfMeetResponse>> { }
     public interface IGetPlanRoomUseCase : IUseCaseRequestHandler<GetPlanRoomRequest, GenericResponse<GetPlanRoomResponse>> { }
@@ -49,6 +53,10 @@ namespace Application.Interface.IUsecase
     public interface INewPlanRoomUseCase : IUseCaseRequestHandler<NewPlanRoomRequest, GenericResponse<NewPlanRoomResponse>> { }
     public interface IGetReservationUseCase : IUseCaseRequestHandler<GetReservationRequest, GenericResponse<GetReservationResponse>> { }
     public interface INewReservationUseCase : IUseCaseRequestHandler<NewReservationRequest, GenericResponse<NewReservationResponse>> { }
+    public interface IConfirmOTPUseCase : IUseCaseRequestHandler<ConfirmOTPRequest, GenericResponse<ConfirmOTPResponse>> { }
+
+    public interface ISendOTPConfirmationUseCase : IUseCaseRequestHandler<SendOTPConfirmationRequest, GenericResponse<SendOTPConfirmationResponse>> { }
+
 
 
 
@@ -59,6 +67,7 @@ namespace Application.Interface.IUsecase
     public interface IGetAllLivesUseCase : IUseCaseRequestHandler<GetAllLivesRequest, GenericResponse<GetAllLivesResponse>> { }
     public interface IAdminCreateRoomUseCase : IUseCaseRequestHandler<AdminCreateRoomRequest, GenericResponse<AdminCreateRoomResponse>> { }
     public interface IGetAllRoomsUseCase : IUseCaseRequestHandler<GetAllRoomsRequest, GenericResponse<GetAllRoomsResponse>> { }
+    public interface IGetUserMeetLogsUseCase : IUseCaseRequestHandler<GetUserMeetLogsRequest, GenericResponse<GetUserMeetLogsResponse>> { }
     public interface IGetAllMeetingUseCase : IUseCaseRequestHandler<GetAllMeetingRequest, GenericResponse<GetAllMeetingResponse>> { }
     public interface IGetAllRoomsMiniUseCase : IUseCaseRequestHandler<GetAllRoomsMiniRequest, GenericResponse<GetAllRoomsMiniResponse>> { }
     public interface IAddPollQuizUseCase : IUseCaseRequestHandler<AddPollQuizRequest, GenericResponse<AddPollQuizResponse>> { }
