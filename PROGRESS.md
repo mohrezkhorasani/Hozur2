@@ -15,6 +15,7 @@
 2. **Progress Updates**: This file (`PROGRESS.md`) will be updated after significant changes or at the end of each session.
 3. **Conciseness**: Keep this file concise and focused on top priorities. Summarize past logs if it gets too long.
 4. **Mandatory Documentation Reading**: When working on BigBlueButton, plugins, data channels, or Greenlight integrations, **ALWAYS** consult the documentation files in `F:\bbb\md` (starting with `F:\bbb\md\README.md`). NEVER delete `F:\bbb\md` or any `.md` file inside it.
+5. **Language Requirement**: **ALWAYS answer all user requests in English.** Regardless of the language in which the user prompts or asks questions (e.g. Persian / Farsi), the AI assistant must always respond, explain, and write documentation in English.
 
 ---
 
@@ -22,8 +23,17 @@
 - **Backend Branch**: `CoreMe`
 - **Backend Solution**: `CoreMe.sln`
 - **Frontend Path**: `F:\jsb\pesteh\bbb`
-- **Last Updated**: 2026-09-09
+- **Last Updated**: 2026-09-15
  
+- **Certificate Verification & Member Auto-Lock in Join Form ([JoinForm.jsx](file:///F:/jsb/pesteh/bbb/src/Pages/JoinForm.jsx), [BBBController.cs](file:///F:/DOTNET/New%20folder/CoreMe/Controllers/BBBController.cs), [UserUseCase.cs](file:///F:/DOTNET/New%20folder/Application/Usecase/UserUseCase.cs), [StartNewMeeting.jsx](file:///F:/jsb/pesteh/bbb/src/api/StartNewMeeting.jsx))**:
+  - **VIP Assembly Member Auto-Lock**: For verified members (`isOtpVerified` via OTP or logged-in VIP `user.isVIPMember`), the "اطلاعات گواهی حضور را تکمیل می‌نمایم" checkbox is automatically checked (`wantCertificate = true`), saved (`certInfoSaved = true`), and locked/disabled. The member's registered national code and phone are automatically mapped from the database/session without requiring redundant inputs, and edit capabilities are locked while verified. Toggling member mode off restores unlocked state.
+  - **Non-Member Verification & SMS OTP API (`POST /user/VerifyCertificateUser` & `POST /user/ConfirmCertVerification`)**:
+    - When an attendee checks certificate receipt and submits "✓ تایید اطلاعات گواهی", the API queries `UserTBLs` by normalized phone number or national code.
+    - If user does not exist, checks candidate UUID from cookies (`bbbUserToken` or `bbbUserToken_random` starting with `userVc2-Rand`) to reuse the visitor's record without creating duplicate users; otherwise creates a new user record with that UUID.
+    - Generates a 4-digit OTP code, stores hash/salt with 10-minute expiry and rate limit tracking, and dispatches SMS to the user's phone.
+    - `ConfirmCertVerification` verifies the OTP code, updates user `PhoneNumber` and `NationalCode` in the database, and generates and returns the `vc2AuthNorm` JWT authentication token so the user is authenticated.
+  - **Frontend Inline OTP Flow**: Integrated step-by-step OTP verification directly within the certificate section in `JoinForm.jsx` with phone masking, timer countdown, resend capability, cookie persistence (`vc2AuthNorm`, `certPhone`, `certNationalCode`), and token synchronization (`syncUserTokens`).
+
 - **Unanswered Polls API & Duplicate Answer Prevention ([UserUseCase.cs](file:///F:/DOTNET/New%20folder/Application/Usecase/UserUseCase.cs), [BBBController.cs](file:///F:/DOTNET/New%20folder/CoreMe/Controllers/BBBController.cs), [QuestionModal.jsx](file:///F:/bbb/bbb-plugin-get-certificate/src/plugin-generate-certificate/QuestionModal.jsx))**:
   - **New Unanswered Poll API (`GET /user/GetUnansweredPollList` & `GET /user/GetPoll`)**: Created a dedicated endpoint for attendee poll questions that excludes questions already answered by the current user. Retained existing `GET /user/GetPollList` without modification for meeting-wide moderator fetching.
   - **Dual-Layer Answer Detection**: `GetUnansweredPollListUseCase` consolidates sibling attendee records (`UserTBLToMeetingTBL`) by UUID, User ID, National Code, and Phone number. It identifies already-answered questions by querying both `MeetPollQuizAnsTBLToUserMeetTBLs` and attendance log entries in `UserTBLToMeetingTBLLogs` (`keyLog == "POLL_ATTENDANCE_VERIFIED"`).
@@ -89,7 +99,7 @@
   - **Clickable Role Badge Toggle (⭐ عضو مجمع / مهمان / ✓ ثبت‌نام شده)**: Turned static badges into interactive toggle buttons that instantly switch member status between **⭐ عضو مجمع** (VIP Member) and **مهمان / ثبت‌نام شده** (Guest/Regular) with a single click, and passed `isMember: member.isVIPMember` to `/user/EditMemberList`.
   - **Virtual vs In-Person Tagging**: Added one-click toggle button on each attendee row to toggle between **🌐 مجازی (Virtual)** and **🏛️ حضوری (In-Person)**.
   - **Filter Tabs**: Added fast filter tabs: *همه (All)*, *🏛️ حضوری (In-Person)*, *🌐 مجازی (Virtual)*, and *⭐ اعضای مجمع (VIP)*.
-  - **Add Hozuri User Form**: Added `+ ثبت حاضرین حضوری` button and card form accepting **نام (First Name)**, **نام خانوادگی (Last Name)**, and **کد ملی (National Code)**.
+  - **Add Hozuri User Form & Status 200 Verification**: Added `+ ثبت حاضرین حضوری` form with strict response validation. If `/user/AddHozuriMember` returns `data.status === 200`, the attendee is added and the form resets. If the API returns any non-200 status or error, fake local fallback addition is prevented and a visible error alert is presented to the user.
   - **Backend API Support**: Added `POST /user/AddHozuriMember` and enhanced `POST /user/EditMemberList` & `GET /user/GetTheMembers` in [LogicalController.cs](file:///F:/DOTNET/New%20folder/CoreMe/Controllers/LogicalController.cs) and [UserUseCase.cs](file:///F:/DOTNET/New%20folder/Application/Usecase/UserUseCase.cs).
   - **Plugin Bundle**: Rebuilt `PluginBeforeCloseEndMeeting.js` production bundle.
 - **BigBlueButton Plugins Documentation Suite (`F:\bbb\md`)**:
