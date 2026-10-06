@@ -210,6 +210,7 @@ namespace CoreMe.VM
     }
     public class EndTheMeetingViewModel : UserMainVM
     {
+        public bool SendToNajm { get; set; } = false;
     }
     public class EndTheMeetingWithAPIViewModel
     {
@@ -281,6 +282,10 @@ namespace CoreMe.VM
         public string? Dabir { get; set; }
         public bool HasCert { get; set; } = true;
         public DateTime StartDate { get; set; }
+        public IFormFile? Banner { get; set; }
+        public IFormFile? BannerPresentation { get; set; }
+        public bool IsBannerAndPresentationSame { get; set; } = true;
+
     }
     public class UpdatePresentMinToCertOfMeetViewModel
     {
@@ -312,6 +317,84 @@ namespace CoreMe.VM
         public string FileID { get; set; } 
         public bool IncludeDownloadLink { get; set; } = false; 
     }
+    public class ConfirmOTPVM
+    {
+        public string Code { get; set; }
+        public string Guid { get; set; }
+    }
+    public class SendOTPConfirmationVM
+    {
+        public string? Phone { get; set; }
+        public string? NationalCode { get; set; }
+    }
+    public class SendOTPRoomSubscribedUserVM
+    {
+        public string NationalCode { get; set; }
+    }
+    public class ConfirmOTPRoomSubscribedUserVM
+    {
+        public string Code { get; set; }
+        public string Guid { get; set; }
+    }
+    public class SendOTPRoomSubscribedRegistrationVM
+    {
+        public string NationalCode { get; set; }
+        public string Phone { get; set; }
+    }
+    public class DirectRoomSubscribedRegistrationVM
+    {
+        public string RoomId { get; set; }
+        public string? ReceiptUrl { get; set; }
+    }
 
-
+    public class ConfirmOTPRoomSubscribedRegistrationVM
+    {
+        public string Code { get; set; }
+        public string Guid { get; set; }
+        public string Phone { get; set; }
+        public string NationalCode { get; set; }
+        public string? Firstname { get; set; }
+        public string? Lastname { get; set; }
+        public string RoomId { get; set; }
+    }
+    public class VerifyCertificateUserVM
+    {
+        public string? Phone { get; set; }
+        public string? NationalCode { get; set; }
+        public string? Name { get; set; }
+        public string? UUID { get; set; }   
+    }
+    public class ConfirmCertVerificationVM
+    {
+        public string Guid { get; set; }
+        public string Code { get; set; }
+        public string? Phone { get; set; }
+        public string? NationalCode { get; set; }
+        public string? Name { get; set; }
+    }
+    public class EditRoomVM
+    {
+        public string FriendlyID { get; set; }
+        public string RoomTitle { get; set; }
+        public IFormFile? LogoFile { get; set; }
+        public string? NajmIDBoss { get; set; }
+    }
+    public class SetRoomNajmBossVM
+    {
+        public string FriendlyID { get; set; } = string.Empty;
+        public string? NajmId { get; set; }
+    }
+    public class NajmBossItem
+    {
+        public string NajmId { get; set; } = string.Empty;
+        public string FirstName { get; set; } = string.Empty;
+        public string Lastname { get; set; } = string.Empty;
+        public string FullName { get; set; } = string.Empty;
+        public string NationalCode { get; set; } = string.Empty;
+        public string BbbID { get; set; } = string.Empty;
+    }
+    public class SencCheckListOfAttendsViewModel
+    {
+        public List<AttendListItem> Attends { get; set; }
+    }
 }

@@ -15,7 +15,7 @@ namespace Domain.Entity
     [Index(nameof(PhoneNumber), IsUnique = true)]
     [Index(nameof(Email), IsUnique = true)]
     [Index(nameof(Username), IsUnique = true)]
-    public class    UserTBL : MainEntity
+    public class UserTBL : MainEntity
     {
         public long ID { get; set; }
         public List<Guid> AllowedGUID { get; set; } = new List<Guid>();
@@ -48,12 +48,13 @@ namespace Domain.Entity
         [NotMapped]
         public static List<MainEntity_Types> TYPE_ALLOWED_ROOM_CREATE = new List<MainEntity_Types>
         {
-            MainEntity_Types.USER_ADMINSTRATOR, 
+            MainEntity_Types.USER_ADMINSTRATOR,
             MainEntity_Types.USER_ADMIN,
         };
         public MainEntity_Status Status { get; set; }
         public MainEntity_Types Type { get; set; }
         public bool IsHekmatShobe { get; set; } = false;
+        public bool IsMemberVIP { get; set; } = false;
         public string? Explain { get; set; }
         public DateTime DateInsert { get; set; }
         public string? Firstname { get; set; }
@@ -64,10 +65,14 @@ namespace Domain.Entity
         public string? PhoneNumber { get; set; }
         public byte[] PasswordHash { get; set; } = Array.Empty<byte>();
         public byte[] PasswordSalt { get; set; } = Array.Empty<byte>();
+        public DateTime? OTPExpire { get; set; } = null;
+        public byte[] OTPHash { get; set; } = Array.Empty<byte>();
+        public byte[] OTPSalt { get; set; } = Array.Empty<byte>();
         public List<string> ExtId { get; set; } = new List<string>();
         public List<string> IPList { get; set; } = new List<string>();
         public string? Email { get; set; }
         public string? AvatarPath { get; set; }
+        public DateTime? LastUpdate { get; set; }
         public ICollection<MeetingTBL> TeacherMeetings { get; set; }
         public ICollection<MeetingTBL> CreatedMeetings { get; set; }
         public ICollection<MeetingReservationTBL> MeetingReservationTBLs { get; set; }
@@ -78,6 +83,8 @@ namespace Domain.Entity
         public ICollection<UserTBLToUserTBL> Followings { get; set; }
         public ICollection<UserTBLToUserTBL> Followers { get; set; }
         public ICollection<UserFileTBL> UserFileTBLs { get; set; }
+        public ICollection<UserTBLLogs> UserTBLLogs { get; set; }
+        public string NajmID { get; set; } = "";
 
         public string GetName()
         {
@@ -91,16 +98,19 @@ namespace Domain.Entity
             switch (user.Type)
             {
                 case MainEntity_Types.USER_ADMINSTRATOR:
-                    permissions.AddRange(new[] { "manage_admins","manage_bbb_hooks" });
+                    permissions.AddRange(new[] { "manage_admins", "manage_bbb_hooks", });
                     goto case MainEntity_Types.USER_ADMIN;
                 case MainEntity_Types.USER_ADMIN:
-                    permissions.AddRange(new[] { "manage_users", "view_reports", "create_rooms_for_others","edit_poll" });
+                    permissions.AddRange(new[] { "manage_users", "view_reports", "create_rooms_for_others", "edit_poll", "see_relatedrooms", "add_relatedrooms" });
+                    goto case MainEntity_Types.USER_ADMIN2;
+                case MainEntity_Types.USER_ADMIN2:
+                    permissions.AddRange(new[] { "pay_request" });
                     goto case MainEntity_Types.USER_MODERATOR;
                 case MainEntity_Types.USER_MODERATOR:
-                    permissions.AddRange(new[] { "create_rooms","view_poll_reports" });
+                    permissions.AddRange(new[] { "create_rooms", "view_poll_reports" });
                     goto case MainEntity_Types.USER_CREATOR;
                 case MainEntity_Types.USER_CREATOR:
-                    permissions.AddRange(new[] { "create_meeting", "edit_meeting", "delete_meeting","ftp" });
+                    permissions.AddRange(new[] { "create_meeting", "edit_meeting", "delete_meeting", "ftp", "edit_meeting_member" });
                     goto case MainEntity_Types.USER_TEACHER;
                 case MainEntity_Types.USER_TEACHER:
                 case MainEntity_Types.USER_VIEWER:

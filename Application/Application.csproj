@@ -44,7 +44,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\CacheHandler\CacheHandler.csproj" />
+    <ProjectReference Include="..\CacheHandler\CacheHandlerMemory.csproj" />
     <ProjectReference Include="..\Domain\Domain.csproj" />
   </ItemGroup>
 

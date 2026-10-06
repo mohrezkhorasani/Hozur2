@@ -1,4 +1,4 @@
-﻿using Application.DTO.Generals;
+using Application.DTO.Generals;
 using Domain.Entity;
 using Microsoft.IdentityModel.Tokens;
 using System;
@@ -25,11 +25,13 @@ namespace Application.General
 
         public static string URL = "https://core.hekmateislami.com/";
         public static string URLFiles = "https://vcfile.hekmateislami.com/";
+        //public static string URLFiles = "https://vc9.hekmateislami.com/";
 
         private static readonly Regex ChromeRegex = new Regex(@"Chrome/(\d+)", RegexOptions.Compiled);
         private static readonly Regex FirefoxRegex = new Regex(@"Firefox/(\d+)", RegexOptions.Compiled);
         private static readonly Regex SafariRegex = new Regex(@"Safari/(\d+)", RegexOptions.Compiled);
         public static string DEF_AVATAR_PATH = "img/rooms/icons//Apple/bust-in-silhouette_1f464.png";
+        public static string DEF_AVATAR_TEACHER_PATH = "uploads/avatars/default.webp";
 
         public static readonly List<MainEntity_Status> MeetingRunning =
         [
@@ -555,8 +557,29 @@ namespace Application.General
             return DateTime.Now.Year + "\\" + DateTime.Now.Month + "\\" + DateTime.Now.Day + "\\";
         }
 
-        public static string GenerateJWTUser(UserTBL user)
+        public static string GenerateJWTUser(UserTBL user, UserTBLToMeetingTBL um = null)
         {
+            bool isRegistered = false;
+            bool isVIP = false;
+            string nationalCode = "-";
+            string uNationalCode = "-";
+            string phone = "-";
+            string uPhone = "-";
+            string role = "-";
+            string unick = "-";
+            if (user.UUID != null)
+                isRegistered = user.UUID.Contains("userVc2-Rand");
+            isVIP = user.IsMemberVIP;
+            uNationalCode = user.NationalCode+"";
+            uPhone = user.PhoneNumber+"";
+            if (um != null)
+            {
+                nationalCode = um.NationalCode;
+                phone = um.Phone;
+                if(um.Role!=null)
+                    role = um.Role;
+                unick = um.UserNickName;
+            }
             var key = new SymmetricSecurityKey(Encoding.UTF8
                 .GetBytes("34383f87-02fe-4484-9663-5f3975d9d0e9"));
             string uuid = user.ID.ToString();
@@ -577,6 +600,14 @@ namespace Application.General
                     new Claim("uuid", uuid),
                     new Claim("secret", GenerateSecretKey(128)),
                     new Claim("api-key", GenerateSecretKey(32)),
+                    new Claim("um-registered", isRegistered.ToString()),
+                    new Claim("um-vip", isVIP.ToString()),
+                    new Claim("u-na", uNationalCode.ToString()),
+                    new Claim("um-na", nationalCode.ToString()),
+                    new Claim("um-phone", phone.ToString()),
+                    new Claim("u-phone", uPhone.ToString()),
+                    new Claim("um-role", role.ToString()),
+                    new Claim("um-unick", unick.ToString()),
                 },
                 signingCredentials: cred);
 
@@ -611,6 +642,32 @@ namespace Application.General
             {
 
             }
+        }
+        public static string GetContentFromLog(string key, string value = "")
+        {
+            string o = "لاگ ناشناخته";
+            switch (key)
+            {
+                case "PRESENTER_ASSIGN":
+                    o = "نقش ارائه دهنده را بدست آورد";
+                    break;
+                case "RAISE-HAND":
+                    if (value == "up")
+                        o = "دست خود را بالا آورد";
+                    else
+                        o = "دست خود را پایین آورد";
+                    break;
+                case "LEFT":
+                    o = "از جلسه خارج شد!";
+                    break;
+                case "JOIN":
+                    o = "وارد جلسه شد!";
+                    break;
+                case "ISLAMIC_ATTENDANCE_VERIFIED":
+                    o = "حضور غیاب تایید شد";
+                    break;
+            }
+            return o;
         }
         public static string GenerateJWTMeet(MeetingTBL tbl)
         {
@@ -714,7 +771,9 @@ namespace Application.General
         //        return null;
         //    }
         //}
+
     }
+
     public static class DateExtensions
     {
         public static string ToPersianDate(this DateTime date)

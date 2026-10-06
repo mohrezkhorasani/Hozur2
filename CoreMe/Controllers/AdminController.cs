@@ -1,16 +1,20 @@
-﻿using Application.DTO;
+using Application.DTO;
 using Application.DTO.Generals;
 using Application.General;
 using Application.Interface.IUsecase;
+using Application.Interfaces;
 using Application.Usecase;
 using AutoMapper;
 using CoreMe.Presenter;
 using CoreMe.VM;
+using Domain.Entity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using Presenter;
+using System.ComponentModel;
 using System.Runtime.InteropServices.Marshalling;
 
 namespace CoreMe.Controllers
@@ -33,7 +37,7 @@ namespace CoreMe.Controllers
 
         public IAdminChangeRoleUseCase _IAdminChangeRoleUseCase { get; }
         public ApiPresenter<AdminChangeRoleResponse> _AdminChangeRoleResponse { get; }
-      public IChangeAvatarOfRoomUseCase _IChangeAvatarOfRoomUseCase { get; }
+        public IChangeAvatarOfRoomUseCase _IChangeAvatarOfRoomUseCase { get; }
         public ApiPresenter<ChangeAvatarOfRoomResponse> _ChangeAvatarOfRoomResponse { get; }
         public IInsertSlideShowUseCase _IInsertSlideShowUseCase { get; }
         public ApiPresenter<InsertSlideShowResponse> _InsertSlideShowResponse { get; }
@@ -47,7 +51,7 @@ namespace CoreMe.Controllers
         public ApiPresenter<GetMembersOfMeetOnlyCertificatedResponse> _GetMembersOfMeetOnlyCertificatedResponse { get; }
         public IGenerateCertificateWithUserMeetIDUseCase _IGenerateCertificateWithUserMeetIDUseCase { get; }
         public ApiPresenter<GenerateCertificateWithUserMeetIDResponse> _GenerateCertificateWithUserMeetIDResponse { get; }
-       public IGetPollListAdminUseCase _IGetPollListAdminUseCase { get; }
+        public IGetPollListAdminUseCase _IGetPollListAdminUseCase { get; }
         public ApiPresenter<GetPollListAdminResponse> _GetPollListAdminResponse { get; }
         public IAddPollQuizUseCase _IAddPollQuizUseCase { get; }
         public ApiPresenter<AddPollQuizResponse> _AddPollQuizResponse { get; }
@@ -59,22 +63,50 @@ namespace CoreMe.Controllers
         public ApiPresenter<GetAllRoomsMiniResponse> _GetAllRoomsMiniResponse { get; }
         public IGetAllMeetingUseCase _IGetAllMeetingUseCase { get; }
         public ApiPresenter<GetAllMeetingResponse> _GetAllMeetingResponse { get; }
+        public IGetUserMeetLogsUseCase _IGetUserMeetLogsUseCase { get; }
+        public ApiPresenter<GetUserMeetLogsResponse> _GetUserMeetLogsResponse { get; }
+        public readonly IDBContext _db;
 
-        
-        public AdminController(IMapper mapper, ILogger<TaskController> logger, IWebHostEnvironment hosting, IAdminGetUserListUseCase
-            iAdminGetUserListUseCase, ApiPresenter<AdminGetUserListResponse> adminGetUserListResponse, IAdminGetUserRoomListUseCase iAdminGetUserRoomListUseCase,
-            ApiPresenter<AdminGetUserRoomListResponse> adminGetUserRoomListResponse, IAdminCreateRoomUseCase iAdminCreateRoomUseCase, ApiPresenter<AdminCreateRoomResponse>
-            adminCreateRoomResponse, IAdminChangeRoleUseCase iAdminChangeRoleUseCase, ApiPresenter<AdminChangeRoleResponse> adminChangeRoleResponse, IChangeAvatarOfRoomUseCase 
-            iChangeAvatarOfRoomUseCase, ApiPresenter<ChangeAvatarOfRoomResponse> changeAvatarOfRoomResponse, IInsertSlideShowUseCase iInsertSlideShowUseCase,
-            ApiPresenter<InsertSlideShowResponse> insertSlideShowResponse, IGetAllLivesUseCase iGetAllLivesUseCase, ApiPresenter<GetAllLivesResponse> getAllLivesResponse,
-            IEditSlideShowUseCase iEditSlideShowUseCase, ApiPresenter<EditSlideShowResponse> editSlideShowResponse, IGetAllCertificateOfMemberUseCase iGetAllCertificateOfMemberUseCase,
-            ApiPresenter<GetAllCertificateOfMemberResponse> getAllCertificateOfMemberResponse, IGetMembersOfMeetOnlyCertificatedUseCase iGetMembersOfMeetOnlyCertificatedUseCase, 
-            ApiPresenter<GetMembersOfMeetOnlyCertificatedResponse> getMembersOfMeetOnlyCertificatedResponse, IGenerateCertificateWithUserMeetIDUseCase iGenerateCertificateWithUserMeetIDUseCase,
-            ApiPresenter<GenerateCertificateWithUserMeetIDResponse> generateCertificateWithUserMeetIDResponse, IGetPollListAdminUseCase iGetPollListAdminUseCase, ApiPresenter<GetPollListAdminResponse>
-            getPollListAdminResponse, IAddPollQuizUseCase iAddPollQuizUseCase, ApiPresenter<AddPollQuizResponse> addPollQuizResponse, IGetPollReportUseCase iGetPollReportUseCase, 
-            ApiPresenter<GetPollReportResponse> getPollReportResponse, IGetAllRoomsUseCase iGetAllRoomsUseCase, ApiPresenter<GetAllRoomsResponse> getAllRoomsResponse,
-            IGetAllMeetingUseCase iGetAllMeetingUseCase, ApiPresenter<GetAllMeetingResponse> GetAllMeetingResponse,
-            IGetAllRoomsMiniUseCase iGetAllRoomsMiniUseCase, ApiPresenter<GetAllRoomsMiniResponse> getAllRoomsMiniResponse)
+        public AdminController(IMapper mapper,
+                               ILogger<TaskController> logger,
+                               IWebHostEnvironment hosting,
+                               IAdminGetUserListUseCase iAdminGetUserListUseCase,
+                               ApiPresenter<AdminGetUserListResponse> adminGetUserListResponse,
+                               IAdminGetUserRoomListUseCase iAdminGetUserRoomListUseCase,
+                               ApiPresenter<AdminGetUserRoomListResponse> adminGetUserRoomListResponse,
+                               IAdminCreateRoomUseCase iAdminCreateRoomUseCase,
+                               ApiPresenter<AdminCreateRoomResponse> adminCreateRoomResponse,
+                               IAdminChangeRoleUseCase iAdminChangeRoleUseCase,
+                               ApiPresenter<AdminChangeRoleResponse> adminChangeRoleResponse,
+                               IChangeAvatarOfRoomUseCase iChangeAvatarOfRoomUseCase,
+                               ApiPresenter<ChangeAvatarOfRoomResponse> changeAvatarOfRoomResponse,
+                               IInsertSlideShowUseCase iInsertSlideShowUseCase,
+                               ApiPresenter<InsertSlideShowResponse> insertSlideShowResponse,
+                               IGetAllLivesUseCase iGetAllLivesUseCase,
+                               ApiPresenter<GetAllLivesResponse> getAllLivesResponse,
+                               IEditSlideShowUseCase iEditSlideShowUseCase,
+                               ApiPresenter<EditSlideShowResponse> editSlideShowResponse,
+                               IGetAllCertificateOfMemberUseCase iGetAllCertificateOfMemberUseCase,
+                               ApiPresenter<GetAllCertificateOfMemberResponse> getAllCertificateOfMemberResponse,
+                               IGetMembersOfMeetOnlyCertificatedUseCase iGetMembersOfMeetOnlyCertificatedUseCase,
+                               ApiPresenter<GetMembersOfMeetOnlyCertificatedResponse> getMembersOfMeetOnlyCertificatedResponse,
+                               IGenerateCertificateWithUserMeetIDUseCase iGenerateCertificateWithUserMeetIDUseCase,
+                               ApiPresenter<GenerateCertificateWithUserMeetIDResponse> generateCertificateWithUserMeetIDResponse,
+                               IGetPollListAdminUseCase iGetPollListAdminUseCase,
+                               ApiPresenter<GetPollListAdminResponse> getPollListAdminResponse,
+                               IAddPollQuizUseCase iAddPollQuizUseCase,
+                               ApiPresenter<AddPollQuizResponse> addPollQuizResponse,
+                               IGetPollReportUseCase iGetPollReportUseCase,
+                               ApiPresenter<GetPollReportResponse> getPollReportResponse,
+                               IGetAllRoomsUseCase iGetAllRoomsUseCase,
+                               ApiPresenter<GetAllRoomsResponse> getAllRoomsResponse,
+                               IGetAllRoomsMiniUseCase iGetAllRoomsMiniUseCase,
+                               ApiPresenter<GetAllRoomsMiniResponse> getAllRoomsMiniResponse,
+                               IGetAllMeetingUseCase iGetAllMeetingUseCase,
+                               ApiPresenter<GetAllMeetingResponse> getAllMeetingResponse,
+                               IGetUserMeetLogsUseCase iGetUserMeetLogsUseCase,
+                               ApiPresenter<GetUserMeetLogsResponse> getUserMeetLogsResponse,
+                               IDBContext db)
         {
             _mapper = mapper;
             _logger = logger;
@@ -112,7 +144,10 @@ namespace CoreMe.Controllers
             _IGetAllRoomsMiniUseCase = iGetAllRoomsMiniUseCase;
             _GetAllRoomsMiniResponse = getAllRoomsMiniResponse;
             _IGetAllMeetingUseCase = iGetAllMeetingUseCase;
-            _GetAllMeetingResponse = GetAllMeetingResponse;
+            _GetAllMeetingResponse = getAllMeetingResponse;
+            _IGetUserMeetLogsUseCase = iGetUserMeetLogsUseCase;
+            _GetUserMeetLogsResponse = getUserMeetLogsResponse;
+            _db = db;
         }
 
         [HttpGet("/user/AdminGetUserList")]
@@ -199,9 +234,9 @@ namespace CoreMe.Controllers
         {
             GetAllCertificateOfMemberRequest req = new GetAllCertificateOfMemberRequest
             {
-                ID=idroom,
-                Page=0,
-                Count=5000
+                ID = idroom,
+                Page = 0,
+                Count = 5000
             };
             req.GeneralHeaders = HttpContext.GetGeneralHeaders();
             await _IGetAllCertificateOfMemberUseCase.handleAsync(req, _GetAllCertificateOfMemberResponse);
@@ -214,9 +249,9 @@ namespace CoreMe.Controllers
         {
             GetMembersOfMeetOnlyCertificatedRequest req = new GetMembersOfMeetOnlyCertificatedRequest
             {
-                ID= id,
-                Page=0,
-                Count=5000
+                ID = id,
+                Page = 0,
+                Count = 5000
             };
             req.GeneralHeaders = HttpContext.GetGeneralHeaders();
             await _IGetMembersOfMeetOnlyCertificatedUseCase.handleAsync(req, _GetMembersOfMeetOnlyCertificatedResponse);
@@ -224,13 +259,42 @@ namespace CoreMe.Controllers
         }
         [HttpGet("/room/GenerateCertificateWithUserMeetID/{umid}")]
         [Authorize(AuthenticationSchemes = "vc2AuthNorm")]
-        public async Task<IActionResult> GenerateCertificateWithUserMeetID([FromRoute] long umid)
+        public async Task<IActionResult> GenerateCertificateWithUserMeetID(
+            [FromRoute] long umid,
+            [FromQuery] string? nationalCode = null,
+            [FromQuery] string? phone = null,
+            [FromQuery] bool? isMale = null,
+            [FromQuery] string? name = null)
         {
             GenerateCertificateWithUserMeetIDRequest req = new GenerateCertificateWithUserMeetIDRequest
             {
-                ID= umid,
-                Page=0,
-                Count=5000
+                ID = umid,
+                NationalCode = nationalCode,
+                Phone = phone,
+                IsMale = isMale ?? true,
+                Name = name,
+                Page = 0,
+                Count = 5000
+            };
+            req.GeneralHeaders = HttpContext.GetGeneralHeaders();
+            await _IGenerateCertificateWithUserMeetIDUseCase.handleAsync(req, _GenerateCertificateWithUserMeetIDResponse);
+            return _GenerateCertificateWithUserMeetIDResponse.jsonContentResult;
+        }
+
+        [HttpPost("/room/GenerateCertificateWithUserMeetID")]
+        [Authorize(AuthenticationSchemes = "vc2AuthNorm")]
+        public async Task<IActionResult> GenerateCertificateWithUserMeetIDPost([FromBody] AdminGenerateCertificateVM vm)
+        {
+            GenerateCertificateWithUserMeetIDRequest req = new GenerateCertificateWithUserMeetIDRequest
+            {
+                ID = vm.ID,
+                NationalCode = vm.NationalCode,
+                Phone = vm.Phone,
+                IsMale = vm.IsMale ?? true,
+                MeetID = vm.MeetID,
+                Name = vm.Name,
+                Page = 0,
+                Count = 5000
             };
             req.GeneralHeaders = HttpContext.GetGeneralHeaders();
             await _IGenerateCertificateWithUserMeetIDUseCase.handleAsync(req, _GenerateCertificateWithUserMeetIDResponse);
@@ -242,8 +306,8 @@ namespace CoreMe.Controllers
         {
             GetPollListAdminRequest req = new GetPollListAdminRequest
             {
-                Page=0,
-                Count=5000
+                Page = 0,
+                Count = 5000
             };
             req.GeneralHeaders = HttpContext.GetGeneralHeaders();
             await _IGetPollListAdminUseCase.handleAsync(req, _GetPollListAdminResponse);
@@ -295,11 +359,11 @@ namespace CoreMe.Controllers
         {
             AddPollQuizRequest req = new AddPollQuizRequest
             {
-                Question= vm.Question,
-                AnsPollRequestJSONs=vm.AnsPollRequestJSONs,
-                Type=vm.Type,
-                Page=0,
-                Count=5000
+                Question = vm.Question,
+                AnsPollRequestJSONs = vm.AnsPollRequestJSONs,
+                Type = vm.Type,
+                Page = 0,
+                Count = 5000
             };
             req.GeneralHeaders = HttpContext.GetGeneralHeaders();
             await _IAddPollQuizUseCase.handleAsync(req, _AddPollQuizResponse);
@@ -309,7 +373,7 @@ namespace CoreMe.Controllers
 
         [HttpGet("poll/GetPollReport")]
         [Authorize(AuthenticationSchemes = "vc2AuthNorm")]
-        public async Task<IActionResult> GetPollReport([FromQuery]GetPollReportVM vm)
+        public async Task<IActionResult> GetPollReport([FromQuery] GetPollReportVM vm)
         {
             GetPollReportRequest req = _mapper.Map<GetPollReportRequest>(vm);
 
@@ -321,16 +385,35 @@ namespace CoreMe.Controllers
 
         [HttpGet("/admin/GetAllMeeting")]
         [Authorize(AuthenticationSchemes = "vc2AuthNorm")]
-        public async Task<IActionResult> GetAllMeeting([FromQuery] string q = "", [FromQuery] string username = null)
+        public async Task<IActionResult> GetAllMeeting([FromQuery] string q = "", [FromQuery] string username = null, [FromQuery] int page = 1, [FromQuery] int count = 10)
         {
             GetAllMeetingRequest req = new GetAllMeetingRequest
             {
                 Query = q,
-                UserName = username
+                UserName = username,
+                Page = page - 1,
+                Count = count,
+
             };
             req.GeneralHeaders = HttpContext.GetGeneralHeaders();
             await _IGetAllMeetingUseCase.handleAsync(req, _GetAllMeetingResponse);
             return _GetAllMeetingResponse.jsonContentResult;
+        }
+
+        [HttpGet("/usermeet/GetUserMeetLogs")]
+        [Authorize(AuthenticationSchemes = "vc2AuthNorm")]
+        public async Task<IActionResult> GetUserMeetLogs([FromQuery] long umid, [FromQuery] int page = 1, [FromQuery] int count = 10)
+        {
+            GetUserMeetLogsRequest req = new GetUserMeetLogsRequest
+            {
+                UserMeetID = umid,
+                Page = page - 1,
+                Count = count,
+
+            };
+            req.GeneralHeaders = HttpContext.GetGeneralHeaders();
+            await _IGetUserMeetLogsUseCase.handleAsync(req, _GetUserMeetLogsResponse);
+            return _GetUserMeetLogsResponse.jsonContentResult;
         }
 
 
@@ -339,8 +422,80 @@ namespace CoreMe.Controllers
 
 
 
+        #region logical
+        [HttpGet("/user/RoomRelatedBy")]
+        [Authorize(AuthenticationSchemes = "vc2AuthNorm")]
+        public async Task<IActionResult> RoomRelatedBy([FromQuery] long uid)
+        {
+            var head = HttpContext.GetGeneralHeaders();
+            if (!head.UserTBL.VerifyUserPermissions("see_relatedrooms"))
+            {
+                return BadRequest("No permission 404");
+            }
+            var rels = _db.RoomTBLToUserTBLs.Where(e => e.ParticipatorTBL.ID == uid && e.Type == MainEntity_Types.ROOMTOUSER_ADMIN)
+                .Include(e => e.RoomTBL).ThenInclude(e => e.OwnerTBL).Include(e => e.ParticipatorTBL).Select(e => new
+                {
+                    e.RoomTBL.ID,
+                    e.RoomTBL.Title,
+                    e.RoomTBL.FriendlyID,
+                    e.DateInsert,
+                    owner = e.RoomTBL.OwnerTBL.GetName(),
+                    ownerID = e.RoomTBL.OwnerTBL.ID
+                }).ToList();
+            var ownerRooms = _db.RoomTBLs.Where(e => e.IDOwnerTBL == uid).Select(e => new
+            {
+                e.ID,
+                e.DateInsert,
+                e.Title,
+            }).ToList();
+            return Ok(new
+            {
+                ownerRooms,
+                rels,
+                status = 200,
+                message = "ok"
+            });
+        }
 
+        [HttpPost("/user/AddToRooms")]
+        [Authorize(AuthenticationSchemes = "vc2AuthNorm")]
+        public async Task<IActionResult> AddToRooms([FromQuery][DefaultValue(62379)] long uid, [FromBody] AddToRoomsVM vm)
+        {
+            var head = HttpContext.GetGeneralHeaders();
+            if (!head.UserTBL.VerifyUserPermissions("add_relatedrooms"))
+            {
+                return BadRequest("No permission 404");
+            }
+            var user = await _db.UserTBLs.FindAsync(uid);
+            if (user == null)
+            {
+                return BadRequest("No permission 404");
+            }
+            var list = _db.RoomTBLToUserTBLs.Where(e => e.ParticipatorTBL.ID == uid).ToList();
+            _db.RemoveRange(list);
+            _db.SaveChanges();
+            foreach (var v in vm.FriendlyIDs)
+            {
 
+                _db.RoomTBLToUserTBLs.Add(new RoomTBLToUserTBL
+                {
+                    Type = vm.Type,
+                    UUIDParticipatorTBL = user.UUID,
+                    FriendlyID = v,
+                    Status = MainEntity_Status.Enabled,
+                    FriendlyIDRoomTBL = "",
+                });
+            }
+            _db.SaveChanges();
+    
+            return Ok(new
+            {
+                status = 200,
+                message = "ok"
+            });
+        }
+
+        #endregion
     }
 
 

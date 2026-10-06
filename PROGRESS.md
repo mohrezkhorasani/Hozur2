@@ -23,9 +23,26 @@
 - **Backend Branch**: `CoreMe`
 - **Backend Solution**: `CoreMe.sln`
 - **Frontend Path**: `F:\jsb\pesteh\bbb`
-- **Last Updated**: 2026-09-15
+- **Last Updated**: 2026-09-19
  
-- **Certificate Verification & Member Auto-Lock in Join Form ([JoinForm.jsx](file:///F:/jsb/pesteh/bbb/src/Pages/JoinForm.jsx), [BBBController.cs](file:///F:/DOTNET/New%20folder/CoreMe/Controllers/BBBController.cs), [UserUseCase.cs](file:///F:/DOTNET/New%20folder/Application/Usecase/UserUseCase.cs), [StartNewMeeting.jsx](file:///F:/jsb/pesteh/bbb/src/api/StartNewMeeting.jsx))**:
+- **Najm System Meeting Synchronization (`POST /groups/addmeeting`) ([CommonMethods.cs](file:///F:/DOTNET/New%20folder/Application/General/CommonMethods.cs), [UserUseCase.cs](file:///F:/DOTNET/New%20folder/Application/Usecase/UserUseCase.cs))**:
+  - **Dynamic Token Generation**: Requests a 120-minute token via `GET http://192.168.0.4:1940/api/token/generate?minutes=120` prior to dispatching each synchronization payload.
+  - **Single-Character GroupID Validation**: Extracts and trims `room.NajmID` to a single character (`groupid`), skipping API dispatch if empty or null without disrupting meeting close operations.
+  - **Meeting Roles & Attendance Mapping**:
+    - **Boss**: Uses `NajmIDBoss` directly from `roomTBL` (`room.NajmIDBoss` or "0"), with BBB ID mapped to attendee record ID or "0".
+    - **Presenter**: Primary meeting instructor (`MainEntity_Types.USER_TEACHER` or `meeting.Teacher`).
+    - **Dabir**: Session secretary (`MainEntity_Types.USER_DABIR` or `RoomTBLPlanTBL.Dabir`).
+    - **ListHozour**: Sends all `UserTBLToMeetingTBL` records for the meeting **except** teachers and dabir.
+    - **Default Field Rules**: If `user.NajmID` is null/empty, sends `"0"`; if `NationalCode` is null/empty, sends `""`; for `bbbId`, sends the numeric ID of `UserTBLToMeetingTBL` (`um.ID.ToString()`).
+    - **Dastor**: Composite Iranian meeting agenda combining session topic (`Title`) and detailed description/agenda (`Explain`).
+  - **NajmID Persistence**: Automatically stores returned Najm meeting ID (`response.id`) into `MeetingTBL.NajmID` upon successful synchronization.
+  - **Overloaded Entry Points**: Provided `SyncWithNajm(string meetId)` and backward-compatible `SyncWithNajm(MeetingTBL?, UserTBL?)` in `CommonMethods`.
+
+- **Najm Boss Selection in Edit Room & Token Verification API ([RoomTBL.cs](file:///F:/DOTNET/New%20folder/Domain/Entity/RoomTBL.cs), [LogicalController.cs](file:///F:/DOTNET/New%20folder/CoreMe/Controllers/LogicalController.cs), [EditRoomModal.jsx](file:///F:/jsb/pesteh/bbb/src/Modal/Admin/EditRoomModal.jsx), [AdminAPI.jsx](file:///F:/jsb/pesteh/bbb/src/api/AdminAPI.jsx))**:
+  - **Entity & Migration (`db741`)**: Added `public string? NajmIDBoss { get; set; }` to `RoomTBL` entity and applied migration `20260917081628_db741` to the database. Also mapped `NajmID` and `NajmIDBoss` into `MiniRoomJSON` and `GetAllRoomsUseCase`.
+  - **Token Generation & Bosses Fetch API (`GET /room/GetNajmBosses`)**: Retrieves token from `http://192.168.0.4:1940/api/token/generate?minutes=1` and fetches all bosses from `http://192.168.0.4:1940/api/groups/bosses` with header `X-Api-Token`, with retry and memory token management.
+  - **Boss Validation & Assignment API (`POST /room/SetRoomNajmBoss`)**: Dedicated endpoint that takes `FriendlyID` and `NajmId`, generates a fresh 1-minute token to check against `http://192.168.0.4:1940/api/groups/bosses` to verify the boss exists in the Najm system, and updates `room.NajmIDBoss` and `room.NajmID` in the database.
+  - **Frontend Searchable Dropdown**: Enhanced `EditRoomModal.jsx` with a real-time searchable dropdown filtering all 700+ Najm bosses by name or NajmId, displaying selected boss badge with remove/clear functionality, and submitting to `SetRoomNajmBoss`. Also integrated into `RoomManagement.jsx`.
   - **VIP Assembly Member Auto-Lock**: For verified members (`isOtpVerified` via OTP or logged-in VIP `user.isVIPMember`), the "اطلاعات گواهی حضور را تکمیل می‌نمایم" checkbox is automatically checked (`wantCertificate = true`), saved (`certInfoSaved = true`), and locked/disabled. The member's registered national code and phone are automatically mapped from the database/session without requiring redundant inputs, and edit capabilities are locked while verified. Toggling member mode off restores unlocked state.
   - **Non-Member Verification & SMS OTP API (`POST /user/VerifyCertificateUser` & `POST /user/ConfirmCertVerification`)**:
     - When an attendee checks certificate receipt and submits "✓ تایید اطلاعات گواهی", the API queries `UserTBLs` by normalized phone number or national code.

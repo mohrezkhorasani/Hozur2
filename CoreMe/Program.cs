@@ -171,11 +171,24 @@ builder.Services.AddScoped<ILoginUserPanelUseCase, LoginUserPanelUseCase>();
 builder.Services.AddScoped<IGetLivesPublicUseCase, GetLivesPublicUseCase>();
 builder.Services.AddScoped<IContactusUseCase, ContactusUseCase>();
 builder.Services.AddScoped<IConfirmOTPUseCase, ConfirmOTPUseCase>();
+builder.Services.AddScoped<IVerifyCertificateUserUseCase, VerifyCertificateUserUseCase>();
+builder.Services.AddScoped<IConfirmCertVerificationUseCase, ConfirmCertVerificationUseCase>();
 builder.Services.AddScoped<IGetSlideShowUseCase, GetSlideShowUseCase>();
 builder.Services.AddScoped<ISendOTPConfirmationUseCase, SendOTPConfirmationUseCase>();
+builder.Services.AddScoped<ISendOTPRoomSubscribedUserUseCase, SendOTPRoomSubscribedUserUseCase>();
+builder.Services.AddScoped<IConfirmOTPRoomSubscribedUserUseCase, ConfirmOTPRoomSubscribedUserUseCase>();
+builder.Services.AddScoped<ISendOTPRoomSubscribedRegistrationUseCase, SendOTPRoomSubscribedRegistrationUseCase>();
+builder.Services.AddScoped<IConfirmOTPRoomSubscribedRegistrationUseCase, ConfirmOTPRoomSubscribedRegistrationUseCase>();
 builder.Services.AddScoped<IGetProfileInfoUseCase, GetProfileInfoUseCase>();
 builder.Services.AddScoped<IGetReservationUseCase, GetReservationUseCase>();
 builder.Services.AddScoped<INewReservationUseCase, NewReservationUseCase>();
+builder.Services.AddScoped<IGetRoomMetadataUseCase, GetRoomMetadataUseCase>();
+builder.Services.AddScoped<ISetRoomMetadataUseCase, SetRoomMetadataUseCase>();
+builder.Services.AddScoped<IGetRoomWaitingMembersUseCase, GetRoomWaitingMembersUseCase>();
+builder.Services.AddScoped<IChangeRoomMemberStatusUseCase, ChangeRoomMemberStatusUseCase>();
+builder.Services.AddScoped<IDirectRoomSubscribedRegistrationUseCase, DirectRoomSubscribedRegistrationUseCase>();
+builder.Services.AddScoped<IGetRoomFullDetailsUseCase, GetRoomFullDetailsUseCase>();
+builder.Services.AddScoped<IEditRoomFullUseCase, EditRoomFullUseCase>();
 builder.Services.AddScoped<IFollowProfileUseCase, FollowProfileUseCase>();
 builder.Services.AddScoped<IAdminGetUserRoomListUseCase, AdminGetUserRoomListUseCase>();
 builder.Services.AddScoped<IAdminCreateRoomUseCase, AdminCreateRoomUseCase>();
@@ -297,9 +310,8 @@ builder.Services.AddScoped<IPaymentPDFGenerator>(sp =>
 
 
 #endregion
+
 Directory.CreateDirectory("logs");
-File.AppendAllText($"logs/std-{DateTime.Today:yyyy-MM-dd}.log",
-    $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} [INF] اپ استارت شد — {Environment.NewLine}");
 
 
 

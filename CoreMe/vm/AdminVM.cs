@@ -71,5 +71,77 @@ namespace CoreMe.VM
 
 
 
+    #region logical
+    public class AddToRoomsVM
+    {
+        [Required(ErrorMessage = "At least one ID is required")]
+        [MinLength(1, ErrorMessage = "At least one ID is required")]
+        [DefaultValue(" [\r\n    \"qbg-ihe-ncc-e4q\",\"r75-spv-fwr-g2t\"\r\n  ]")]
+        public List<string> FriendlyIDs { get; set; } = new(); // Initialize to avoid null
 
+        [Required(ErrorMessage = "Type is required")]
+        [DefaultValue(MainEntity_Types.ROOMTOUSER_ADMIN)]
+        [AllowedValues(
+            MainEntity_Types.ROOMTOUSER_ADMIN,
+            MainEntity_Types.ROOMTOUSER_MEMBER,
+            MainEntity_Types.ROOMTOUSER_SIGNEDUP
+        )]
+        public MainEntity_Types Type { get; set; } // Use string for validation
+    }
+
+
+
+    public class EditMemberVM
+    {
+        public long UserMeetID { get; set; }
+        public bool IsMember { get; set; }
+        public string? AttendanceType { get; set; } // "virtual" or "hozuri"
+        public bool? IsHozuri { get; set; }
+        public string? Firstname { get; set; }
+        public string? LastName { get; set; }
+        public string? NationalCode { get; set; }
+    }
+
+    public class AddHozuriMemberVM
+    {
+        public string Firstname { get; set; } = "";
+        public string LastName { get; set; } = "";
+        public string NationalCode { get; set; } = "";
+    }
+
+    public class AdminGenerateCertificateVM
+    {
+        public long ID { get; set; }
+        public string? NationalCode { get; set; }
+        public string? Phone { get; set; }
+        public bool? IsMale { get; set; } = true;
+        public string? MeetID { get; set; }
+        public string? Name { get; set; }
+    }
+
+    public class UpdateMeetingMediaVM
+    {
+        public long MeetingId { get; set; }
+        public int? Type { get; set; }
+        public string? VoiceUrl { get; set; }
+        public int? VoiceType { get; set; }
+        public string? VideoUrl { get; set; }
+        public int? VideoType { get; set; }
+        public string? ReportUrl { get; set; }
+        public int? ReportType { get; set; }
+        public string? Title { get; set; }
+        public string? Explain { get; set; }
+    }
+
+    public class SaveMeetingMediaLogVM
+    {
+        public long MeetingId { get; set; }
+        public string? MeetID { get; set; }
+        public string Key { get; set; } = string.Empty; // "sound_link", "video_link", "report_link"
+        public string? Value { get; set; }
+        public int Type { get; set; } = 102; // 102 (MEETLOG_DOWNLOADABLE), 103 (MEETLOG_DOWNLOAD_FORBIDDEN), 1 (MEETLOG_NORMAL)
+        public string? Explain { get; set; }
+        public long? ID { get; set; }
+    }
+    #endregion
 }

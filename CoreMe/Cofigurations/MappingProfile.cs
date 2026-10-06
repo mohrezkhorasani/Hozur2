@@ -12,6 +12,10 @@ public class MappingProfile : Profile
 
         CreateMap<UpdateMeetingViewModel, UpdateMeetingRequest>()
             .ForMember(dest => dest.GeneralHeaders, opt => opt.Ignore());
+        CreateMap<SencCheckListOfAttendsViewModel, SencCheckListOfAttendsRequest>()
+            .ForMember(dest => dest.GeneralHeaders, opt => opt.Ignore());
+        CreateMap<EditRoomVM, EditRoomRequest>()
+            .ForMember(dest => dest.GeneralHeaders, opt => opt.Ignore());
 
         // Mapping برای NewUserMettingsViewModel
         CreateMap<NewUserMettingsViewModel, NewUserMettingsRequest>()

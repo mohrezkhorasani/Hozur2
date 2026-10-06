@@ -1,4 +1,4 @@
-﻿using Application.DTO;
+using Application.DTO;
 using Application.DTO.Generals;
 using Application.General;
 using Application.Interface.IInfrastructure;
@@ -203,6 +203,7 @@ namespace Application.Usecase
             var rr = _db.RoomTBLs.Where(e => e.Title.Contains(message.q)).Select(e => new DTO.Models.MiniRoomJSON
             {
                 Title = e.Title,
+                IsSubscribed = e.IsSubscribed,
                 CountTeacher=0,
                 Count=0,
                 Created=DateTime.Now,

@@ -21,7 +21,7 @@ namespace CoreMe.Controllers
         [HttpGet("/room/{roomID}")]
         public async Task<IActionResult> RedirectExample([FromRoute] string roomID)
         {
-            await _IGetRedirectURLUseCase.handleAsync(new GetRedirectURLRequest { RoomID=roomID}, _GetRedirectURLResponse);
+            await _IGetRedirectURLUseCase.handleAsync(new GetRedirectURLRequest { RoomID = roomID }, _GetRedirectURLResponse);
             //return .jsonContentResult;
 
             return Redirect((_GetRedirectURLResponse.jsonContentResult.obj as GetRedirectURLResponse).Link);

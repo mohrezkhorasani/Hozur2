@@ -275,6 +275,8 @@ namespace Application.DTO
     public class GetRoomByFriendlyIDResponse : BaseParentResponce
     {
         public MiniRoomJSON Data = new MiniRoomJSON();
+        public bool IsSubscribedByUser { get; set; } = false;
+        public int? SubscriptionStatus { get; set; } = null;
     }
     #endregion
 
@@ -442,6 +444,7 @@ namespace Application.DTO
     public class EndTheMeetingWithAPIRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<EndTheMeetingWithAPIResponse>>
     {
         public string FriendlyID { get; set; }
+        public int Type { get; set; }
     }
 
     public class EndTheMeetingWithAPIResponse : BaseParentResponce
@@ -721,6 +724,108 @@ namespace Application.DTO
         public string? Fullname { get; set; }
         public string? NationalCode { get; set; }
         public string? MaskedPhone { get; set; }
+        public string? Phone { get; set; }
+    }
+    #endregion
+
+    #region SendOTPRoomSubscribedUser
+    public class SendOTPRoomSubscribedUserRequest : NewUserRequest, IUseCaseRequest<GenericResponse<SendOTPRoomSubscribedUserResponse>>
+    {
+        public string NationalCode { get; set; }
+    }
+
+    public class SendOTPRoomSubscribedUserResponse : BaseParentResponce
+    {
+        public string Guid { get; set; }
+        public string? MaskedPhone { get; set; }
+        public string? Phone { get; set; }
+    }
+    #endregion
+    #region ConfirmOTPRoomSubscribedUser
+    public class ConfirmOTPRoomSubscribedUserRequest : NewUserRequest, IUseCaseRequest<GenericResponse<ConfirmOTPRoomSubscribedUserResponse>>
+    {
+        public string Code { get; set; }
+        public string Guid { get; set; }
+    }
+
+    public class ConfirmOTPRoomSubscribedUserResponse : BaseParentResponce
+    {
+        public string Token { get; set; }
+        public string? Fullname { get; set; }
+        public string? NationalCode { get; set; }
+        public string? MaskedPhone { get; set; }
+        public string? Phone { get; set; }
+    }
+    #endregion
+
+    #region SendOTPRoomSubscribedRegistration
+    public class SendOTPRoomSubscribedRegistrationRequest : NewUserRequest, IUseCaseRequest<GenericResponse<SendOTPRoomSubscribedRegistrationResponse>>
+    {
+        public string NationalCode { get; set; }
+        public string Phone { get; set; }
+    }
+
+    public class SendOTPRoomSubscribedRegistrationResponse : BaseParentResponce
+    {
+        public string Guid { get; set; }
+        public string? MaskedPhone { get; set; }
+        public string? Phone { get; set; }
+    }
+    #endregion
+
+    #region ConfirmOTPRoomSubscribedRegistration
+    public class ConfirmOTPRoomSubscribedRegistrationRequest : NewUserRequest, IUseCaseRequest<GenericResponse<ConfirmOTPRoomSubscribedRegistrationResponse>>
+    {
+        public string Code { get; set; }
+        public string Guid { get; set; }
+        public string Phone { get; set; }
+        public string NationalCode { get; set; }
+        public string? Firstname { get; set; }
+        public string? Lastname { get; set; }
+        public string RoomId { get; set; }
+        public string? ReceiptUrl { get; set; }
+    }
+
+    public class ConfirmOTPRoomSubscribedRegistrationResponse : BaseParentResponce
+    {
+        public string Token { get; set; }
+        public string? Fullname { get; set; }
+    }
+    #endregion
+
+    #region VerifyCertificateUser
+    public class VerifyCertificateUserRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<VerifyCertificateUserResponse>>
+    {
+        public string? Phone { get; set; }
+        public string? NationalCode { get; set; }
+        public string? Name { get; set; }
+        public string? UUID { get; set; }
+    }
+
+    public class VerifyCertificateUserResponse : BaseParentResponce
+    {
+        public string? Guid { get; set; }
+        public string? MaskedPhone { get; set; }
+        public string? Phone { get; set; }
+    }
+    #endregion
+
+    #region ConfirmCertVerification
+    public class ConfirmCertVerificationRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<ConfirmCertVerificationResponse>>
+    {
+        public string Guid { get; set; }
+        public string Code { get; set; }
+        public string? Phone { get; set; }
+        public string? NationalCode { get; set; }
+        public string? Name { get; set; }
+    }
+
+    public class ConfirmCertVerificationResponse : BaseParentResponce
+    {
+        public string? Token { get; set; }
+        public string? Fullname { get; set; }
+        public string? NationalCode { get; set; }
+        public string? Phone { get; set; }
     }
     #endregion
 
@@ -907,6 +1012,145 @@ namespace Application.DTO
     }
 
 
+    #endregion
+
+    #region Room Metadata & Full Edit DTOs
+    public class GetRoomMetadataRequest : NewUserRequest, IUseCaseRequest<GenericResponse<GetRoomMetadataResponse>>
+    {
+        public string FriendlyID { get; set; }
+        public string Key { get; set; }
+    }
+
+    public class GetRoomMetadataResponse : BaseParentResponce
+    {
+        public string Key { get; set; }
+        public string? Value { get; set; }
+        public MainEntity_Types DataType { get; set; }
+    }
+
+    public class SetRoomMetadataRequest : NewUserRequest, IUseCaseRequest<GenericResponse<SetRoomMetadataResponse>>
+    {
+        public string FriendlyID { get; set; }
+        public string Key { get; set; }
+        public string? Value { get; set; }
+        public MainEntity_Types DataType { get; set; } = MainEntity_Types.META_STRING;
+    }
+
+    public class SetRoomMetadataResponse : BaseParentResponce
+    {
+        public bool Success { get; set; }
+    }
+
+    public class DirectRoomSubscribedRegistrationRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<DirectRoomSubscribedRegistrationResponse>>
+    {
+        public string RoomId { get; set; }
+        public string? ReceiptUrl { get; set; }
+    }
+
+    public class DirectRoomSubscribedRegistrationResponse : BaseParentResponce
+    {
+    }
+
+    public class GetRoomWaitingMembersRequest : NewUserRequest, IUseCaseRequest<GenericResponse<GetRoomWaitingMembersResponse>>
+    {
+        public string RoomId { get; set; }
+    }
+
+    public class GetRoomWaitingMembersResponse : BaseParentResponce
+    {
+        public List<WaitingMemberJSON> Members { get; set; } = new List<WaitingMemberJSON>();
+    }
+
+    public class WaitingMemberJSON
+    {
+        public long UserId { get; set; }
+        public string Fullname { get; set; }
+        public string NationalCode { get; set; }
+        public string Phone { get; set; }
+        public int Status { get; set; }
+        public string Explain { get; set; }
+    }
+
+    public class ChangeRoomMemberStatusRequest : NewUserRequest, IUseCaseRequest<GenericResponse<ChangeRoomMemberStatusResponse>>
+    {
+        public string RoomId { get; set; }
+        public long UserId { get; set; }
+        public int Status { get; set; } // e.g. 100 for Accept, 0 for Reject
+    }
+
+    public class ChangeRoomMemberStatusResponse : BaseParentResponce
+    {
+        public bool Success { get; set; }
+    }
+
+    public class RoomUserMemberDTO
+    {
+        public long ID { get; set; }
+        public string UUID { get; set; }
+        public string Fullname { get; set; }
+        public string Username { get; set; }
+        public MainEntity_Types Type { get; set; } // 551 for ROOMTOUSER_ADMIN, 550 for Member, etc.
+        public int Status { get; set; }
+    }
+
+    public class GetRoomFullDetailsRequest : NewUserRequest, IUseCaseRequest<GenericResponse<GetRoomFullDetailsResponse>>
+    {
+        public string FriendlyID { get; set; }
+    }
+
+    public class GetRoomFullDetailsResponse : BaseParentResponce
+    {
+        public string FriendlyID { get; set; }
+        public string Title { get; set; }
+        public string? Explain { get; set; }
+        public string? Bio { get; set; }
+        public string? TTR_URL { get; set; }
+        public string? Avatar { get; set; }
+        public string? Logo { get; set; }
+        public string? PresentationPath { get; set; }
+        public string? CoverImage { get; set; }
+        public string? NajmID { get; set; }
+        public bool RequiredAdminAcceptToView { get; set; }
+        public bool RequiredLoginToView { get; set; }
+        public bool RecordRoom { get; set; }
+        public bool IsPublicRoom { get; set; }
+        public bool IsSuperPrivateRoom { get; set; }
+        public bool IsPrivateRoom { get; set; }
+        public bool IsSubscribed { get; set; }
+        public bool IsShowMemberVIPBeforeEndTheMeeting { get; set; }
+        public long OwnerID { get; set; }
+        public bool IsOwner { get; set; }
+        public bool IsRoomAdmin { get; set; }
+        public bool CanEdit { get; set; }
+        public List<RoomUserMemberDTO> Members { get; set; } = new List<RoomUserMemberDTO>();
+        public Dictionary<string, string?> Metadatas { get; set; } = new Dictionary<string, string?>();
+    }
+
+    public class EditRoomFullRequest : NewUserRequest, IUseCaseRequest<GenericResponse<EditRoomFullResponse>>
+    {
+        public string FriendlyID { get; set; }
+        public string Title { get; set; }
+        public string? Explain { get; set; }
+        public string? Bio { get; set; }
+        public string? TTR_URL { get; set; }
+        public string? Avatar { get; set; }
+        public string? Logo { get; set; }
+        public string? PresentationPath { get; set; }
+        public string? CoverImage { get; set; }
+        public bool RequiredAdminAcceptToView { get; set; }
+        public bool RequiredLoginToView { get; set; }
+        public bool RecordRoom { get; set; }
+        public bool IsSuperPrivateRoom { get; set; }
+        public bool IsPrivateRoom { get; set; }
+        public bool IsSubscribed { get; set; }
+        public bool IsShowMemberVIPBeforeEndTheMeeting { get; set; }
+        public List<string>? AddAdminUUIDs { get; set; }
+        public List<string>? RemoveAdminUUIDs { get; set; }
+    }
+
+    public class EditRoomFullResponse : BaseParentResponce
+    {
+    }
     #endregion
 
 }

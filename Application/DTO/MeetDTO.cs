@@ -1,4 +1,4 @@
-﻿using Application.DTO.Generals;
+using Application.DTO.Generals;
 using Application.DTO.Models;
 using Application.Interface.IUsecase;
 using Domain.Entity;
@@ -107,7 +107,9 @@ namespace Application.DTO
         public string OS { get; set; }
         public string Gender { get; set; }
         public bool CanTakeCertificate { get; set; }
+        public int LogCount { get; set; }
         public bool HasTakenCertificate { get; set; }
+        public string? CertificateURL { get; set; }
     }
     #endregion
 
@@ -130,8 +132,11 @@ namespace Application.DTO
     public class GenerateCertificateWithUserMeetIDRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<GenerateCertificateWithUserMeetIDResponse>>
     {
         public long ID { get; set; }
-        public string NationalCode { get; set; }
-        public bool IsMale { get; set; }
+        public string? NationalCode { get; set; }
+        public string? Phone { get; set; }
+        public bool IsMale { get; set; } = true;
+        public string? MeetID { get; set; }
+        public string? Name { get; set; }
 
     }
 

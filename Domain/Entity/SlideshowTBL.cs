@@ -13,6 +13,7 @@ namespace Domain.Entity
         public MainEntity_Types Type { get; set; }
         public string? Explain { get; set; }
         public DateTime DateInsert { get; set; }
+        public DateTime? DateExpire { get; set; }
         public string Path { get; set; }
         public string Name { get; set; }   
         public string Href { get; set; }

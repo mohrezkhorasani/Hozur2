@@ -82,6 +82,69 @@ namespace Infrastracture
             }
         }
 
+        public async Task<bool> SendOTP(string phone = "09129382449", int code =1234)
+        {
+            using var client = new HttpClient();
+
+            // Create the message text
+            string messageText = $"";
+
+            var requestBody = new
+            {
+                code = "FOfuETeQeb",
+                line_number = "50002178584000",
+                number_format = "english",  
+                attributes = new
+                {
+                    code=code
+                },
+                recipient = phone.Replace("+989", "09")
+            };
+            var json = JsonSerializer.Serialize(requestBody);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            // Add the API key to headers
+            client.DefaultRequestHeaders.Add("Api-Key", "iOB6evopI0ht6SVhNWxYoKIXXMiRj8ZaZZmUEVerNvOuYNzvqI");
+
+            // Optional: Add phone number to headers if required by the API
+            // client.DefaultRequestHeaders.Add("X-Phone-Number", phone);
+
+            try
+            {
+                var response = await client.PostAsync("https://api.iranpayamak.com/ws/v1/sms/pattern", content);
+                var responseString = await response.Content.ReadAsStringAsync();
+
+                if (response.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"✅ SMS sent successfully to {phone}");
+                    Console.WriteLine($"📝 Response: {responseString}");
+                    return true;
+                }
+                else
+                {
+                    Console.WriteLine($"❌ Failed to send SMS to {phone}");
+                    Console.WriteLine($"Status: {response.StatusCode}");
+                    Console.WriteLine($"Response: {responseString}");
+                    return false;
+                }
+            }
+            catch (HttpRequestException ex)
+            {
+                Console.WriteLine($"🌐 Network error: {ex.Message}");
+                return false;
+            }
+            catch (JsonException ex)
+            {
+                Console.WriteLine($"📄 JSON error: {ex.Message}");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"⚠️ Unexpected error: {ex.Message}");
+                return false;
+            }
+        }
+
 
 
     }

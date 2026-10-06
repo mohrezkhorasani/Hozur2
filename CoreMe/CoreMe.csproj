@@ -8,10 +8,15 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+	  <Content Remove="MajmaMemberVIP.json" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<Content Include="pvkey.ppk" />
 	</ItemGroup>
 
 	<ItemGroup>
+		<PackageReference Include="Google.Apis.Sheets.v4" Version="1.75.0.4178" />
 		<PackageReference Include="JWT" Version="11.0.0" />
 		<PackageReference Include="libphonenumber-csharp" Version="9.0.31" />
 		<PackageReference Include="MediatR" Version="14.1.0" />
@@ -30,6 +35,7 @@
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
+		<PackageReference Include="Microsoft.OpenApi" Version="2.7.5" />
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
 		<PackageReference Include="NLog" Version="6.0.7" />
 		<PackageReference Include="NLog.Extensions.Logging" Version="6.1.0" />
@@ -52,6 +58,10 @@
 
 	<ItemGroup>
 		<Folder Include="wwwroot\NewFolder\" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <None Include="MajmaMemberVIP.json" />
 	</ItemGroup>
 
 </Project>

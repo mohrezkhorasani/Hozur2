@@ -56,6 +56,12 @@ namespace Application.Interface.IUsecase
     public interface IConfirmOTPUseCase : IUseCaseRequestHandler<ConfirmOTPRequest, GenericResponse<ConfirmOTPResponse>> { }
 
     public interface ISendOTPConfirmationUseCase : IUseCaseRequestHandler<SendOTPConfirmationRequest, GenericResponse<SendOTPConfirmationResponse>> { }
+    public interface ISendOTPRoomSubscribedUserUseCase : IUseCaseRequestHandler<SendOTPRoomSubscribedUserRequest, GenericResponse<SendOTPRoomSubscribedUserResponse>> { }
+    public interface IConfirmOTPRoomSubscribedUserUseCase : IUseCaseRequestHandler<ConfirmOTPRoomSubscribedUserRequest, GenericResponse<ConfirmOTPRoomSubscribedUserResponse>> { }
+    public interface ISendOTPRoomSubscribedRegistrationUseCase : IUseCaseRequestHandler<SendOTPRoomSubscribedRegistrationRequest, GenericResponse<SendOTPRoomSubscribedRegistrationResponse>> { }
+    public interface IConfirmOTPRoomSubscribedRegistrationUseCase : IUseCaseRequestHandler<ConfirmOTPRoomSubscribedRegistrationRequest, GenericResponse<ConfirmOTPRoomSubscribedRegistrationResponse>> { }
+    public interface IVerifyCertificateUserUseCase : IUseCaseRequestHandler<VerifyCertificateUserRequest, GenericResponse<VerifyCertificateUserResponse>> { }
+    public interface IConfirmCertVerificationUseCase : IUseCaseRequestHandler<ConfirmCertVerificationRequest, GenericResponse<ConfirmCertVerificationResponse>> { }
 
 
 
@@ -73,4 +79,11 @@ namespace Application.Interface.IUsecase
     public interface IAddPollQuizUseCase : IUseCaseRequestHandler<AddPollQuizRequest, GenericResponse<AddPollQuizResponse>> { }
     public interface IGetPollListAdminUseCase : IUseCaseRequestHandler<GetPollListAdminRequest, GenericResponse<GetPollListAdminResponse>> { }
     public interface IGetPollReportUseCase : IUseCaseRequestHandler<GetPollReportRequest, GenericResponse<GetPollReportResponse>> { }
+    public interface IGetRoomMetadataUseCase : IUseCaseRequestHandler<GetRoomMetadataRequest, GenericResponse<GetRoomMetadataResponse>> { }
+    public interface ISetRoomMetadataUseCase : IUseCaseRequestHandler<SetRoomMetadataRequest, GenericResponse<SetRoomMetadataResponse>> { }
+    public interface IGetRoomWaitingMembersUseCase : IUseCaseRequestHandler<GetRoomWaitingMembersRequest, GenericResponse<GetRoomWaitingMembersResponse>> { }
+    public interface IChangeRoomMemberStatusUseCase : IUseCaseRequestHandler<ChangeRoomMemberStatusRequest, GenericResponse<ChangeRoomMemberStatusResponse>> { }
+    public interface IDirectRoomSubscribedRegistrationUseCase : IUseCaseRequestHandler<DirectRoomSubscribedRegistrationRequest, GenericResponse<DirectRoomSubscribedRegistrationResponse>> { }
+    public interface IGetRoomFullDetailsUseCase : IUseCaseRequestHandler<GetRoomFullDetailsRequest, GenericResponse<GetRoomFullDetailsResponse>> { }
+    public interface IEditRoomFullUseCase : IUseCaseRequestHandler<EditRoomFullRequest, GenericResponse<EditRoomFullResponse>> { }
 }

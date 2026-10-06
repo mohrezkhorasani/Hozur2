@@ -17,12 +17,15 @@ namespace Domain.Entity
         public MainEntity_Types Type { get; set; }
         public string? Explain { get; set; }
         public DateTime DateInsert { get; set; }
+        public DateTime? DateUpdate { get; set; }
         public string MeetID { get; set; }
         public MeetingTBL MeetingTBL { get; set; }
         public string UUID { get; set; }    
         public string TokenJWT { get; set; }
         public UserTBL UserTBL { get; set; }
         public bool IsCertificated { get; set; } = false;
+        public bool IsMember{ get; set; } = false;
+        public bool IsRemoved{ get; set; } = false;
         public long TimeSpendSeconds { get; set; } = 0; // update after meet closed!
         public string? CertificateFileURL { get; set; }
         public string? CodeUnique { get; set; }
@@ -57,6 +60,10 @@ namespace Domain.Entity
                 return "کمک مدیر";
             return "نامشخص";
 
+        }
+        public bool IsTypeOfNormalUser()
+        {
+            return Type != MainEntity_Types.USER_TEACHER && Type != MainEntity_Types.USER_DABIR && Type != MainEntity_Types.USER_ADMINSTRATOR && Type != MainEntity_Types.USER_MODERATOR;
         }
     }
 }

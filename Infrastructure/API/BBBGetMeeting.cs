@@ -37,7 +37,7 @@ namespace Infrastructure.API
             XmlSerializer serializer = new XmlSerializer(typeof(BBBResponse));
             using StringReader reader = new StringReader(xmlResponse);
             BBBResponse result = (BBBResponse)serializer.Deserialize(reader);
-            return result.Meetings.MeetingList.Where(e => e.MetaDatas.OwnerID == user.ID).Select(e => new MiniRoomJSON
+            return result.Meetings.MeetingList.Where(e => e.MetaDatas.OwnerID == user.ID || e.MetaDatas.AdminIDs.Any(r=>r==user.ID)).Select(e => new MiniRoomJSON
             {
                 RoomID = e.MetaDatas.RoomID,
                 //RoomID = e.InternalMeetingID,
@@ -64,7 +64,7 @@ namespace Infrastructure.API
             using StringReader reader = new StringReader(xmlResponse);
             BBBResponse result = (BBBResponse)serializer.Deserialize(reader);
             return result.Meetings.MeetingList.Where(e => ((!e.MetaDatas.IsSuperPrivate || e.MetaDatas.RoomPublic) && e.MetaDatas.OwnerID == user.ID) ||
-             (e.MetaDatas.OwnerID == user.ID && user.ID==currentUser.ID)
+             (e.MetaDatas.OwnerID == user.ID && user.ID == currentUser.ID)
             ).Select(e => new MiniRoomJSON
             {
                 RoomID = e.MetaDatas.RoomID,
@@ -121,7 +121,7 @@ namespace Infrastructure.API
             {
                 RoomID = e.MetaDatas.RoomID,
                 //RoomID = e.InternalMeetingID,
-                Title = e.MeetingName,  
+                Title = e.MeetingName,
                 BBB_MeetID = e.MeetingID,
                 CountPartis = e.ParticipantCount,
                 Created = new DateTime(long.Parse(e.CreateTime))
@@ -187,9 +187,9 @@ namespace Infrastructure.API
             string joinUrl = $"{URL}/rooms/{room.FriendlyID}/join";
 
             string metadataXml = $@"
-<meta name=""bbb-context-name"">اتاق جدید</meta>
-<meta name=""bbb-context-id"">y3x-nhd-imk-7wu</meta>
-<meta name=""public"">{room.IsPublicRoom.ToString()}</meta>";
+    <meta name=""bbb-context-name"">اتاق جدید</meta>
+    <meta name=""bbb-context-id"">y3x-nhd-imk-7wu</meta>
+    <meta name=""public"">{room.IsPublicRoom.ToString()}</meta>";
 
             // همه مقادیر باید UrlEncoded شوند
             string queryString = $"meetingID={Uri.EscapeDataString(room.BBB_MeetID)}" +
@@ -207,12 +207,18 @@ namespace Infrastructure.API
                                  $"&endCallbackURL=https://core.hekmateislami.com/api/bbb-webhook" +
                                  $"&lockSettingsLockOnJoinConfigurable=true" +
                                  $"&duration=300" +
-                                 $"&logo={Uri.EscapeDataString($"{URL}/images/logo.png")}" +
+                                 $"&logo={Uri.EscapeDataString($"{URL}/images/logo.png")}";
 
-                                 $"&metadata={Uri.EscapeDataString(metadataXml)}";
+                                 //$"&metadata={Uri.EscapeDataString(metadata/Xml)}";
             queryString += $"&meta_public={Uri.EscapeDataString(room.IsPublicRoom.ToString().ToLower())}";
             queryString += $"&meta_roomID={Uri.EscapeDataString(room.FriendlyID)}";
             queryString += $"&meta_owner={Uri.EscapeDataString(room.IDOwnerTBL.ToString())}";
+            queryString += $"&meta_smvbem={Uri.EscapeDataString(room.IsShowMemberVIPBeforeEndTheMeeting.ToString().ToLower())}";
+            if (room.RoomTBLToUserTBLs != null && room.RoomTBLToUserTBLs.Any())
+            {
+                string adminIdsString = string.Join(",", room.RoomTBLToUserTBLs.Select(u => u.ParticipatorTBL.ID.ToString()));
+                queryString += $"&meta_admins={Uri.EscapeDataString(adminIdsString)}";
+            }
             queryString += $"&meta_supprivate={Uri.EscapeDataString(room.IsSuperPrivateRoom.ToString().ToLower())}";
             queryString += $"&bbb-context-id={Uri.EscapeDataString(room.FriendlyID)}";
 
@@ -320,7 +326,7 @@ namespace Infrastructure.API
                 var attendees = await GetMeetingAttendeesByRoomId(roomId);
                 return attendees.FirstOrDefault(a => a.UserID == userId);
             }
-            catch (Exception e) 
+            catch (Exception e)
             {
                 Statics.Log("GetAttendeeByUserId Error", e.Message);
                 return null;
@@ -352,9 +358,9 @@ namespace Infrastructure.API
                 return null;
             }
         }
-   
-        public async Task<string> GetJoinUrlAsync(MeetingTBL meet, string fullName, string userId,string nationalCode,string phone=""
-            ,string vc2AuthNorm="", bool asModerator = false, string moderatorPassowrd = "")
+
+        public async Task<string> GetJoinUrlAsync(MeetingTBL meet, string fullName, string userId, string nationalCode, string phone = ""
+            , string vc2AuthNorm = "", bool asModerator = false, string moderatorPassowrd = "")
         {
             string apiCall = "join";
             string meetingID = meet.RoomTBL.BBB_MeetID;
@@ -367,10 +373,10 @@ namespace Infrastructure.API
                 $"&logoutURL={Uri.EscapeDataString($"https://vc2.hekmateislami.com/meeting/ended?roomid={meet.RoomFriendlyID}")}" +
                 $"&password={Uri.EscapeDataString(moderatorPassowrd)}" +
                 $"&redirect=true";
-            if(!string.IsNullOrEmpty(nationalCode))
+            if (!string.IsNullOrEmpty(nationalCode))
                 queryString += $"&userdata-nationalCode={Uri.EscapeDataString(nationalCode)}";
             queryString += $"&userdata-vc2AuthNorm={Uri.EscapeDataString(vc2AuthNorm)}";
-            if(!string.IsNullOrEmpty(phone))
+            if (!string.IsNullOrEmpty(phone))
                 queryString += $"&userdata-phone={Uri.EscapeDataString(phone)}";
             queryString += $"&userdata-userID5={Uri.EscapeDataString(userId)}";
 
@@ -793,7 +799,7 @@ namespace Infrastructure.API
             string checksum = Statics.ComputeSha1(checksumInput);
             string url = $"{Statics.bbb.UrlAPI}{apiCall}?{queryString}&checksum={checksum}";
 
-                using HttpClient client = new HttpClient();
+            using HttpClient client = new HttpClient();
             client.Timeout = TimeSpan.FromSeconds(30);
 
             try
@@ -950,6 +956,6 @@ namespace Infrastructure.API
             return newHook != null && newHook.ReturnCode == "SUCCESS";
         }
 
-      
+
     }
 }

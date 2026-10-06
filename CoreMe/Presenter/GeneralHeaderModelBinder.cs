@@ -40,6 +40,8 @@ public class GeneralHeadersService : IGeneralHeadersService
         headers.BBBUserToken = httpContext.Request.Headers["bbbusertoken2"].ToString();
 
         headers.JWTUserToken = httpContext.Request.Headers["vc2AuthNorm"].ToString();
+        if (string.IsNullOrEmpty(headers.JWTUserToken))
+            headers.JWTUserToken = httpContext.Request.Headers["vc2authnorm"].ToString();
 
         try
         {

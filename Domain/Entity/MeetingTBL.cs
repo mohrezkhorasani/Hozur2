@@ -27,9 +27,11 @@ namespace Domain.Entity
         public string? JWT { get; set; }
         public bool RequiredToEnterName { get; set; } = false;
         public bool IsRecorded { get; set; } = false;
+        public bool SendToNajm { get; set; } = false;
         public ICollection<UserTBLToMeetingTBL> UserTBLToMeetingTBLs { get; set; }
         public ICollection<MeetPollQuizTBL> MeetPollQuizTBLs { get; set; }
         public ICollection<MeetingLogTBL> MeetingLogTBLs { get; set; }
+        public string? NajmID { get; set; } 
 
         public RoomTBLPlanTBL RoomTBLPlanTBL { get; set; }
         public long? IDRoomTBLPlanTBL { get; set; }

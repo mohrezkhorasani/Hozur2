@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations.Schema;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Domain.Entity
 {
@@ -30,11 +30,17 @@ namespace Domain.Entity
         LOG_REMOVED = -300,
         LOG_KILLED =301,// masalan 10 ta join poshte ham nayad
 
+        PAYMENT_PAID=200,
+        PAYMENT_WAITING=201,
+        PAYMENT_DENIED=0,
+
+
         //USERS
         USER_ACTIVE = 500,
         USER_ACTIVATED_BY_JOINING_MEETING = 501,
         USER_ACTIVATED_BY_CREATING_MEETING = 502,
         USER_ACTIVATED_BY_SIGN_UP_SITE = 503,
+        USER_ACTIVATED_BY_REQUEST_JOIN_MEET = 503,
         USER_DEACTIVE = -500,
         //Certificates
         CERT_FULL = 600,
@@ -50,6 +56,9 @@ namespace Domain.Entity
     
         FILE_INSERTED=630,
         FILE_DELETED=631,
+
+        USERMEET_REQUESTED=640,
+        USERMEET_JOINED=641,
 
     }
     public enum MainEntity_Types
@@ -72,6 +81,25 @@ namespace Domain.Entity
         MEET_GREEN_LIGHT = 100,
         MEET_API = 101,
 
+        MEETLOG_DOWNLOADABLE=102,
+        MEETLOG_DOWNLOAD_FORBIDDEN=103,
+        MEETLOG_NORMAL=1,
+        META_INT = 140,    // عدد صحیح
+        META_STRING = 141,    // رشته متنی
+        META_JSON = 142,    // JSON / آرایه
+        META_BOOL = 143,    // بولین (True/False)
+        META_FLOAT = 144,    // عدد اعشاری
+        META_DATE = 145,    // تاریخ
+        META_DATETIME = 146,    // تاریخ و زمان
+        META_GUID = 147,    // شناسه یکتا (UUID/GUID)
+        META_BYTES = 148,    // داده باینری
+        META_ENUM = 149,    // مقادیر شمارشی
+        META_ARRAY = 150,    // آرایه (لیست)
+        META_OBJECT = 151,    // شیء تودرتو
+        META_NULL = 152,    // مقدار تهی
+        META_EMAIL = 153,    // ایمیل
+        META_PHONE = 154,    // شماره تلفن
+        META_URL = 155,    // آدرس وب
 
         // user from 500 
         USER_UNKNOWN = 599,
@@ -79,18 +107,26 @@ namespace Domain.Entity
         USER_MODERATOR = 502,
         USER_ADMINSTRATOR = 503,
         USER_ADMIN = 504,
+        USER_ADMIN2 = 510,
         USER_USER = 505,
         USER_CREATOR = 506,
         USER_VIEWER = 507,
         USER_TEACHER = 508,
         USER_DABIR = 509,
-        
+        USER_HOZURI = 511,
+
+
         //
         USERMEETLOG_HOOK = 520,
 
         //ROLE
         ROLE_MANAGER = 500,
         ROLE_FORROOM = 501,
+
+        ROOMTOUSER_SIGNEDUP =550,
+        ROOMTOUSER_ADMIN =551,
+        ROOMTOUSER_MEMBER =552,
+        ROOMTOUSER_SUBSCRIBER =553,
 
         //cert
         CERT_NORMAL = 600,

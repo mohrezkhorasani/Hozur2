@@ -61,6 +61,9 @@ namespace Application.DTO.Models
         public string Fullname { get; set; }
         public bool? IsVIPMember { get; set; }
         public bool? IsRegistered { get; set; }
+        public bool? IsHozuri { get; set; }
+        public string? AttendanceType { get; set; }
+        public string? NationalCode { get; set; }
     }
     public class MiniUserJSON
     {
@@ -77,6 +80,8 @@ namespace Application.DTO.Models
         public bool? IsHekmatShobe { get; set; }
         public bool? IsVIPMember { get; set; }
         public string? AvatarPath { get; set; }
+        public string? NationalCode { get; set; }
+        public string? Phone { get; set; }
         public List<string> Permissions { get; set; } = [];
     }
     public class MicroUserJSON
@@ -153,6 +158,7 @@ namespace Application.DTO.Models
         public DateTime EndDateTime { get; set; }
         public int PartiCount { get; set; }
         public MicroRoomJSON Room { get; set; }
+        public List<MiniUserJSON> TeacherList { get; set; } = new List<MiniUserJSON>();
     }
     public class MiniRoomJSON
     {
@@ -170,7 +176,11 @@ namespace Application.DTO.Models
         public List<string> NextMeetTeacher { get; set; } = [];
         public int Count { get; set; }
         public int CountTeacher { get; set; }
+        public bool IsSubscribed { get; set; }=false;
         public int CountPartis { get; set; }
+        public string? NajmID { get; set; }
+        public string? NajmIDBoss { get; set; }
+        public int WaitingMembersCount { get; set; }
         public List<MiniPlanJSON> PlanJSONs { get; set; } = [];
     }
     public class MiniCalendarActivity

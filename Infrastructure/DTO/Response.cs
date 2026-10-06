@@ -126,9 +126,34 @@ namespace Infrastructure.DTO
 
         [XmlElement("supprivate")]
         public bool IsSuperPrivate { get; set; }
+        [XmlElement("smvbem")]
+        public bool IsShowMemberVIPBeforeEndTheMeeting { get; set; }
 
         [XmlElement("owner")]
         public long OwnerID { get; set; }
+
+        [XmlElement("admins")]
+        public string AdminIDsString { get; set; }
+
+        [XmlIgnore]
+        public List<long> AdminIDs
+        {
+            get
+            {
+                if (string.IsNullOrEmpty(AdminIDsString))
+                    return new List<long>();
+                return AdminIDsString
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(long.Parse)
+                    .ToList();
+            }
+            set
+            {
+                AdminIDsString = value != null && value.Any()
+                    ? string.Join(",", value)
+                    : null;
+            }
+        }
     }
     // Add these response model classes
 

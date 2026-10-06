@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -13,7 +13,9 @@ namespace Domain.Entity
         public MainEntity_Status Status { get; set; }
         public MainEntity_Types Type { get; set; }
         public string? Explain { get; set; }
+        public string? Bio { get; set; }
         public DateTime DateInsert { get; set; }
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
         public string Title { get; set; }
         public UserTBL OwnerTBL { get; set; }
         public long IDOwnerTBL{ get; set; }
@@ -21,6 +23,7 @@ namespace Domain.Entity
         public string? BBB_MeetID{ get; set; }
         public string? ModeratorCode { get; set; }
         public string? Avatar { get; set; }
+        public string? Logo { get; set; }
         public string? ViewerCode { get; set; }
         //قبل از پیوستن به جلسه نیاز به تأیید مدیر باشد
         public bool RequiredAdminAcceptToView { get; set; } = false;
@@ -34,10 +37,15 @@ namespace Domain.Entity
         public bool IsSuperPrivateRoom { get; set; } = false;
         //یعنی صفحه روم باز میشه درخواست ثبت نام داره ولی هیچوقت نمیتونه تا ثبت نام نکرده وارد شه
         public bool IsPrivateRoom { get; set; } = false;
+        public bool IsSubscribed { get; set; } = false;
+        public bool IsShowMemberVIPBeforeEndTheMeeting { get; set; } = false;
         public string? PresentationPath { get; set; }
+        public string? NajmID { get; set; }
+        public string? NajmIDBoss { get; set; }
         public ICollection<MeetingTBL> MeetingTBLs { get; set; }
         public ICollection<UserTBLToMeetingTBL> UserTBLToMeetingTBLs { get; set; }
         public ICollection<RoomTBLToUserTBL> RoomTBLToUserTBLs { get; set; }
         public ICollection<RoomTBLPlanTBL> RoomTBLPlanTBLs { get; set; }
+        public ICollection<RoomMetaTBL> RoomMetaTBLs { get; set; }
     }
 }

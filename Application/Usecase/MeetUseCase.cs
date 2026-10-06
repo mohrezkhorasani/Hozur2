@@ -1,4 +1,4 @@
-﻿using Application.DTO;
+using Application.DTO;
 using Application.DTO.Generals;
 using Application.General;
 using Application.Interface.IInfrastructure;
@@ -387,14 +387,18 @@ namespace Application.Usecase
                                 CanTakeCertificate = e.CertificateTBL != null &&
                                                     e.CertificateTBL.Status == MainEntity_Status.CERT_FULL &&
                                                     e.CertificateTBL.Validation,
-                                HasTakenCertificate = e.CertificateTBL?.FilePath != null,
-                                NationalCode = _commonMethods.GetNationalCode(e),
+                                HasTakenCertificate = (e.CertificateTBL != null && !string.IsNullOrEmpty(e.CertificateTBL.FilePath)) || e.IsCertificated,
+                                NationalCode = _commonMethods.GetNationalCode(e) ?? "",
                                 Role = e.Role,
                                 Email = e.UserTBL?.Email ?? "",
-                                Phone = e.UserTBL?.PhoneNumber ?? "",
+                                Phone = !string.IsNullOrEmpty(e.Phone) ? e.Phone : (e.UserTBL?.PhoneNumber ?? ""),
+                                LogCount = e.UserTBLToMeetingTBLLogs.Count(),
                                 Gender = e.CertificateTBL == null || !e.CertificateTBL.IsMale.HasValue
                                          ? "تعیین نشده"
                                          : e.CertificateTBL.IsMale.Value ? "آقا" : "خانم",
+                                CertificateURL = e.CertificateTBL != null && !string.IsNullOrEmpty(e.CertificateTBL.FilePath)
+                                                 ? $"{e.CertificateTBL.FileURL}{e.CertificateTBL.FilePath.Replace('\\', '/')}"
+                                                 : (e.CertificateFileURL ?? ""),
 
                                 // <<< اطلاعات دستگاه و مرورگر اضافه شده >>>
                                 Device = device,                    // مثلاً gl-006ad8b2-...
@@ -538,83 +542,335 @@ namespace Application.Usecase
         public async Task handleAsync(GenerateCertificateWithUserMeetIDRequest message,
             IOutPutPort<GenericResponse<GenerateCertificateWithUserMeetIDResponse>> outputPort)
         {
-            if (!message.Count.HasValue)
-                message.Count = 50;
-            if (!message.Page.HasValue)
-                message.Page = 0;
-            if (_db.UserTBLToMeetingTBLs.Any(e => e.ID == message.ID))
+            try
             {
-                var um = _db.UserTBLToMeetingTBLs.Where(e => e.ID == message.ID)
+                if (!message.Count.HasValue)
+                    message.Count = 50;
+                if (!message.Page.HasValue)
+                    message.Page = 0;
+
+                UserTBLToMeetingTBL? um = null;
+                var cleanNatCode = message.NationalCode?.Trim();
+                var cleanPhone = message.Phone?.Trim();
+
+                if (message.ID > 0)
+                {
+                    um = await _db.UserTBLToMeetingTBLs
+                        .Include(e => e.UserTBL)
+                        .Include(e => e.MeetingTBL).ThenInclude(e => e.RoomTBL)
+                        .FirstOrDefaultAsync(e => e.ID == message.ID);
+                }
+
+                if (um == null && !string.IsNullOrEmpty(message.MeetID))
+                {
+                    um = await _db.UserTBLToMeetingTBLs
+                        .Include(e => e.UserTBL)
+                        .Include(e => e.MeetingTBL).ThenInclude(e => e.RoomTBL)
+                        .Where(e => (e.MeetID == message.MeetID || (e.MeetingTBL != null && e.MeetingTBL.MeetID == message.MeetID)) &&
+                            ((!string.IsNullOrEmpty(cleanNatCode) && (e.NationalCode == cleanNatCode || (e.UserTBL != null && e.UserTBL.NationalCode == cleanNatCode))) ||
+                             (!string.IsNullOrEmpty(cleanPhone) && (e.Phone == cleanPhone || (e.UserTBL != null && e.UserTBL.PhoneNumber == cleanPhone)))))
+                        .OrderByDescending(e => !string.IsNullOrEmpty(e.TokenJWT) && e.TokenJWT != "creating...")
+                        .ThenByDescending(e => e.TimeSpendSeconds)
+                        .ThenByDescending(e => e.ID)
+                        .FirstOrDefaultAsync();
+
+                    if (um == null)
+                    {
+                        var meet = await _db.MeetingTBLs.Include(m => m.RoomTBL).FirstOrDefaultAsync(m => m.MeetID == message.MeetID);
+                        if (meet != null && (!string.IsNullOrEmpty(cleanNatCode) || !string.IsNullOrEmpty(cleanPhone)))
+                        {
+                            var userEntity = await _db.UserTBLs.FirstOrDefaultAsync(u =>
+                                (!string.IsNullOrEmpty(cleanNatCode) && u.NationalCode == cleanNatCode) ||
+                                (!string.IsNullOrEmpty(cleanPhone) && u.PhoneNumber == cleanPhone));
+
+                            if (userEntity == null)
+                            {
+                                userEntity = new UserTBL
+                                {
+                                    Firstname = !string.IsNullOrWhiteSpace(message.Name) ? message.Name.Trim() : "کاربر",
+                                    LastName = "",
+                                    NationalCode = cleanNatCode ?? "",
+                                    PhoneNumber = cleanPhone ?? "",
+                                    Status = MainEntity_Status.USER_ACTIVE,
+                                    Type = MainEntity_Types.USER_VIEWER,
+                                    UUID = Guid.NewGuid().ToString(),
+                                    DateInsert = DateTime.UtcNow
+                                };
+                                if (userEntity.AllowedGUID == null || !userEntity.AllowedGUID.Any())
+                                {
+                                    userEntity.AddGuid(Guid.NewGuid());
+                                }
+                                _db.UserTBLs.Add(userEntity);
+                                await _db.SaveChangesAsync();
+                            }
+
+                            um = new UserTBLToMeetingTBL
+                            {
+                                MeetID = meet.MeetID,
+                                UUID = userEntity.UUID,
+                                UserTBL = userEntity,
+                                UserNickName = !string.IsNullOrWhiteSpace(message.Name) ? message.Name.Trim() : userEntity.GetName(),
+                                Role = "VIEWER",
+                                Status = MainEntity_Status.USERMEET_JOINED,
+                                Type = MainEntity_Types.USER_VIEWER,
+                                NationalCode = cleanNatCode ?? userEntity.NationalCode,
+                                Phone = cleanPhone ?? userEntity.PhoneNumber,
+                                DateInsert = DateTime.UtcNow,
+                                MeetingTBL = meet
+                            };
+                            if (userEntity.AllowedGUID == null || !userEntity.AllowedGUID.Any())
+                            {
+                                userEntity.AddGuid(Guid.NewGuid());
+                                _db.UserTBLs.Update(userEntity);
+                                await _db.SaveChangesAsync();
+                            }
+                            um.TokenJWT = Statics.GenerateJWTUser(userEntity, um);
+                            _db.UserTBLToMeetingTBLs.Add(um);
+                            await _db.SaveChangesAsync();
+                        }
+                    }
+                }
+
+                if (um == null)
+                {
+                    outputPort.Handle(new GenericResponse<GenerateCertificateWithUserMeetIDResponse>(
+                        new GenerateCertificateWithUserMeetIDResponse
+                        {
+                            Message = "کاربر یا جلسه مورد نظر یافت نشد",
+                            Status = 404
+                        }));
+                    return;
+                }
+
+                // Update national code & phone on um and UserTBL if provided
+                if (!string.IsNullOrEmpty(cleanNatCode))
+                {
+                    um.NationalCode = cleanNatCode;
+                    if (um.UserTBL != null && string.IsNullOrEmpty(um.UserTBL.NationalCode))
+                    {
+                        //um.UserTBL.NationalCode = cleanNatCode;
+                    }
+                }
+                else if (string.IsNullOrEmpty(um.NationalCode) && um.UserTBL != null && !string.IsNullOrEmpty(um.UserTBL.NationalCode))
+                {
+                    um.NationalCode = um.UserTBL.NationalCode;
+                }
+
+                if (!string.IsNullOrEmpty(cleanPhone))
+                {
+                    um.Phone = cleanPhone;
+                    if (um.UserTBL != null && string.IsNullOrEmpty(um.UserTBL.PhoneNumber))
+                    {
+                        //um.UserTBL.PhoneNumber = cleanPhone;
+                    }
+                }
+                else if (string.IsNullOrEmpty(um.Phone) && um.UserTBL != null && !string.IsNullOrEmpty(um.UserTBL.PhoneNumber))
+                {
+                    um.Phone = um.UserTBL.PhoneNumber;
+                }
+
+                if (!string.IsNullOrWhiteSpace(message.Name))
+                {
+                    um.UserNickName = message.Name.Trim();
+                }
+
+                string effectiveNationalCode = !string.IsNullOrEmpty(cleanNatCode) ? cleanNatCode : (!string.IsNullOrEmpty(um.NationalCode) ? um.NationalCode : (um.UserTBL?.NationalCode ?? ""));
+
+                var meetId = um.MeetID ?? um.MeetingTBL?.MeetID ?? message.MeetID;
+                var userTblId = um.UserTBL?.ID;
+
+                // Find all existing records for this user in the same meeting (to handle split/duplicate sessions)
+                var siblingRows = await _db.UserTBLToMeetingTBLs
                     .Include(e => e.UserTBL)
                     .Include(e => e.MeetingTBL).ThenInclude(e => e.RoomTBL)
-                    .First();
+                    .Include(e => e.CertificateTBL)
+                    .Where(e => (e.MeetID == meetId || (e.MeetingTBL != null && e.MeetingTBL.MeetID == meetId)) &&
+                        (e.ID == um.ID ||
+                         (!string.IsNullOrEmpty(effectiveNationalCode) && (e.NationalCode == effectiveNationalCode || (e.UserTBL != null && e.UserTBL.NationalCode == effectiveNationalCode))) ||
+                         (!string.IsNullOrEmpty(cleanPhone) && (e.Phone == cleanPhone || (e.UserTBL != null && e.UserTBL.PhoneNumber == cleanPhone))) ||
+                         (userTblId.HasValue && e.UserTBL != null && e.UserTBL.ID == userTblId.Value) ||
+                         (!string.IsNullOrEmpty(um.UUID) && e.UUID == um.UUID)
+                        )
+                    )
+                    .ToListAsync();
+
+                // Look for an existing row in this meeting that already has a valid TokenJWT
+                var validTokenRow = siblingRows.FirstOrDefault(r => !string.IsNullOrWhiteSpace(r.TokenJWT) && r.TokenJWT != "creating..." && r.TokenJWT.Length > 20);
+
+                if ((string.IsNullOrWhiteSpace(um.TokenJWT) || um.TokenJWT == "creating...") && validTokenRow != null)
+                {
+                    um.TokenJWT = validTokenRow.TokenJWT;
+                    if (um.TimeSpendSeconds == 0 && validTokenRow.TimeSpendSeconds > 0)
+                    {
+                        um.TimeSpendSeconds = validTokenRow.TimeSpendSeconds;
+                    }
+                    if (um.UserMeetID == "-" && validTokenRow.UserMeetID != "-")
+                    {
+                        um.UserMeetID = validTokenRow.UserMeetID;
+                    }
+                    if (um.UserTBL == null && validTokenRow.UserTBL != null)
+                    {
+                        um.UserTBL = validTokenRow.UserTBL;
+                    }
+                }
+
+                // If TokenJWT is still "creating..." or empty, create a real valid JWT now
+                if (string.IsNullOrWhiteSpace(um.TokenJWT) || um.TokenJWT == "creating...")
+                {
+                    var userEntity = um.UserTBL ?? await _db.UserTBLs.FirstOrDefaultAsync(u => u.UUID == um.UUID ||
+                        (!string.IsNullOrEmpty(effectiveNationalCode) && u.NationalCode == effectiveNationalCode) ||
+                        (!string.IsNullOrEmpty(cleanPhone) && u.PhoneNumber == cleanPhone));
+
+                    if (userEntity != null)
+                    {
+                        if (userEntity.AllowedGUID == null || !userEntity.AllowedGUID.Any())
+                        {
+                            userEntity.AddGuid(Guid.NewGuid());
+                            _db.UserTBLs.Update(userEntity);
+                            await _db.SaveChangesAsync();
+                        }
+                        um.TokenJWT = Statics.GenerateJWTUser(userEntity, um);
+                    }
+                }
+
                 string role = "شرکت‌کننده";
                 if (um.Role == "MODERATOR")
                 {
                     role = "ارائه دهنده";
                 }
-                if (!_db.CertificateTBLs.Any(e => e.IDUserTBLToMeetingTBL == um.ID))
+
+                var cert = await _db.CertificateTBLs.FirstOrDefaultAsync(e => e.IDUserTBLToMeetingTBL == um.ID);
+                if (cert == null)
                 {
                     Statics.Log("GenerateCertificateWithUserMeetIDUseCase", $"{um.ID}");
-
-
-                    _db.CertificateTBLs.Add(new CertificateTBL
+                    cert = new CertificateTBL
                     {
                         Status = MainEntity_Status.CERT_FULL,
                         Type = MainEntity_Types.CERT_NORMAL,
                         Title = "گواهینامه حضور در جلسه",
                         IDUserTBLToMeetingTBL = um.ID,
-
-                        Validation = true
-                    });
-                    _db.SaveChanges();
+                        Validation = true,
+                        DateInsert = DateTime.UtcNow
+                    };
+                    _db.CertificateTBLs.Add(cert);
+                    await _db.SaveChangesAsync();
                 }
-                var cert = await _db.CertificateTBLs.FirstOrDefaultAsync(e => e.IDUserTBLToMeetingTBL == um.ID);
-                cert.NationalCode = message.NationalCode;
+
+                cert.NationalCode = effectiveNationalCode;
                 cert.IsMale = message.IsMale;
                 cert.Validation = true;
+                cert.Status = MainEntity_Status.CERT_FULL;
 
                 var wwwroot = hosting.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
                 var fontPath = "IranNastaliq";
                 var bgpath = Path.Combine(wwwroot, "bg.png");
-                var outputPath = Path.Combine(wwwroot, "pdf", "certificates", $@"certif-{um.ID}.pdf");
+                var pdfDir = Path.Combine(wwwroot, "pdf", "certificates");
+                if (!Directory.Exists(pdfDir))
+                {
+                    Directory.CreateDirectory(pdfDir);
+                }
+                var outputPath = Path.Combine(pdfDir, $@"certif-{um.ID}.pdf");
 
+                string displayName = !string.IsNullOrEmpty(um.UserNickName)
+                    ? (um.UserNickName == "Teacher" && um.UserTBL != null ? um.UserTBL.GetName() : um.UserNickName)
+                    : (um.UserTBL != null ? um.UserTBL.GetName() : "شرکت‌کننده");
 
+                string roomTitle = um.MeetingTBL?.RoomTBL?.Title ?? "";
+                string meetTitle = um.MeetingTBL?.Title ?? "";
+                string jalaliDate = Statics.ConvertPersianMonthToNumber(um.MeetingTBL?.JalaliDate ?? "").Replace("-", "/");
 
-                var resultPath = WordService.CreateCertificatePdf(outputPath, fontPath, bgpath, um.UserNickName, message.IsMale, message.NationalCode,
-                    um.MeetingTBL.RoomTBL.Title, um.MeetingTBL.Title, Statics.ConvertPersianMonthToNumber(um.MeetingTBL.JalaliDate).Replace("-", "/"),
-                    role, um.ID.ToString());
+                WordService.CreateCertificatePdf(outputPath, fontPath, bgpath, displayName, message.IsMale, effectiveNationalCode,
+                    roomTitle, meetTitle, jalaliDate, role, um.ID.ToString());
 
                 cert.FileURL = "https://vc.hekmateislami.com/";
+                cert.FilePath = $"cert/certif-{um.ID}.pdf";
+                um.IsCertificated = true;
+                um.CertificateFileURL = $"{cert.FileURL}{cert.FilePath}";
 
-                //string compressedPath = PdfCompressor.CompressPdf(@$"{outputPath}");
-
-                cert.FilePath = Path.Combine("cert", $@"certif-{um.ID}.pdf");
                 _db.CertificateTBLs.Update(cert);
-                _db.SaveChanges();
+                _db.UserTBLToMeetingTBLs.Update(um);
+
+                // Synchronize all other sibling rows for this user in this meeting
+                foreach (var sib in siblingRows)
+                {
+                    if (sib.ID != um.ID)
+                    {
+                        sib.IsCertificated = true;
+                        sib.CertificateFileURL = um.CertificateFileURL;
+                        if (string.IsNullOrWhiteSpace(sib.TokenJWT) || sib.TokenJWT == "creating...")
+                        {
+                            sib.TokenJWT = um.TokenJWT;
+                        }
+                        if (string.IsNullOrEmpty(sib.NationalCode) && !string.IsNullOrEmpty(effectiveNationalCode))
+                        {
+                            sib.NationalCode = effectiveNationalCode;
+                        }
+                        if (string.IsNullOrEmpty(sib.Phone) && !string.IsNullOrEmpty(cleanPhone))
+                        {
+                            sib.Phone = cleanPhone;
+                        }
+                        _db.UserTBLToMeetingTBLs.Update(sib);
+
+                        var sibCert = await _db.CertificateTBLs.FirstOrDefaultAsync(c => c.IDUserTBLToMeetingTBL == sib.ID);
+                        if (sibCert == null)
+                        {
+                            sibCert = new CertificateTBL
+                            {
+                                Status = MainEntity_Status.CERT_FULL,
+                                Type = MainEntity_Types.CERT_NORMAL,
+                                Title = "گواهینامه حضور در جلسه",
+                                IDUserTBLToMeetingTBL = sib.ID,
+                                Validation = true,
+                                NationalCode = effectiveNationalCode,
+                                IsMale = message.IsMale,
+                                FileURL = cert.FileURL,
+                                FilePath = cert.FilePath,
+                                DateInsert = DateTime.UtcNow
+                            };
+                            _db.CertificateTBLs.Add(sibCert);
+                        }
+                        else
+                        {
+                            sibCert.Status = MainEntity_Status.CERT_FULL;
+                            sibCert.Validation = true;
+                            sibCert.NationalCode = effectiveNationalCode;
+                            sibCert.IsMale = message.IsMale;
+                            sibCert.FileURL = cert.FileURL;
+                            sibCert.FilePath = cert.FilePath;
+                            _db.CertificateTBLs.Update(sibCert);
+                        }
+                    }
+                }
+                await _db.SaveChangesAsync();
+
                 Statics.Log("GenerateCertificateWithUserMeetIDUseCase", "Ta upload");
+                try
+                {
+                    scpUploader.UploadFile(outputPath);
+                }
+                catch (Exception uploadEx)
+                {
+                    Statics.Log("GenerateCertificateWithUserMeetIDUseCase", "Upload warning: " + uploadEx.Message);
+                }
 
-                scpUploader.UploadFile(outputPath);
-                Statics.Log("GenerateCertificateWithUserMeetIDUseCase", "oops");
-                outputPort.Handle(new GenericResponse<GenerateCertificateWithUserMeetIDResponse>
-     (new GenerateCertificateWithUserMeetIDResponse
-     {
-         Message = "ok",
-         Status = 403,
-         Link = Path.Join(cert.FileURL, cert.FilePath)
-
-     }));
-                return;
+                outputPort.Handle(new GenericResponse<GenerateCertificateWithUserMeetIDResponse>(
+                    new GenerateCertificateWithUserMeetIDResponse
+                    {
+                        Message = "گواهینامه با موفقیت صادر شد",
+                        Status = 200,
+                        Link = $"{cert.FileURL}{cert.FilePath}"
+                    }));
             }
-
-            outputPort.Handle(new GenericResponse<GenerateCertificateWithUserMeetIDResponse>
-       (new GenerateCertificateWithUserMeetIDResponse
-       {
-           Message = "ok",
-           Status = 403,
-
-       }));
-
+            catch (Exception ex)
+            {
+                Statics.Log("GenerateCertificateWithUserMeetIDUseCase", "Exception: " + ex.Message + " " + ex.InnerException);
+                outputPort.Handle(new GenericResponse<GenerateCertificateWithUserMeetIDResponse>(
+                    new GenerateCertificateWithUserMeetIDResponse
+                    {
+                        Message = "خطا در صدور گواهینامه: " + ex.Message,
+                        Status = 500
+                    }));
+            }
         }
     }
     #endregion
@@ -856,7 +1112,7 @@ namespace Application.Usecase
 
                         long idRoom = 0;
                         long.TryParse(message.IDRoom, out idRoom);
-
+                        long idUser = message.GeneralHeaders.UserTBL.ID;
                         // اعتبارسنجی‌ها
                         if (!_db.RoomTBLs.Any(e => e.FriendlyID == message.IDRoom || e.ID == idRoom))
                         {
@@ -868,7 +1124,8 @@ namespace Application.Usecase
                             return;
                         }
 
-                        if (!_db.RoomTBLs.Any(e => e.IDOwnerTBL == message.GeneralHeaders.UserTBL.ID && e.FriendlyID == message.IDRoom) &&
+                        if (!_db.RoomTBLs.Any(e => e.IDOwnerTBL == message.GeneralHeaders.UserTBL.ID && e.FriendlyID == message.IDRoom
+                            || ( e.RoomTBLToUserTBLs.Any(r => r.ParticipatorTBL.ID == idUser && r.Type==MainEntity_Types.ROOMTOUSER_ADMIN))) &&
                             !message.GeneralHeaders.UserTBL.VerifyUserPermissions("manage_admins"))
                         {
                             outputPort.Handle(new GenericResponse<StartNewMeetResponse>(new StartNewMeetResponse
@@ -879,7 +1136,7 @@ namespace Application.Usecase
                             return;
                         }
 
-                        var room = _db.RoomTBLs.Where(e => e.FriendlyID == message.IDRoom || e.ID == idRoom).First();
+                        var room = _db.RoomTBLs.Where(e => e.FriendlyID == message.IDRoom || e.ID == idRoom).Include(e=>e.RoomTBLToUserTBLs).ThenInclude(e=>e.ParticipatorTBL).First();
                         var planTBL = await _db.RoomTBLPlanTBLs.FindAsync(idplan);
 
                         if (planTBL == null)
@@ -1044,7 +1301,7 @@ namespace Application.Usecase
                         var existingDabir = await db.UserTBLs.FirstOrDefaultAsync(e =>
                             (e.Firstname + " " + e.LastName).Trim() == data.PlanTBL.Dabir &&
                             e.Status == MainEntity_Status.USER_ACTIVE &&
-                            e.Type == MainEntity_Types.USER_TEACHER);
+                            (e.Type == MainEntity_Types.USER_TEACHER || e.Type == MainEntity_Types.USER_DABIR));
 
                         if (existingDabir != null)
                         {
@@ -1055,7 +1312,7 @@ namespace Application.Usecase
                             dabir = new UserTBL
                             {
                                 Firstname = data.PlanTBL.Dabir,
-                                Type = MainEntity_Types.USER_TEACHER,
+                                Type = MainEntity_Types.USER_DABIR,
                                 Status = MainEntity_Status.USER_ACTIVE,
                                 Username = data.PlanTBL.Dabir,
                                 UUID = new Random().NextInt64(-999999999999999999, -99999999999999999).ToString()
@@ -1130,7 +1387,7 @@ namespace Application.Usecase
                         var t = t1.Trim();
                         var existingTeacher = await db.UserTBLs.FirstOrDefaultAsync(e =>
                             ((e.Firstname + " " + e.LastName).Trim() == t || e.Username == t) &&
-                            e.Status == MainEntity_Status.USER_ACTIVE);
+                             (e.Type == MainEntity_Types.USER_TEACHER || e.Type == MainEntity_Types.USER_DABIR));
 
                         UserTBL teacher;
                         if (existingTeacher != null)
@@ -1671,8 +1928,6 @@ namespace Application.Usecase
     }
     #endregion
 
-
-
     #region UploadFileStorage
     public class UploadFileStorageRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<UploadFileStorageResponse>>
     {
@@ -1683,6 +1938,8 @@ namespace Application.Usecase
 
     public class UploadFileStorageResponse : BaseParentResponce
     {
+        [System.Text.Json.Serialization.JsonPropertyName("urls")]
+        [Newtonsoft.Json.JsonProperty("urls")]
         public List<string> URLs { get; set; }
         public List<string> FileNames { get; set; } // Optional: return original file names
         public List<string> SavedPaths { get; set; } // Optional: return physical saved paths
@@ -1919,7 +2176,6 @@ namespace Application.Usecase
         }
     }
     #endregion
-
 
     #region GetFileStorage
     public class GetFileStorageRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<GetFileStorageResponse>>

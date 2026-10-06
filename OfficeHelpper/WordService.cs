@@ -56,7 +56,10 @@ namespace Infrastructure.Word
             float widthPt = imgWidthPx * 72f / dpiX;
             float heightPt = imgHeightPx * 72f / dpiY;
 
-
+            int fontText = 25;
+            int fontTitle = 35;
+            int fontDate = 20;
+            int paddingHorizontal = 40;
 
             QuestPDF.Fluent.Document.Create(container =>
             {
@@ -69,43 +72,44 @@ namespace Infrastructure.Word
                     page.Content().PaddingHorizontal(100).PaddingVertical(30).Column(column =>
                     {
                         // --- دو تاریخ بالا سمت چپ ---
-                        column.Item().PaddingLeft(45).PaddingTop(73)
+                        column.Item().PaddingLeft(5).PaddingTop(45)
                             .ScaleToFit()
                             .AlignLeft()
                             .Text(date1)
                             .FontFamily(fontPath)
-                            .FontSize(24)
+                            .FontSize(fontDate)
                             .FontColor("#000000");
 
-                        column.Item().PaddingLeft(45).PaddingTop(-10)
+                        column.Item().PaddingLeft(5).PaddingTop(-15)
                             .ScaleToFit()
                             .AlignLeft()
                             .Text(date2)
                             .FontFamily(fontPath)
-                            .FontSize(24)
+                            .FontSize(fontDate)
                             .FontColor("#000000");
 
                         // --- متن معرفی ---
-                        column.Item().PaddingTop(55).PaddingHorizontal(60)
+                        column.Item().PaddingTop(42).PaddingHorizontal(paddingHorizontal)
                             .ScaleToFit()
                             .Text(text =>
                             {
-                                text.DefaultTextStyle(x => x.FontFamily(fontPath).FontSize(34));
+                                text.DefaultTextStyle(x => x.FontFamily(fontPath).FontSize(fontText));
                                 text.Span(lineIntroductionUser).FontColor("#000000");
                                 text.Span(lineIntroductionUser2).FontColor("#065E47");
                                 text.Span(lineIntroductionUser3).FontColor("#000000");
                                 text.AlignCenter();
                             });
-
+                            
                         // --- عنوان اصلی ---
                         column.Item()
                             .PaddingTop(-5)
-                            .PaddingHorizontal(60)
+                            .PaddingHorizontal(paddingHorizontal)
                             .ScaleToFit()
                             .Text(lineTitleOfMeet)
                             .FontFamily(fontPath)
-                            .FontSize(40)
+                            .FontSize(fontTitle)
                             .FontColor("#065E47")
+
                             .AlignCenter();
 
                         // --- خط سوم ---
@@ -114,7 +118,7 @@ namespace Infrastructure.Word
                             .ScaleToFit()
                             .Text(text =>
                             {
-                                text.DefaultTextStyle(x => x.FontFamily(fontPath).FontSize(34));
+                                text.DefaultTextStyle(x => x.FontFamily(fontPath).FontSize(fontText));
                                 text.Span(lineDateTitle).FontColor("#000000");
                                 text.Span(lineDateValue).FontColor("#FB2C36");
                                 text.Span(" برگزار شد، به عنوان ").FontColor("#000000");
@@ -129,7 +133,7 @@ namespace Infrastructure.Word
                             .ScaleToFit()
                             .Text(line4)
                             .FontFamily(fontPath)
-                            .FontSize(34)
+                            .FontSize(fontText)
                             .FontColor("#000000")
                             .AlignCenter()
                             .DirectionFromRightToLeft();
@@ -138,5 +142,8 @@ namespace Infrastructure.Word
             }).GeneratePdf(pdfPath);
             return pdfPath;
         }
+
+
+
     }
 }

@@ -1,4 +1,4 @@
-﻿using Domain.Entity;
+using Domain.Entity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -24,6 +24,7 @@ namespace Application.Interfaces
         public DbSet<CertificateTBL> CertificateTBLs { get; set; }
         public DbSet<MeetingTBL> MeetingTBLs { get; set; }
         public DbSet<RoomTBL> RoomTBLs { get; set; }
+        public DbSet<RoomMetaTBL> RoomMetaTBLs { get; set; }
         public DbSet<UserTBL> UserTBLs { get; set; }
         public DbSet<MeetCommentTBL> MeetCommentTBLs { get; set; }
         public DbSet<MeetingLogTBL> MeetingLogTBLs { get; set; }
@@ -36,9 +37,11 @@ namespace Application.Interfaces
         public DbSet<UserTBLToUserTBL> UserTBLToUserTBLs { get; set; }
         public DbSet<RoomTBLPlanTBL> RoomTBLPlanTBLs { get; set; }
         public DbSet<UserTBLToMeetingTBLMuiltiJoinTBL> UserTBLToMeetingTBLMuiltiJoinTBLs { get; set; }
+        public DbSet<UserTBLLogs> UserTBLLogs { get; set; }
         public DbSet<SlideshowTBL> SlideshowTBL { get; set; }
         public DbSet<MeetPollQuizAnsTBL> MeetPollQuizAnsTBLs { get; set; }
         public DbSet<MeetPollQuizAnsTBLToUserMeetTBL> MeetPollQuizAnsTBLToUserMeetTBLs { get; set; }
+        public DbSet<PaymentTBL> PaymentTBLs { get; set; }
         public DbSet<MeetPollQuizTBL> MeetPollQuizTBLs { get; set; }
         #endregion
         public int SaveChanges();

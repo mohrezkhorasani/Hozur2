@@ -1,4 +1,5 @@
-using Application.DTO;
+using Application.Interface.IUsecase;
+
 using Application.DTO.Generals;
 using Application.DTO.Models;
 using Application.General;
@@ -19,6 +20,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
+using Application.DTO;
 
 namespace Application.Usecase
 {
@@ -80,7 +82,9 @@ namespace Application.Usecase
                     orderedUsers = _db.UserTBLs.OrderBy(e => e.DateInsert); // default fallback
                     break;
             }
-            users = orderedUsers.Skip(message.Count.Value * message.Page.Value).Take(message.Count.Value).ToList();
+            users = orderedUsers
+                //.Where(e=>e.AvatarPath!=null)
+                .Skip(message.Count.Value * message.Page.Value).Take(message.Count.Value).OrderByDescending(e=>e.LastUpdate).ThenByDescending(e=>e.AvatarPath).ToList();
             outputPort.Handle(new GenericResponse<AdminGetUserListResponse>(new AdminGetUserListResponse
             {
                 Message = "ok",
@@ -92,13 +96,13 @@ namespace Application.Usecase
                     Firstname = e.Firstname,
                     LastName = e.LastName,
                     ID = e.ID,
-                    IsValid = e.Status == MainEntity_Status.USER_ACTIVE || e.Status == MainEntity_Status.Active || (int)e.Status == 100,
+                    IsValid = e.Status == MainEntity_Status.USER_ACTIVE || e.Status == MainEntity_Status.USER_ACTIVE || (int)e.Status == 100,
                     Status = e.Status,
                     IsHekmatShobe = e.IsHekmatShobe,
                     IsVIPMember = e.IsMemberVIP,
-                    AvatarPath = e.AvatarPath,
+                    AvatarPath =string.IsNullOrWhiteSpace(e.AvatarPath)?null: Statics.CombinePath(Statics.URLFiles, e.AvatarPath),
                     Permissions = e.GetUserPermissions(),
-                    Role = e.GetRole(),
+                    Role = e.GetRole(), 
                     UID = e.UUID,
                     Username = e.Username
                 }).ToList()
@@ -290,6 +294,7 @@ namespace Application.Usecase
                     {
                         BBB_MeetID = existingRoom.BBB_MeetID,
                         RoomID = existingRoom.FriendlyID,
+                        IsSubscribed = existingRoom.IsSubscribed,
                         Owner = new MiniUserJSON { ID = existingRoom.IDOwnerTBL },
                         Title = existingRoom.Title,
                     }
@@ -350,6 +355,7 @@ namespace Application.Usecase
                     {
                         BBB_MeetID = room.BBB_MeetID,
                         RoomID = room.FriendlyID,
+                        IsSubscribed = room.IsSubscribed,
                         Owner = new MiniUserJSON { ID = room.IDOwnerTBL },
                         Title = room.Title,
                     }
@@ -428,6 +434,7 @@ namespace Application.Usecase
                     Title = e.Title,
                     BBB_MeetID = e.BBB_MeetID,
                     RoomID = e.FriendlyID,
+                    IsSubscribed = e.IsSubscribed,
                     Created = e.DateInsert
                 }).ToList()
             }));
@@ -561,10 +568,13 @@ namespace Application.Usecase
                         .Select(e => new
                         {
                             e.FriendlyID,
+                            e.IsSubscribed,
                             e.Avatar,
                             e.Title,
                             e.Logo,
                             e.DateInsert,
+                            e.NajmID,
+                            e.NajmIDBoss,
                             plan = e.RoomTBLPlanTBLs.OrderBy(p => p.StartDate).ToList(),
                             e.OwnerTBL,
                             Meetings = e.MeetingTBLs.Select(m => new
@@ -588,9 +598,12 @@ namespace Application.Usecase
                     result = rooms.Select(room => new DTO.Models.MiniRoomJSON
                     {
                         RoomID = room.FriendlyID,
+                        IsSubscribed = room.IsSubscribed,
                         Title = room.Title,
                         Created = room.DateInsert,
                         Avatar = room.Logo,
+                        NajmID = room.NajmID,
+                        NajmIDBoss = room.NajmIDBoss,
                         LastMeet = room.Meetings
                             .OrderByDescending(m => m.DateInsert)
                             .FirstOrDefault()?.DateInsert ?? room.DateInsert,
@@ -1168,11 +1181,6 @@ namespace Application.Usecase
     }
     #endregion
 
-
-
-
-
-
     #region GetAllMeeting
     public class GetAllMeetingUseCase : IGetAllMeetingUseCase
     {
@@ -1201,34 +1209,81 @@ namespace Application.Usecase
                 {
                     throw new Exception("FORBIDDEN ! 403");
                 }
-                outputPort.Handle(new GenericResponse<GetAllMeetingResponse>(new GetAllMeetingResponse
-                {
-                    Message = "ok",
-                    Status = 200,
-                    Data = _db.MeetingTBLs.Where(e => e.RoomTBL.IDOwnerTBL == message.GeneralHeaders.UserTBL.ID ||
+                var meetings = await _db.MeetingTBLs.Where(e => e.RoomTBL.IDOwnerTBL == message.GeneralHeaders.UserTBL.ID ||
                     e.RoomTBL.RoomTBLToUserTBLs.Any(r => r.ParticipatorTBL.ID == message.GeneralHeaders.UserTBL.ID))
-                    .Include(e => e.RoomTBL).ThenInclude(e=>e.OwnerTBL).Include(e => e.UserTBLToMeetingTBLs).OrderByDescending(e=>e.ID)
+                    .Include(e => e.RoomTBL).ThenInclude(e => e.OwnerTBL)
+                    .Include(e => e.Teacher)
+                    .Include(e => e.UserTBLToMeetingTBLs).ThenInclude(r => r.UserTBL)
+                    .OrderByDescending(e => e.ID)
                     .Skip(message.Count.Value * message.Page.Value).Take(message.Count.Value)
-                    .Select(e => new MiniMeet
+                    .ToListAsync();
+
+                var resultList = meetings.Select(e =>
+                {
+                    var teachers = new List<MiniUserJSON>();
+
+                    if (e.Teacher != null)
+                    {
+                        teachers.Add(new MiniUserJSON
+                        {
+                            ID = e.Teacher.ID,
+                            Fullname = e.Teacher.GetName(),
+                            Firstname = e.Teacher.Firstname,
+                            LastName = e.Teacher.LastName,
+                            Username = e.Teacher.Username,
+                            AvatarPath = e.Teacher.AvatarPath,
+                            UID = e.Teacher.UUID
+                        });
+                    }
+
+                    if (e.UserTBLToMeetingTBLs != null)
+                    {
+                        var joinedTeachers = e.UserTBLToMeetingTBLs
+                            .Where(r => r.Type == MainEntity_Types.USER_TEACHER && r.UserTBL != null)
+                            .Select(r => new MiniUserJSON
+                            {
+                                ID = r.UserTBL.ID,
+                                Fullname = r.UserTBL.GetName(),
+                                Firstname = r.UserTBL.Firstname,
+                                LastName = r.UserTBL.LastName,
+                                Username = r.UserTBL.Username,
+                                AvatarPath = r.UserTBL.AvatarPath,
+                                UID = r.UserTBL.UUID
+                            });
+
+                        teachers.AddRange(joinedTeachers);
+                    }
+
+                    var uniqueTeachers = teachers.GroupBy(t => t.ID).Select(g => g.First()).ToList();
+
+                    return new MiniMeet
                     {
                         Title = e.Title,
                         Time = $"{e.DateInsert.ToString("HH:mm")}",
                         Date = $"{e.JalaliDate}",
                         MeetID = e.MeetID,
                         ID = e.ID,
-                        EndDateTime=e.EndDate.HasValue?e.EndDate.Value:DateTime.MinValue,
-                        PartiCount=e.UserTBLToMeetingTBLs.Count(),
+                        EndDateTime = e.EndDate.HasValue ? e.EndDate.Value : DateTime.MinValue,
+                        PartiCount = e.UserTBLToMeetingTBLs?.Count() ?? 0,
+                        TeacherList = uniqueTeachers,
                         Room = new MicroRoomJSON
                         {
                             FriendlyID = e.RoomFriendlyID,
-                            Owner= new MiniUserJSON
+                            Owner = e.RoomTBL?.OwnerTBL != null ? new MiniUserJSON
                             {
-                                Fullname=e.RoomTBL.OwnerTBL.GetName(),
-                                ID=e.RoomTBL.OwnerTBL.ID
-                            },
-                            Title = e.RoomTBL.Title,
+                                Fullname = e.RoomTBL.OwnerTBL.GetName(),
+                                ID = e.RoomTBL.OwnerTBL.ID
+                            } : null,
+                            Title = e.RoomTBL?.Title,
                         }
-                    }).ToList()
+                    };
+                }).ToList();
+
+                outputPort.Handle(new GenericResponse<GetAllMeetingResponse>(new GetAllMeetingResponse
+                {
+                    Message = "ok",
+                    Status = 200,
+                    Data = resultList
                 }));
             }
             catch (Exception e)
@@ -1247,8 +1302,6 @@ namespace Application.Usecase
         }
     }
     #endregion
-
-
 
     #region GetUserMeetLogs
     public class GetUserMeetLogsUseCase : IGetUserMeetLogsUseCase
@@ -1328,7 +1381,5 @@ namespace Application.Usecase
         }
     }
     #endregion
-
-
 
 }

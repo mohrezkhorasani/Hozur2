@@ -12,7 +12,7 @@ namespace Domain.Entity
         public long ID { get; set; }
         public string FriendlyID { get; set; }
         public MainEntity_Status Status { get; set; }
-        public MainEntity_Types Type { get; set; }//USER TYPE
+        public MainEntity_Types Type { get; set; }//Admin || Member || Subscribed
         public string? Explain { get; set; }
         public DateTime DateInsert { get; set; }
         public UserTBL ParticipatorTBL { get; set; }

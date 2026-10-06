@@ -1,4 +1,4 @@
-﻿using Application.Interfaces;
+using Application.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using System;
 using Microsoft.EntityFrameworkCore.Design;
@@ -34,6 +34,8 @@ namespace Presistence.Entities
         public DbSet<MeetingLogTBL> MeetingLogTBLs { get; set; }
         public DbSet<UserFileTBL> UserFileTBLs { get; set; }
         public DbSet<UserTBLToMeetingTBLMuiltiJoinTBL> UserTBLToMeetingTBLMuiltiJoinTBLs { get; set; }
+        public DbSet<PaymentTBL> PaymentTBLs { get; set; }
+        public DbSet<UserTBLLogs> UserTBLLogs { get; set; }
 
         #endregion
         #region 12/07/2025  
@@ -43,6 +45,7 @@ namespace Presistence.Entities
         public DbSet<CertificateTBL> CertificateTBLs { get; set; }
         public DbSet<MeetingTBL> MeetingTBLs { get; set; }
         public DbSet<RoomTBL> RoomTBLs { get; set; }
+        public DbSet<RoomMetaTBL> RoomMetaTBLs { get; set; }
         public DbSet<UserTBL> UserTBLs { get; set; }
         public DbSet<RoomTBLToUserTBL> RoomTBLToUserTBLs { get; set; }
         public DbSet<UserTBLToMeetingTBL> UserTBLToMeetingTBLs { get; set; }
@@ -97,11 +100,13 @@ namespace Presistence.Entities
             modelBuilder.ApplyConfiguration(new UserTBLToUserTBLConfiguration());
             modelBuilder.ApplyConfiguration(new RoomTBLPlanTBLConfiguration());
             modelBuilder.ApplyConfiguration(new MeetingReservationTBLConfiguration());
+            modelBuilder.ApplyConfiguration(new PaymentTBLConfiguration());
             modelBuilder.ApplyConfiguration(new MeetPollQuizTBLConfiguration());
             modelBuilder.ApplyConfiguration(new MeetPollQuizAnsTBLToUserMeetTBLConfiguration());
             modelBuilder.ApplyConfiguration(new UserFileTBLConfiguration());
             modelBuilder.ApplyConfiguration(new MeetingLogTBLConfiguration());
             modelBuilder.ApplyConfiguration(new MeetPollQuizAnsTBLConfiguration());
+            modelBuilder.ApplyConfiguration(new UserTBLLogsConfiguration());
             modelBuilder.ApplyConfiguration(new UserTBLToMeetingTBLMuiltiJoinTBLConfiguration());
             #endregion
         }

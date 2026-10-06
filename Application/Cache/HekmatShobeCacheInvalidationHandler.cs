@@ -1,4 +1,4 @@
-﻿using Application.DTO.Models;
+using Application.DTO.Models;
 using Application.General;
 using Application.Interfaces;
 using CacheHandler.Events;
@@ -108,6 +108,7 @@ namespace Application.Cache.Handlers
                 Room = e.RoomTBLs.Select(r => new MiniRoomJSON
                 {
                     Title = r.Title,
+                    IsSubscribed = r.IsSubscribed,
                     Count = r.MeetingTBLs.Count(d => d.UserTBLToMeetingTBLs.Count > 1),
                     RoomID = r.FriendlyID,
                     CountPartis = r.MeetingTBLs.Sum(f => f.UserTBLToMeetingTBLs.Count),

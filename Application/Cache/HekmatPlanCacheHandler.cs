@@ -1,7 +1,8 @@
-﻿using Application.DTO.Models;
+using Application.DTO.Models;
 using Application.General;
 using Application.Interfaces;
 using CacheHandler.Events;
+using Domain.Entity;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
@@ -35,7 +36,10 @@ namespace Application.Cache.Handlers
             List<MiniPlanJSON> cachedData = null;
             var room = _db.RoomTBLs.Where(e => e.FriendlyID == notification.FriendlyID).First();
 
-            var list = _db.RoomTBLPlanTBLs.Where(e => e.IDRoomTBL == room.ID)
+            var list = _db.RoomTBLPlanTBLs.Where(e => e.IDRoomTBL == room.ID
+            && (e.Status == MainEntity_Status.Enabled || e.Status == MainEntity_Status.MEETING_STARTED_LATER)
+
+            )
                 .ToList();
 
             cachedData = list.OrderByDescending(e => e.StartDate).Select(e => new MiniPlanJSON
@@ -62,8 +66,11 @@ namespace Application.Cache.Handlers
         {
             List<MiniPlanJSON> cachedData = null;
 
-            var list = _db.RoomTBLPlanTBLs.Where(e => e.StartDate.HasValue && e.StartDate.Value > DateTime.Now && e.RoomTBL.IsPublicRoom).Include(e => e.RoomTBL).ThenInclude(e => e.RoomTBLPlanTBLs)
-                .Include(e => e.RoomTBL).ThenInclude(e=>e.OwnerTBL)
+            var list = _db.RoomTBLPlanTBLs.Where(e => e.StartDate.HasValue && e.StartDate.Value > DateTime.Now && e.RoomTBL.IsPublicRoom
+            && (e.Status == MainEntity_Status.Enabled || e.Status == MainEntity_Status.MEETING_STARTED_LATER)
+
+            ).Include(e => e.RoomTBL).ThenInclude(e => e.RoomTBLPlanTBLs)
+                .Include(e => e.RoomTBL).ThenInclude(e => e.OwnerTBL)
                 .ToList();
 
             cachedData = list.OrderByDescending(e => e.StartDate).Select(e => new MiniPlanJSON
@@ -75,6 +82,7 @@ namespace Application.Cache.Handlers
                 RoomJSON = new MiniRoomJSON
                 {
                     RoomID = e.RoomTBL.FriendlyID,
+                    IsSubscribed = e.RoomTBL.IsSubscribed,
                     Title = e.RoomTBL.Title,
                     Owner = new MiniUserJSON
                     {
@@ -100,7 +108,11 @@ namespace Application.Cache.Handlers
         {
             List<MiniPlanJSON> cachedData = null;
 
-            var list = _db.RoomTBLPlanTBLs.Where(e => e.StartDate.HasValue && !string.IsNullOrEmpty(e.Title) && !string.IsNullOrEmpty(e.Teachers) && e.StartDate.Value <= DateTime.Now && e.RoomTBL.IsPublicRoom).Include(e => e.RoomTBL).ThenInclude(e => e.RoomTBLPlanTBLs)
+            var list = _db.RoomTBLPlanTBLs.Where(e => e.StartDate.HasValue && !string.IsNullOrEmpty(e.Title) && !string.IsNullOrEmpty(e.Teachers) &&
+            e.StartDate.Value <= DateTime.Now && e.RoomTBL.IsPublicRoom
+            && (e.Status == MainEntity_Status.Enabled || e.Status == MainEntity_Status.MEETING_STARTED_LATER)
+
+            ).Include(e => e.RoomTBL).ThenInclude(e => e.RoomTBLPlanTBLs).Include(e=>e.RoomTBL).ThenInclude(e=>e.OwnerTBL)
                 .ToList();
 
             cachedData = list.OrderByDescending(e => e.StartDate).Select(e => new MiniPlanJSON
@@ -112,6 +124,7 @@ namespace Application.Cache.Handlers
                 RoomJSON = new MiniRoomJSON
                 {
                     RoomID = e.RoomTBL.FriendlyID,
+                    IsSubscribed = e.RoomTBL.IsSubscribed,
                     Title = e.RoomTBL.Title,
                     Owner = new MiniUserJSON
                     {

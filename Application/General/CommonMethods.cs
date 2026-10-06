@@ -1,6 +1,7 @@
-﻿using Application.DTO;
+using Application.DTO;
 using Application.DTO.Generals;
 using Application.Interfaces;
+using DocumentFormat.OpenXml.Drawing.Charts;
 using Domain.Entity;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
@@ -9,7 +10,9 @@ using Microsoft.Extensions.Hosting;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
@@ -113,17 +116,61 @@ namespace Application.General
         }
         public string GetNationalCode(UserTBLToMeetingTBL m)
         {
-            if (m.CertificateTBL?.NationalCode != null)
+            if (!string.IsNullOrEmpty(m.CertificateTBL?.NationalCode))
             {
                 return m.CertificateTBL.NationalCode;
             }
-            if (m.UserTBL?.NationalCode != null)
-                return m.UserTBL?.NationalCode;
+            if (!string.IsNullOrEmpty(m.NationalCode))
+            {
+                return m.NationalCode;
+            }
+            if (!string.IsNullOrEmpty(m.UserTBL?.NationalCode))
+                return m.UserTBL.NationalCode;
             return null;
         }
-
-        public long GetTimerStayUserInMeet(UserTBLToMeetingTBL m)
+        public bool CheckCertificate(UserTBLToMeetingTBL e)
         {
+            if (e.CertificateTBL == null)
+                return false;
+            if (e.CertificateTBL.FilePath != null)
+                return true;
+            return false;
+        }
+        public object GetCertificate(UserTBLToMeetingTBL e)
+        {
+            if (e.CertificateTBL == null)
+                return null;
+            if (e.CertificateTBL.FilePath != null)
+                return new
+                {
+                    e.CertificateTBL.FilePath,
+                    e.CertificateTBL.FileURL,
+                    e.CertificateTBL.Validation,
+                    e.CertificateTBL.NationalCode,
+                    e.CertificateTBL.IsMale,
+                    e.CertificateTBL.Title,
+                    e.CertificateTBL.ID,
+                    e.CertificateTBL.IDUserTBLToMeetingTBL,
+                };
+            return null;
+        }
+        public object GetMultiJoins(UserTBLToMeetingTBL e)
+        {
+            if (e.UserTBLToMeetingTBLMuiltiJoinTBLs == null)
+                return null;
+            return e.UserTBLToMeetingTBLMuiltiJoinTBLs.Select(q => new
+            {
+                q.IDUserTBLToMeetingTBL,
+                q.UserMeetID,
+                q.IPList,
+                q.ID
+            }).ToList();
+        }
+
+        public long GetTimerStayUserInMeet(UserTBLToMeetingTBL m,bool isMeetingEnded=true)
+        {
+            if (m.TimeSpendSeconds != 0 && isMeetingEnded)
+                return m.TimeSpendSeconds;
             if (!m.MeetingTBL.EndDate.HasValue || m.MeetingTBL.IsMeetingRunning())
             {
                 m.MeetingTBL.EndDate = DateTime.UtcNow;
@@ -140,6 +187,9 @@ namespace Application.General
                         join = log.DateInsert;
                     }
                 }
+//                net accounts / lockoutduration:< minutes >
+//مثال :
+//net accounts / lockoutduration:40
                 else
                 {
                     if (log.Key == "LEFT")
@@ -154,6 +204,9 @@ namespace Application.General
                 DateTime end = new[] { m.MeetingTBL.EndDate.Value, m.MeetingTBL.DateInsert.AddHours(4) }.Min();
                 seconds += (long)(end - join.Value).TotalSeconds;
             }
+            m.TimeSpendSeconds = seconds;
+            _db.Update(m);
+            _db.SaveChanges();
             return seconds;
         }
         public long GetTotalUniqueStayTimeInMeet(List<UserTBLToMeetingTBL> userMeetings)
@@ -306,7 +359,7 @@ namespace Application.General
         public async Task<UserTBLToMeetingTBL> GetUserMeetWithoutID(UserTBLToMeetingTBL q)
         {
             return _db.UserTBLToMeetingTBLs
-            .FirstOrDefault(e => e.MeetID == q.MeetID && e.UUID == q.UUID );
+            .FirstOrDefault(e => e.MeetID == q.MeetID && e.UUID == q.UUID);
         }
 
         public async Task<bool> CheckUserGUID(UserTBL user, string q)
@@ -327,7 +380,12 @@ namespace Application.General
                 return (true, "هنوز برای صدور گواهی زوده");
             return (true, "ok");
         }
-
+        public bool VerifyAdminAccessOfRoom(RoomTBL room, UserTBL user)
+        {
+            if (room.IDOwnerTBL == user.ID) return true;
+            if (room.RoomTBLToUserTBLs.Any(e => e.UUIDParticipatorTBL == user.UUID && e.Type == MainEntity_Types.ROOMTOUSER_ADMIN)) return true;
+            return false;
+        }
         public async Task<bool> CheckUserAccessibilityToMeet(UserTBL user, MeetingTBL meet, string action = "")
         {
             if (UserTBL.TYPE_ALLOWED_MEET_CREATE.Contains(user.Type))
@@ -429,10 +487,50 @@ namespace Application.General
 
         public async Task<UserTBLToMeetingTBL> NewUserMeeting(UserTBLToMeetingTBL tbl)
         {
-            if (await CheckUserMeetingExist(tbl)) return await GetUserMeetWithoutID(tbl);
-            _db.UserTBLToMeetingTBLs.Add(tbl);
-            _db.SaveChanges();
-            return tbl;
+            try
+            {
+
+                if (await CheckUserMeetingExist(tbl))
+                {
+                    var r = await GetUserMeetWithoutID(tbl);
+                    if (r.Status != MainEntity_Status.USERMEET_JOINED)
+                    {
+                        r.Status = MainEntity_Status.USERMEET_JOINED;
+                        r.DateUpdate = DateTime.UtcNow;
+                        r.TokenJWT = tbl.TokenJWT;
+                        r.Explain = tbl.Explain;
+                        r.Type = tbl.Type;
+                        r.Role = tbl.Role;
+                        r.IsMember = tbl.IsMember;
+                        r.UserMeetID = tbl.UserMeetID;
+                        r.Phone = tbl.Phone;
+                        r.NationalCode = tbl.NationalCode;
+                        r.IPList.Add(tbl.IPList[0]);
+                        r.UserNickName = tbl.UserNickName;
+                        if (!r.IsCertificated)
+                        {
+                            r.IsCertificated = tbl.IsCertificated;
+                        }
+                        if (tbl.TimeSpendSeconds > r.TimeSpendSeconds)
+                        {
+                            r.TimeSpendSeconds = tbl.TimeSpendSeconds;
+                        }
+                        _db.Update(r);
+                        _db.SaveChanges();
+
+                    }
+                    return await GetUserMeetWithoutID(tbl);
+                }
+                _db.UserTBLToMeetingTBLs.Add(tbl);
+                _db.SaveChanges();
+                return tbl;
+
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+            }
+            return null;
         }
         public async Task<bool> CheckUserExist(UserTBL user)
         {
@@ -455,7 +553,7 @@ namespace Application.General
         {
             return await _db.UserTBLToMeetingTBLs.AnyAsync(x =>
                 x.ID == user.ID ||
-                (user.MeetID != null && x.MeetID == user.MeetID && user.UUID == x.UUID )
+                (user.MeetID != null && x.MeetID == user.MeetID && user.UUID == x.UUID)
             );
         }
 
@@ -541,6 +639,405 @@ namespace Application.General
         }
 
 #pragma warning restore CS8603 // Possible null reference return.
+
+        public async Task<int> SyncWithNajm(MeetingTBL? meet = null, UserTBL? user = null)
+        {
+            if (meet == null) return 400;
+            return await SyncWithNajm(meet.MeetID);
+        }
+
+        public async Task<int> SyncWithNajm(string meetId)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(meetId))
+                {
+                    Statics.Log("SyncWithNajm_Error", "meetId is null or empty");
+                    return 400;
+                }
+
+                MeetingTBL? meet = null;
+                if (long.TryParse(meetId, out long numericId))
+                {
+                    meet = await _db.MeetingTBLs
+                        .Include(m => m.RoomTBL)
+                            .ThenInclude(r => r.OwnerTBL)
+                        .Include(m => m.Teacher)
+                        .Include(m => m.Creator)
+                        .Include(m => m.RoomTBLPlanTBL)
+                        .Include(m => m.UserTBLToMeetingTBLs)
+                            .ThenInclude(um => um.UserTBL)
+                        .FirstOrDefaultAsync(m => m.ID == numericId || m.MeetID == meetId);
+                }
+                else
+                {
+                    meet = await _db.MeetingTBLs
+                        .Include(m => m.RoomTBL)
+                            .ThenInclude(r => r.OwnerTBL)
+                        .Include(m => m.Teacher)
+                        .Include(m => m.Creator)
+                        .Include(m => m.RoomTBLPlanTBL)
+                        .Include(m => m.UserTBLToMeetingTBLs)
+                            .ThenInclude(um => um.UserTBL)
+                        .FirstOrDefaultAsync(m => m.MeetID == meetId);
+                }
+
+                if (meet == null)
+                {
+                    Statics.Log("SyncWithNajm_Error", $"Meeting '{meetId}' not found in DB.");
+                    return 404;
+                }
+
+                if (meet.RoomTBL == null && !string.IsNullOrEmpty(meet.RoomFriendlyID))
+                {
+                    meet.RoomTBL = await _db.RoomTBLs
+                        .Include(r => r.OwnerTBL)
+                        .FirstOrDefaultAsync(r => r.FriendlyID == meet.RoomFriendlyID);
+                }
+
+                var room = meet.RoomTBL;
+                if (room == null || string.IsNullOrWhiteSpace(room.NajmID))
+                {
+                    Statics.Log("SyncWithNajm", $"Room NajmID is null or empty for meeting '{meet.MeetID}'. Skipping Najm sync as required.");
+                    return 200;
+                }
+
+                string groupId = room.NajmID.Trim();
+                if (groupId.Length > 1)
+                {
+                    groupId = groupId.Substring(0, 1);
+                }
+
+                if (string.IsNullOrWhiteSpace(groupId))
+                {
+                    Statics.Log("SyncWithNajm", $"Room NajmID character is empty for meeting '{meet.MeetID}'. Skipping Najm sync.");
+                    return 200;
+                }
+
+                // Generate 120-minute token before request
+                using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+                string? token = null;
+                try
+                {
+                    var tokenResp = await httpClient.GetAsync("http://192.168.0.4:1940/api/token/generate?minutes=120");
+                    if (tokenResp.IsSuccessStatusCode)
+                    {
+                        var tokenJson = await tokenResp.Content.ReadAsStringAsync();
+                        using var tokenDoc = System.Text.Json.JsonDocument.Parse(tokenJson);
+                        if (tokenDoc.RootElement.TryGetProperty("token", out var tokProp))
+                        {
+                            token = tokProp.GetString();
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Statics.Log("SyncWithNajm_Error", $"Error requesting token from Najm: {ex.Message}");
+                    return 500;
+                }
+
+                if (string.IsNullOrEmpty(token))
+                {
+                    Statics.Log("SyncWithNajm_Error", "Failed to retrieve valid token from Najm API.");
+                    return 500;
+                }
+
+                // Date and Times in Iran timezone (UTC+3:30)
+                DateTime startUtc = meet.DateInsert != default ? meet.DateInsert : DateTime.UtcNow;
+                if (startUtc.Kind != DateTimeKind.Utc)
+                    startUtc = DateTime.SpecifyKind(startUtc, DateTimeKind.Utc);
+
+                DateTime endUtc = meet.EndDate ?? DateTime.UtcNow;
+                if (endUtc.Kind != DateTimeKind.Utc)
+                    endUtc = DateTime.SpecifyKind(endUtc, DateTimeKind.Utc);
+
+                TimeZoneInfo iranZone;
+                try
+                {
+                    iranZone = TimeZoneInfo.FindSystemTimeZoneById("Iran Standard Time");
+                }
+                catch
+                {
+                    try
+                    {
+                        iranZone = TimeZoneInfo.FindSystemTimeZoneById("Asia/Tehran");
+                    }
+                    catch
+                    {
+                        iranZone = TimeZoneInfo.CreateCustomTimeZone("Iran Standard Time", TimeSpan.FromMinutes(210), "Iran Standard Time", "Iran Standard Time");
+                    }
+                }
+
+                DateTime localStart = TimeZoneInfo.ConvertTimeFromUtc(startUtc, iranZone);
+                DateTime localEnd = TimeZoneInfo.ConvertTimeFromUtc(endUtc, iranZone);
+
+                var pc = new PersianCalendar();
+                string dateStr = $"{pc.GetYear(localStart):0000}/{pc.GetMonth(localStart):00}/{pc.GetDayOfMonth(localStart):00}";
+                string startTimeStr = $"{localStart.Hour:00}:{localStart.Minute:00}";
+                string endTimeStr = $"{localEnd.Hour:00}:{localEnd.Minute:00}";
+
+                string title = !string.IsNullOrWhiteSpace(meet.Title) ? meet.Title.Trim() : (!string.IsNullOrWhiteSpace(room.Title) ? room.Title.Trim() : "جلسه");
+
+                // Dastor: combination of meeting title and explain/agenda
+                string dastor = "";
+                if (!string.IsNullOrWhiteSpace(meet.Explain))
+                {
+                    dastor = $"موضوع جلسه: {title}\nدستور جلسه: {meet.Explain.Trim()}";
+                }
+                else
+                {
+                    dastor = $"موضوع جلسه: {title}";
+                }
+
+                var allUserMeets = meet.UserTBLToMeetingTBLs != null ? meet.UserTBLToMeetingTBLs.ToList() : new List<UserTBLToMeetingTBL>();
+
+                // Boss: NajmIDBoss from table roomTBL
+                UserTBL? bossUser = null;
+                if (!string.IsNullOrWhiteSpace(room.NajmIDBoss))
+                {
+                    string bossNajmIdLookup = room.NajmIDBoss.Trim();
+                    bossUser = await _db.UserTBLs.FirstOrDefaultAsync(u => u.NajmID == bossNajmIdLookup);
+                }
+                if (bossUser == null)
+                {
+                    bossUser = room.OwnerTBL;
+                    if (bossUser == null && room.IDOwnerTBL > 0)
+                    {
+                        bossUser = await _db.UserTBLs.FirstOrDefaultAsync(u => u.ID == room.IDOwnerTBL);
+                    }
+                }
+
+                var bossUserMeet = allUserMeets.FirstOrDefault(um => bossUser != null && (um.UUID == bossUser.UUID || (um.UserTBL != null && um.UserTBL.ID == bossUser.ID)));
+
+                string bossNajmId = !string.IsNullOrWhiteSpace(room.NajmIDBoss)
+                    ? room.NajmIDBoss.Trim()
+                    : (!string.IsNullOrWhiteSpace(bossUser?.NajmID) ? bossUser.NajmID.Trim() : "0");
+
+                string bossBbbId = bossUserMeet != null ? bossUserMeet.ID.ToString() : "0";
+                string bossNatCode = !string.IsNullOrWhiteSpace(bossUser?.NationalCode) ? bossUser.NationalCode.Trim() : "";
+
+                var bossObj = new
+                {
+                    firstName = bossUser?.Firstname ?? "",
+                    lastName = bossUser?.LastName ?? "",
+                    najmId = bossNajmId,
+                    bbbId = bossBbbId,
+                    nationalCode = bossNatCode
+                };
+
+                // Presenter: first teacher
+                var teacherMeets = allUserMeets
+                    .Where(um => um.Type == MainEntity_Types.USER_TEACHER ||
+                                 (um.Role != null && (um.Role.Equals("Teacher", StringComparison.OrdinalIgnoreCase) || um.Role.Contains("استاد"))) ||
+                                 (meet.IDTeacher.HasValue && um.UserTBL != null && um.UserTBL.ID == meet.IDTeacher.Value))
+                    .ToList();
+
+                UserTBLToMeetingTBL? primaryTeacherMeet = teacherMeets.FirstOrDefault();
+                UserTBL? primaryTeacherUser = primaryTeacherMeet?.UserTBL;
+                if (primaryTeacherUser == null && meet.Teacher != null)
+                {
+                    primaryTeacherUser = meet.Teacher;
+                }
+                else if (primaryTeacherUser == null && meet.IDTeacher.HasValue)
+                {
+                    primaryTeacherUser = await _db.UserTBLs.FirstOrDefaultAsync(u => u.ID == meet.IDTeacher.Value);
+                }
+
+                string presenterNajmId = !string.IsNullOrWhiteSpace(primaryTeacherUser?.NajmID) ? primaryTeacherUser.NajmID.Trim() : "0";
+                string presenterBbbId = primaryTeacherMeet != null ? primaryTeacherMeet.ID.ToString() : "0";
+                string presenterNatCode = !string.IsNullOrWhiteSpace(primaryTeacherUser?.NationalCode) ? primaryTeacherUser.NationalCode.Trim() : "";
+
+                var presenterObj = new
+                {
+                    firstName = primaryTeacherUser?.Firstname ?? "",
+                    lastName = primaryTeacherUser?.LastName ?? "",
+                    najmId = presenterNajmId,
+                    bbbId = presenterBbbId,
+                    nationalCode = presenterNatCode
+                };
+
+                // Dabir: meeting dabir
+                var dabirMeet = allUserMeets.FirstOrDefault(um => um.Type == MainEntity_Types.USER_DABIR ||
+                    (um.Role != null && (um.Role.Equals("Dabir", StringComparison.OrdinalIgnoreCase) || um.Role.Contains("دبیر"))));
+
+                UserTBL? dabirUser = dabirMeet?.UserTBL;
+                if (dabirUser == null && meet.RoomTBLPlanTBL != null && !string.IsNullOrWhiteSpace(meet.RoomTBLPlanTBL.Dabir))
+                {
+                    string dabirPlanName = meet.RoomTBLPlanTBL.Dabir.Trim();
+                    dabirUser = await _db.UserTBLs.FirstOrDefaultAsync(u => (u.Firstname + " " + u.LastName).Trim() == dabirPlanName);
+                }
+
+                string dabirNajmId = !string.IsNullOrWhiteSpace(dabirUser?.NajmID) ? dabirUser.NajmID.Trim() : "0";
+                string dabirBbbId = dabirMeet != null ? dabirMeet.ID.ToString() : "0";
+                string dabirNatCode = !string.IsNullOrWhiteSpace(dabirUser?.NationalCode) ? dabirUser.NationalCode.Trim() : "";
+
+                var dabirObj = new
+                {
+                    firstName = dabirUser?.Firstname ?? "",
+                    lastName = dabirUser?.LastName ?? "",
+                    najmId = dabirNajmId,
+                    bbbId = dabirBbbId,
+                    nationalCode = dabirNatCode
+                };
+
+                // ListHozour: send all usertblmeeting except teachers and dabir
+                // If user najmid is null in table userTBL send 0 for field najmId, if nationalCode is null send empty, for bbbID send id of userTBLMeeting
+                var teacherUserIds = new HashSet<long>();
+                if (meet.IDTeacher.HasValue) teacherUserIds.Add(meet.IDTeacher.Value);
+                if (meet.Teacher != null) teacherUserIds.Add(meet.Teacher.ID);
+                if (primaryTeacherUser != null && primaryTeacherUser.ID > 0) teacherUserIds.Add(primaryTeacherUser.ID);
+
+                var dabirUserIds = new HashSet<long>();
+                if (dabirUser != null && dabirUser.ID > 0) dabirUserIds.Add(dabirUser.ID);
+
+                var listHozourMeets = allUserMeets.Where(um =>
+                    !um.IsRemoved &&
+                    um.Type != MainEntity_Types.USER_TEACHER &&
+                    !(um.Role != null && (um.Role.Equals("Teacher", StringComparison.OrdinalIgnoreCase) || um.Role.Contains("استاد"))) &&
+                    !(um.UserTBL != null && teacherUserIds.Contains(um.UserTBL.ID)) &&
+                    um.Type != MainEntity_Types.USER_DABIR &&
+                    !(um.Role != null && (um.Role.Equals("Dabir", StringComparison.OrdinalIgnoreCase) || um.Role.Contains("دبیر"))) &&
+                    !(um.UserTBL != null && dabirUserIds.Contains(um.UserTBL.ID))
+                ).ToList();
+
+                var listHozour = new List<object>();
+                foreach (var um in listHozourMeets)
+                {
+                    var u = um.UserTBL;
+
+                    string fn = u?.Firstname ?? "";
+                    string ln = u?.LastName ?? "";
+                    if (string.IsNullOrWhiteSpace(fn) && string.IsNullOrWhiteSpace(ln) && !string.IsNullOrWhiteSpace(um.UserNickName))
+                    {
+                        var parts = um.UserNickName.Trim().Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+                        fn = parts.Length > 0 ? parts[0] : "";
+                        ln = parts.Length > 1 ? parts[1] : "";
+                    }
+
+                    string userNajmId = !string.IsNullOrWhiteSpace(u?.NajmID) ? u.NajmID.Trim() : "0";
+                    string natCode = !string.IsNullOrWhiteSpace(u?.NationalCode)
+                        ? u.NationalCode.Trim()
+                        : (!string.IsNullOrWhiteSpace(um.NationalCode) ? um.NationalCode.Trim() : "");
+                    string bbbId = um.ID.ToString();
+
+                    listHozour.Add(new
+                    {
+                        firstName = fn,
+                        lastName = ln,
+                        najmId = userNajmId,
+                        bbbId = bbbId,
+                        nationalCode = natCode
+                    });
+                }
+
+                var payload = new
+                {
+                    groupid = groupId,
+                    Title = title,
+                    date = dateStr,
+                    startTime = startTimeStr,
+                    endTime = endTimeStr,
+                    meetingID = meet.ID,
+                    Dastor = dastor,
+                    dabir = dabirObj,
+                    presenter = presenterObj,
+                    boss = bossObj,
+                    listHozour = listHozour
+                };
+
+                string jsonPayload = JsonConvert.SerializeObject(payload);
+                Statics.Log("SyncWithNajm", $"Sending to Najm /groups/addmeeting: {jsonPayload}");
+
+                using var req = new HttpRequestMessage(HttpMethod.Post, "http://192.168.0.4:1940/api/groups/addmeeting");
+                req.Headers.Add("X-Api-Token", token);
+                req.Content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+
+                var resp = await httpClient.SendAsync(req);
+                int statusCode = (int)resp.StatusCode;
+                var respContent = await resp.Content.ReadAsStringAsync();
+
+                Statics.Log("SyncWithNajm", $"Najm /groups/addmeeting response ({statusCode}): {respContent}");
+
+                if (resp.IsSuccessStatusCode)
+                {
+                    try
+                    {
+                        using var respDoc = System.Text.Json.JsonDocument.Parse(respContent);
+                        string? returnedNajmId = null;
+                        if (respDoc.RootElement.TryGetProperty("id", out var idProp))
+                        {
+                            returnedNajmId = idProp.ToString();
+                        }
+                        else if (respDoc.RootElement.TryGetProperty("meeting", out var mProp) && mProp.TryGetProperty("ID", out var midProp))
+                        {
+                            returnedNajmId = midProp.ToString();
+                        }
+
+                        if (!string.IsNullOrEmpty(returnedNajmId))
+                        {
+                            meet.NajmID = returnedNajmId;
+                            _db.MeetingTBLs.Update(meet);
+                            await _db.SaveChangesAsync();
+                            Statics.Log("SyncWithNajm", $"Updated meeting '{meet.MeetID}' NajmID to '{meet.NajmID}'");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Statics.Log("SyncWithNajm_Error", $"Error parsing Najm response or updating NajmID: {ex.Message}");
+                    }
+                }
+
+                return statusCode;
+            }
+            catch (Exception ex)
+            {
+                Statics.Log("SyncWithNajm_Error", ex.ToString());
+                return 500;
+            }
+        }
+
+        #region Room Metadata Helpers
+        public string? GetRoomMetadata(long roomId, string key)
+        {
+            var meta = _db.RoomMetaTBLs.FirstOrDefault(m => m.IDRoomTBL == roomId && m.Key == key && m.Status == MainEntity_Status.Enabled);
+            return meta?.Value;
+        }
+
+        public string? GetRoomMetadata(string friendlyId, string key)
+        {
+            var room = _db.RoomTBLs.FirstOrDefault(r => r.FriendlyID == friendlyId);
+            if (room == null) return null;
+            return GetRoomMetadata(room.ID, key);
+        }
+
+        public async Task<bool> SetRoomMetadataAsync(long roomId, string key, string? value, MainEntity_Types dataType = MainEntity_Types.META_STRING)
+        {
+            var meta = await _db.RoomMetaTBLs.FirstOrDefaultAsync(m => m.IDRoomTBL == roomId && m.Key == key);
+            if (meta == null)
+            {
+                _db.RoomMetaTBLs.Add(new RoomMetaTBL
+                {
+                    IDRoomTBL = roomId,
+                    Key = key,
+                    Value = value,
+                    DataType = dataType,
+                    Status = MainEntity_Status.Enabled,
+                    DateInsert = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                });
+            }
+            else
+            {
+                meta.Value = value;
+                meta.DataType = dataType;
+                meta.UpdatedAt = DateTime.UtcNow;
+                meta.Status = MainEntity_Status.Enabled;
+                _db.RoomMetaTBLs.Update(meta);
+            }
+            await _db.SaveChangesAsync();
+            return true;
+        }
+        #endregion
 
     }
 }

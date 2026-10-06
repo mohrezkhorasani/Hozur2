@@ -1,4 +1,5 @@
-﻿using Application.Interface.IInfrastructure;
+﻿using Application.General;
+using Application.Interface.IInfrastructure;
 using Microsoft.AspNetCore.Hosting;
 using System;
 using WinSCP;
@@ -72,7 +73,7 @@ namespace SCPHandler
                 var sessionOptions = new SessionOptions
                 {
                     Protocol = Protocol.Sftp,
-                    HostName = "2.179.167.151",
+                    HostName = "192.168.0.209",
                     UserName = "webupload",
                     SshPrivateKeyPath = sshPrivateKeyPath,
                     SshHostKeyFingerprint = "ssh-ed25519 255 NIpA/fnLdkoTfjvnLtxZkW038Jm5uweC4JJ3t7yin+I"
@@ -107,6 +108,7 @@ namespace SCPHandler
             }
             catch (Exception ex)
             {
+                Statics.Log("upload file to bbb error ", ex);
                 Console.WriteLine($"❌ خطا در آپلود: {ex.Message}");
                 throw new Exception(ex.Message);
             }

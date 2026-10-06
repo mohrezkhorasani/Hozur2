@@ -9,5 +9,6 @@ namespace Application.Interface.IInfrastructure
     public interface ISendSMS 
     {
         public Task<bool> SendReservation(string phone, string name, string topic, string meeting, string time, string date, string timeSend);
+        public Task<bool> SendOTP(string phone, int otp);
     }
 }

@@ -3273,22 +3273,22 @@ namespace Application.Usecase
                         await HandleMeetingDestroyed(message.InternalMeetingID);
                         break;
                     case "user-joined":
-                        await HandleUserJoined(message.InternalMeetingID, message.GetUserInfo(message));
+                        await HandleUserJoined(message.InternalMeetingID, message.GetUserInfo(message), message);
                         break;
                     case "user-left":
-                        await HandleUserLeft(message.InternalMeetingID, message.GetUserInfo(message));
+                        await HandleUserLeft(message.InternalMeetingID, message.GetUserInfo(message), message);
                         break;
                     case "user-presenter-assigned":
-                        await HandleUserPresenterAssigned(message.InternalMeetingID, message.GetUserInfo(message));
+                        await HandleUserPresenterAssigned(message.InternalMeetingID, message.GetUserInfo(message), message);
                         break;
                     case "user-raise-hand-changed":
-                        await HandleUserRaiseHandChanged(message.InternalMeetingID, message.GetUserInfo(message));
+                        await HandleUserRaiseHandChanged(message.InternalMeetingID, message.GetUserInfo(message), message);
                         break;
                     case "recording-started":
-                        await HandleRecordingStarted(message.InternalMeetingID);
+                        await HandleRecordingStarted(message.InternalMeetingID, message);
                         break;
                     case "recording-stopped":
-                        await HandleRecordingStopped(message.InternalMeetingID);
+                        await HandleRecordingStopped(message.InternalMeetingID, message);
                         break;
                     default:
                         Statics.Log("BBBWebhookEvent", $"Unhandled event type: {message.Event}");
@@ -3350,7 +3350,7 @@ namespace Application.Usecase
                 rows += _db.MeetingTBLs.Where(e => e.MeetID == meetingId &&
                     (e.Status == MainEntity_Status.MEETING_LIVE || e.Status == MainEntity_Status.MEETING_STARTED_LATER))
                     .ExecuteUpdate(e => e.SetProperty(r => r.Status, MainEntity_Status.MEETING_END_BY_HOOK)
-                    .SetProperty(r => r.EndDate, DateTime.Now));
+                    .SetProperty(r => r.EndDate, DateTime.UtcNow));
                 Statics.Log("HandleMeetingEnded", $"Meeting ended: db records updated count =  {rows}");
 
                 //var room = _db.RoomTBLs.FirstOrDefault(r => r.BBB_MeetID == meetingId);
@@ -3379,7 +3379,7 @@ namespace Application.Usecase
 
         }
 
-        private async Task HandleUserJoined(string? meetingId, BBBWebhookUser? userInfo)
+        private async Task HandleUserJoined(string? meetingId, BBBWebhookUser? userInfo, BBBWebhookLogRequest message)
         {
             Statics.Log("HandleUserJoined", $"User joined: {userInfo?.ExternalUserId}, internalid: {userInfo?.InternalUserId}");
 
@@ -3405,7 +3405,7 @@ namespace Application.Usecase
 
                 // تلاش برای پیدا کردن کاربر با 20 بار تکرار (اگر جدول UserTBLToMeetingTBL قبلاً ساخته نشده باشه)
                 UserTBLToMeetingTBL? userMeetingRecord = null;
-                for (int attempt = 1; attempt <= 20; attempt++)
+                for (int attempt = 1; attempt <= 180; attempt++)
                 {
                     userMeetingRecord = _db.UserTBLToMeetingTBLs
                         .FirstOrDefault(e => e.UUID == userId &&
@@ -3415,15 +3415,12 @@ namespace Application.Usecase
                     if (userMeetingRecord != null)
                     {
                         if (attempt > 1)
-                            Statics.Log("HandleUserJoined", $"User found after {attempt} attempts");
+                            Statics.Log("HandleUserJoined", $"User {userInfo?.ExternalUserId} found after {attempt} attempts");
                         break;
                     }
 
-                    if (attempt < 20)
-                    {
-                        Statics.Log("HandleUserJoined", $"User not found, attempt {attempt}/20, waiting 500ms...");
-                        await Task.Delay(500);
-                    }
+                    Statics.Log("HandleUserJoined", $"User {userInfo?.ExternalUserId} not found, attempt {attempt}/20, waiting 500ms...");
+                    await Task.Delay(500);
                 }
 
                 // اگر کاربر پیدا نشد، رکورد جدید بساز
@@ -3441,6 +3438,8 @@ namespace Application.Usecase
                     Type = MainEntity_Types.USERMEETLOG_HOOK,
                     IDUserTBLToMeetingTBL = userMeetingRecord.ID,
                     Status = MainEntity_Status.LOG_NORMAL,
+                    //Explain= ,
+                    OS = $"{userMeetingRecord.IPList.Last()}-{message.GeneralHeaders.RequestedIP}-{message.GeneralHeaders.Agent}"
                 };
                 existingMeetingLog.DateInsert = DateTime.UtcNow;
                 _db.UserTBLToMeetingTBLLogs.Add(existingMeetingLog);
@@ -3454,7 +3453,7 @@ namespace Application.Usecase
             }
         }
 
-        private async Task HandleUserLeft(string? meetingId, BBBWebhookUser? userInfo)
+        private async Task HandleUserLeft(string? meetingId, BBBWebhookUser? userInfo, BBBWebhookLogRequest message)
         {
             Statics.Log("HandleUserLeft", $"User left: {userInfo?.Name}");
 
@@ -3480,7 +3479,7 @@ namespace Application.Usecase
 
                 // تلاش برای پیدا کردن کاربر با 20 بار تکرار (اگر جدول UserTBLToMeetingTBL قبلاً ساخته نشده باشه)
                 UserTBLToMeetingTBL? userMeetingRecord = null;
-                for (int attempt = 1; attempt <= 20; attempt++)
+                for (int attempt = 1; attempt <= 180; attempt++)
                 {
                     userMeetingRecord = _db.UserTBLToMeetingTBLs
                         .FirstOrDefault(e => e.UUID == userId &&
@@ -3494,11 +3493,8 @@ namespace Application.Usecase
                         break;
                     }
 
-                    if (attempt < 20)
-                    {
-                        Statics.Log("HandleUserLeft", $"User not found, attempt {attempt}/20, waiting 500ms...");
-                        await Task.Delay(500);
-                    }
+                    Statics.Log("HandleUserLeft", $"User not found, attempt {attempt}/20, waiting 500ms...");
+                    await Task.Delay(500);
                 }
 
                 // اگر کاربر پیدا نشد، رکورد جدید بساز
@@ -3516,6 +3512,7 @@ namespace Application.Usecase
                     Type = MainEntity_Types.USERMEETLOG_HOOK,
                     IDUserTBLToMeetingTBL = userMeetingRecord.ID,
                     Status = MainEntity_Status.LOG_NORMAL,
+                    OS = $"{userMeetingRecord.IPList.Last()}-{message.GeneralHeaders.RequestedIP}-{message.GeneralHeaders.Agent}"
                 };
                 existingMeetingLog.DateInsert = DateTime.UtcNow;
                 _db.UserTBLToMeetingTBLLogs.Add(existingMeetingLog);
@@ -3529,7 +3526,7 @@ namespace Application.Usecase
             }
         }
 
-        private async Task HandleUserPresenterAssigned(string? meetingId, BBBWebhookUser? userInfo)
+        private async Task HandleUserPresenterAssigned(string? meetingId, BBBWebhookUser? userInfo, BBBWebhookLogRequest message)
         {
             Statics.Log("HandleUserPresenterAssigned", $"User assigned as presenter: {userInfo?.ExternalUserId}");
             try
@@ -3547,7 +3544,7 @@ namespace Application.Usecase
 
                 // تلاش برای پیدا کردن کاربر با 20 بار تکرار (اگر جدول UserTBLToMeetingTBL قبلاً ساخته نشده باشه)
                 UserTBLToMeetingTBL? userMeetingRecord = null;
-                for (int attempt = 1; attempt <= 20; attempt++)
+                for (int attempt = 1; attempt <= 180; attempt++)
                 {
                     userMeetingRecord = _db.UserTBLToMeetingTBLs
                         .FirstOrDefault(e => e.UUID == userId && e.UserMeetID == internalUserId);
@@ -3559,11 +3556,8 @@ namespace Application.Usecase
                         break;
                     }
 
-                    if (attempt < 20)
-                    {
-                        Statics.Log("HandleUserPresenterAssigned", $"User not found, attempt {attempt}/20, waiting 500ms...");
-                        await Task.Delay(500);
-                    }
+                    Statics.Log("HandleUserPresenterAssigned", $"User not found, attempt {attempt}/20, waiting 500ms...");
+                    await Task.Delay(500);
                 }
 
                 // اگر کاربر پیدا نشد، رکورد جدید بساز
@@ -3581,6 +3575,7 @@ namespace Application.Usecase
                     Type = MainEntity_Types.USERMEETLOG_HOOK,
                     IDUserTBLToMeetingTBL = userMeetingRecord.ID,
                     Status = MainEntity_Status.LOG_NORMAL,
+                    OS = $"{userMeetingRecord.IPList.Last()}-{message.GeneralHeaders.RequestedIP}-{message.GeneralHeaders.Agent}"
                 };
                 existingMeetingLog.DateInsert = DateTime.UtcNow;
                 _db.UserTBLToMeetingTBLLogs.Add(existingMeetingLog);
@@ -3593,7 +3588,7 @@ namespace Application.Usecase
             }
         }
 
-        private async Task HandleUserRaiseHandChanged(string? meetingId, BBBWebhookUser? userInfo)
+        private async Task HandleUserRaiseHandChanged(string? meetingId, BBBWebhookUser? userInfo, BBBWebhookLogRequest message)
         {
             Statics.Log("BBBWebhook", $"User raise hand: {userInfo?.RaiseHand} - {userInfo?.Name}");
             try
@@ -3619,7 +3614,7 @@ namespace Application.Usecase
 
                 // تلاش برای پیدا کردن کاربر با 20 بار تکرار (اگر جدول UserTBLToMeetingTBL قبلاً ساخته نشده باشه)
                 UserTBLToMeetingTBL? userMeetingRecord = null;
-                for (int attempt = 1; attempt <= 20; attempt++)
+                for (int attempt = 1; attempt <= 180; attempt++)
                 {
                     userMeetingRecord = _db.UserTBLToMeetingTBLs
                         .FirstOrDefault(e => e.UUID == userId && e.MeetID == activeMeeting.MeetID);
@@ -3631,11 +3626,8 @@ namespace Application.Usecase
                         break;
                     }
 
-                    if (attempt < 20)
-                    {
-                        Statics.Log("BBBWebhook", $"User not found, attempt {attempt}/20, waiting 500ms...");
-                        await Task.Delay(500);
-                    }
+                    Statics.Log("BBBWebhook", $"User not found, attempt {attempt}/20, waiting 500ms...");
+                    await Task.Delay(500);
                 }
 
                 // اگر کاربر پیدا نشد، رکورد جدید بساز
@@ -3654,6 +3646,7 @@ namespace Application.Usecase
                     IDUserTBLToMeetingTBL = userMeetingRecord.ID,
                     Value = userInfo.RaiseHand ? "up" : "down",
                     Status = MainEntity_Status.LOG_NORMAL,
+                    OS = $"{userMeetingRecord.IPList.Last()}-{message.GeneralHeaders.RequestedIP}-{message.GeneralHeaders.Agent}"
                 };
                 existingMeetingLog.DateInsert = DateTime.UtcNow;
                 _db.UserTBLToMeetingTBLLogs.Add(existingMeetingLog);
@@ -3667,7 +3660,7 @@ namespace Application.Usecase
             }
         }
 
-        private async Task HandleRecordingStarted(string? meetingId)
+        private async Task HandleRecordingStarted(string? meetingId, BBBWebhookLogRequest message)
         {
             Statics.Log("HandleRecordingStarted", $"Recording started: {meetingId}");
 
@@ -3688,7 +3681,9 @@ namespace Application.Usecase
                         Value = "Started",
                         Type = MainEntity_Types.USERMEETLOG_HOOK,
                         Status = MainEntity_Status.LOG_NORMAL,
-                        IDMeetingTBL = meet.ID
+                        IDMeetingTBL = meet.ID,
+                        Explain = message.GeneralHeaders.RequestedIP
+
                     });
                     _db.SaveChanges();
                 }
@@ -3701,7 +3696,7 @@ namespace Application.Usecase
             }
         }
 
-        private async Task HandleRecordingStopped(string? meetingId)
+        private async Task HandleRecordingStopped(string? meetingId, BBBWebhookLogRequest message)
         {
             Statics.Log("BBBWebhook", $"Recording stopped: {meetingId}");
 
