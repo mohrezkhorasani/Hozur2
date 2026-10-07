@@ -362,13 +362,27 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 
-reactproject1/
-NajmBridge/
-FrontClientBBB-Blazor/
-FrontClientBBB/
-FrontClient/
-BBB-DashboardRazor/
-BBB-Dashboard/
-BBBDashboard/
+# ---- Custom project ignores ----
+
+# Any folder starting with BBB (BBB, BBBDashboard, BBB-Dashboard, BBB-DashboardRazor, ...)
+BBB*/
+
+# Specific project folders
 AspireApp1/
 BlazorApp1/
+FrontClient/
+FrontClientBBB/
+FrontClientBBB-Blazor/
+NajmBridge/
+reactproject1/
+temp_build/
+
+# Environment files
+.env
+*.env
+**/.env
+**/*.env
+
+# Keep sample/example env files tracked (optional)
+!.env.example
+!*.env.example
