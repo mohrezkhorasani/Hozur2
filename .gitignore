@@ -386,3 +386,6 @@ temp_build/
 # Keep sample/example env files tracked (optional)
 !.env.example
 !*.env.example
+# Temp dumps
+sampleBBBpage.html
+README - Copy.md

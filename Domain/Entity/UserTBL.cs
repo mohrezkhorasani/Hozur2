@@ -86,6 +86,17 @@ namespace Domain.Entity
         public ICollection<UserTBLLogs> UserTBLLogs { get; set; }
         public string NajmID { get; set; } = "";
 
+        [NotMapped]
+        public string? Position
+        {
+            get
+            {
+                return UserTBLLogs?
+                    .OrderByDescending(x => x.DateInsert)
+                    .FirstOrDefault(x => x.Key == Domain.Entity.UserTBLLogs.KEY_POSITION || x.Key == Domain.Entity.UserTBLLogs.KEY_SEMAT)?.Value;
+            }
+        }
+
         public string GetName()
         {
             return $@"{Firstname} {LastName}";

@@ -1,5 +1,6 @@
 ﻿using Application.DTO;
 using Application.DTO.Models;
+using Newtonsoft.Json;
 using Application.General;
 using Application.Interface.IInfrastructure;
 using DocumentFormat.OpenXml.Wordprocessing;
@@ -181,7 +182,7 @@ namespace Infrastructure.API
                 Created = new DateTime(long.Parse(e.CreateTime))
             }).ToList();
         }
-        public async Task<MeetJSON> CreateMeetingAsync(RoomTBL room)
+        public async Task<MeetJSON> CreateMeetingAsync(RoomTBL room, RoomTBLPlanTBL? plan = null)
         {
             string apiCall = "create";
             string joinUrl = $"{URL}/rooms/{room.FriendlyID}/join";
@@ -221,6 +222,45 @@ namespace Infrastructure.API
             }
             queryString += $"&meta_supprivate={Uri.EscapeDataString(room.IsSuperPrivateRoom.ToString().ToLower())}";
             queryString += $"&bbb-context-id={Uri.EscapeDataString(room.FriendlyID)}";
+
+            if (plan != null)
+            {
+                var parsedTeachers = plan.GetParsedTeachers();
+                if (parsedTeachers.Any())
+                {
+                    var teachersObj = parsedTeachers.Select(t => new { name = t.Name, position = t.Position ?? "" }).ToList();
+                    string teachersJson = JsonConvert.SerializeObject(teachersObj);
+                    queryString += $"&meta_teachers={Uri.EscapeDataString(teachersJson)}";
+                }
+                if (!string.IsNullOrWhiteSpace(plan.Dabir))
+                {
+                    var dabir = plan.GetParsedDabir();
+                    var dabirObj = new { name = dabir.Name, position = dabir.Position ?? "" };
+                    string dabirJson = JsonConvert.SerializeObject(dabirObj);
+                    queryString += $"&meta_dabir={Uri.EscapeDataString(dabirJson)}";
+                }
+            }
+            else if (room.RoomTBLPlanTBLs != null && room.RoomTBLPlanTBLs.Any())
+            {
+                var latestPlan = room.RoomTBLPlanTBLs.OrderByDescending(p => p.StartDate).FirstOrDefault();
+                if (latestPlan != null)
+                {
+                    var parsedTeachers = latestPlan.GetParsedTeachers();
+                    if (parsedTeachers.Any())
+                    {
+                        var teachersObj = parsedTeachers.Select(t => new { name = t.Name, position = t.Position ?? "" }).ToList();
+                        string teachersJson = JsonConvert.SerializeObject(teachersObj);
+                        queryString += $"&meta_teachers={Uri.EscapeDataString(teachersJson)}";
+                    }
+                    if (!string.IsNullOrWhiteSpace(latestPlan.Dabir))
+                    {
+                        var dabir = latestPlan.GetParsedDabir();
+                        var dabirObj = new { name = dabir.Name, position = dabir.Position ?? "" };
+                        string dabirJson = JsonConvert.SerializeObject(dabirObj);
+                        queryString += $"&meta_dabir={Uri.EscapeDataString(dabirJson)}";
+                    }
+                }
+            }
 
 
             string checksumInput = apiCall + queryString + Statics.bbb.Secret;
@@ -435,45 +475,81 @@ namespace Infrastructure.API
 
         public async Task<List<RecordingInfo>> GetRecordingsByMeetingId(string meetingId)
         {
-            if (string.IsNullOrWhiteSpace(meetingId))
-                throw new ArgumentException("meetingId is required");
+            return await GetRecordingsAsync(meetingId: meetingId);
+        }
 
+        public async Task<List<RecordingInfo>> GetRecordingsAsync(string? meetingId = null, string? recordId = null, string? state = null)
+        {
             string apiCall = "getRecordings";
+            var queryParams = new List<string>();
 
-            // Build query string: only filter by meetingID (you can also add recordID if needed)
-            string queryString = $"meetingID={Uri.EscapeDataString(meetingId)}";
+            if (!string.IsNullOrWhiteSpace(meetingId))
+                queryParams.Add($"meetingID={Uri.EscapeDataString(meetingId)}");
 
-            // For more filtering: $"meetingID={meetingId}&recordID=..."
+            if (!string.IsNullOrWhiteSpace(recordId))
+                queryParams.Add($"recordID={Uri.EscapeDataString(recordId)}");
 
+            if (!string.IsNullOrWhiteSpace(state))
+                queryParams.Add($"state={Uri.EscapeDataString(state)}");
+
+            string queryString = string.Join("&", queryParams);
             string checksumInput = apiCall + queryString + Statics.bbb.Secret;
             string checksum = Statics.ComputeSha1(checksumInput);
 
-            // Full URL
-            string fullUrl = $"{Statics.bbb.UrlAPI}{apiCall}?{queryString}&checksum={checksum}";
+            string fullUrl = $"{Statics.bbb.UrlAPI}{apiCall}?" + (string.IsNullOrEmpty(queryString) ? "" : $"{queryString}&") + $"checksum={checksum}";
 
             using HttpClient client = new HttpClient();
             client.Timeout = TimeSpan.FromSeconds(30);
 
-            string xmlResponse = await client.GetStringAsync(fullUrl);
-
-            // Parse BBB XML response
-            var doc = XDocument.Parse(xmlResponse);
-
-            var ns = doc.Root.GetDefaultNamespace();
-
-            if (doc.Root.Element("returncode")?.Value != "SUCCESS")
+            string xmlResponse;
+            try
             {
-                var message = doc.Root.Element("message")?.Value ?? "Unknown error";
-                var messageKey = doc.Root.Element("messageKey")?.Value;
+                xmlResponse = await client.GetStringAsync(fullUrl);
+            }
+            catch (Exception ex)
+            {
+                Statics.Log("GetRecordingsAsync Error", ex.Message);
+                return new List<RecordingInfo>();
+            }
+
+            var doc = XDocument.Parse(xmlResponse);
+            var returnCode = doc.Root?.Element("returncode")?.Value;
+            var messageKey = doc.Root?.Element("messageKey")?.Value;
+
+            if (returnCode != "SUCCESS")
+            {
+                if (messageKey == "noRecordings")
+                    return new List<RecordingInfo>();
+
+                var message = doc.Root?.Element("message")?.Value ?? "Unknown error";
                 throw new Exception($"BBB API Error: {messageKey} - {message}");
             }
 
             var recordings = new List<RecordingInfo>();
-
-            foreach (var rec in doc.Root.Element("recordings")?.Elements("recording") ?? Enumerable.Empty<XElement>())
+            foreach (var rec in doc.Root?.Element("recordings")?.Elements("recording") ?? Enumerable.Empty<XElement>())
             {
                 var playback = rec.Element("playback")?.Element("format");
                 var urlElement = playback?.Element("url");
+
+                var metadataDict = new Dictionary<string, string>();
+                var metadataElem = rec.Element("metadata");
+                if (metadataElem != null)
+                {
+                    foreach (var elem in metadataElem.Elements())
+                    {
+                        metadataDict[elem.Name.LocalName] = elem.Value;
+                    }
+                }
+
+                long startMs = long.TryParse(rec.Element("startTime")?.Value, out long st) ? st : 0;
+                long endMs = long.TryParse(rec.Element("endTime")?.Value, out long et) ? et : 0;
+                int lengthMinutes = int.TryParse(playback?.Element("length")?.Value, out int len) ? len : 0;
+                if (lengthMinutes == 0 && endMs > startMs)
+                {
+                    lengthMinutes = (int)Math.Max(1, (endMs - startMs) / 60000);
+                }
+
+                int participants = int.TryParse(rec.Element("participants")?.Value, out int part) ? part : 0;
 
                 recordings.Add(new RecordingInfo
                 {
@@ -481,17 +557,107 @@ namespace Infrastructure.API
                     MeetingID = rec.Element("meetingID")?.Value ?? "",
                     Name = rec.Element("name")?.Value ?? "",
                     Published = bool.TryParse(rec.Element("published")?.Value, out bool p) && p,
-                    StartTime = DateTimeOffset.FromUnixTimeMilliseconds(long.Parse(rec.Element("startTime")?.Value ?? "0")).UtcDateTime,
-                    EndTime = DateTimeOffset.FromUnixTimeMilliseconds(long.Parse(rec.Element("endTime")?.Value ?? "0")).UtcDateTime,
-                    PlaybackFormat = playback?.Element("type")?.Value ?? "",
+                    State = rec.Element("state")?.Value ?? "published",
+                    StartTime = startMs > 0 ? DateTimeOffset.FromUnixTimeMilliseconds(startMs).UtcDateTime : DateTime.UtcNow,
+                    EndTime = endMs > 0 ? DateTimeOffset.FromUnixTimeMilliseconds(endMs).UtcDateTime : DateTime.UtcNow,
+                    LengthMinutes = lengthMinutes,
+                    Participants = participants,
+                    PlaybackFormat = playback?.Element("type")?.Value ?? "presentation",
                     PlaybackUrl = urlElement?.Value,
                     Size = long.TryParse(rec.Element("size")?.Value, out long s) ? s : 0,
                     Thumbnail = playback?.Element("preview")?.Elements("image")
-                                .FirstOrDefault(i => i.Attribute("alt").Value.Contains("thumbnail"))?.Value
+                                .FirstOrDefault(i => i.Attribute("alt")?.Value.Contains("thumbnail") == true)?.Value
+                                ?? playback?.Element("preview")?.Elements("images")?.Elements("image")?.FirstOrDefault()?.Value,
+                    Metadata = metadataDict
                 });
             }
 
             return recordings;
+        }
+
+        public async Task<bool> PublishRecordingsAsync(string recordId, bool publish)
+        {
+            if (string.IsNullOrWhiteSpace(recordId))
+                throw new ArgumentException("recordId is required");
+
+            string apiCall = "publishRecordings";
+            string queryString = $"publish={(publish ? "true" : "false")}&recordID={Uri.EscapeDataString(recordId)}";
+            string checksumInput = apiCall + queryString + Statics.bbb.Secret;
+            string checksum = Statics.ComputeSha1(checksumInput);
+            string fullUrl = $"{Statics.bbb.UrlAPI}{apiCall}?{queryString}&checksum={checksum}";
+
+            using HttpClient client = new HttpClient();
+            client.Timeout = TimeSpan.FromSeconds(30);
+
+            string xmlResponse = await client.GetStringAsync(fullUrl);
+            var doc = XDocument.Parse(xmlResponse);
+            return doc.Root?.Element("returncode")?.Value == "SUCCESS";
+        }
+
+        public async Task<bool> DeleteRecordingsAsync(string recordId)
+        {
+            if (string.IsNullOrWhiteSpace(recordId))
+                throw new ArgumentException("recordId is required");
+
+            string apiCall = "deleteRecordings";
+            string queryString = $"recordID={Uri.EscapeDataString(recordId)}";
+            string checksumInput = apiCall + queryString + Statics.bbb.Secret;
+            string checksum = Statics.ComputeSha1(checksumInput);
+            string fullUrl = $"{Statics.bbb.UrlAPI}{apiCall}?{queryString}&checksum={checksum}";
+
+            using HttpClient client = new HttpClient();
+            client.Timeout = TimeSpan.FromSeconds(30);
+
+            string xmlResponse = await client.GetStringAsync(fullUrl);
+            var doc = XDocument.Parse(xmlResponse);
+            return doc.Root?.Element("returncode")?.Value == "SUCCESS";
+        }
+
+        public async Task<bool> UpdateRecordingsAsync(string recordId, Dictionary<string, string> metadata)
+        {
+            if (string.IsNullOrWhiteSpace(recordId))
+                throw new ArgumentException("recordId is required");
+
+            string apiCall = "updateRecordings";
+            var queryParams = new List<string> { $"recordID={Uri.EscapeDataString(recordId)}" };
+
+            if (metadata != null)
+            {
+                foreach (var kvp in metadata)
+                {
+                    string key = kvp.Key.StartsWith("meta_") ? kvp.Key : $"meta_{kvp.Key}";
+                    queryParams.Add($"{Uri.EscapeDataString(key)}={Uri.EscapeDataString(kvp.Value)}");
+                }
+            }
+
+            string queryString = string.Join("&", queryParams);
+            string checksumInput = apiCall + queryString + Statics.bbb.Secret;
+            string checksum = Statics.ComputeSha1(checksumInput);
+            string fullUrl = $"{Statics.bbb.UrlAPI}{apiCall}?{queryString}&checksum={checksum}";
+
+            using HttpClient client = new HttpClient();
+            client.Timeout = TimeSpan.FromSeconds(30);
+
+            string xmlResponse = await client.GetStringAsync(fullUrl);
+            var doc = XDocument.Parse(xmlResponse);
+            return doc.Root?.Element("returncode")?.Value == "SUCCESS";
+        }
+
+        public async Task<string> GetRecordingTextTracksAsync(string recordId)
+        {
+            if (string.IsNullOrWhiteSpace(recordId))
+                throw new ArgumentException("recordId is required");
+
+            string apiCall = "getRecordingTextTracks";
+            string queryString = $"recordID={Uri.EscapeDataString(recordId)}";
+            string checksumInput = apiCall + queryString + Statics.bbb.Secret;
+            string checksum = Statics.ComputeSha1(checksumInput);
+            string fullUrl = $"{Statics.bbb.UrlAPI}{apiCall}?{queryString}&checksum={checksum}";
+
+            using HttpClient client = new HttpClient();
+            client.Timeout = TimeSpan.FromSeconds(30);
+
+            return await client.GetStringAsync(fullUrl);
         }
 
         public async Task GetMeeting(string meetingId)

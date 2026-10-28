@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,6 +17,10 @@ namespace Domain.Entity
         public const string KEY_SMS = "sms";
         [NotMapped]
         public const string KEY_CODE = "otp";
+        [NotMapped]
+        public const string KEY_POSITION = "position";
+        [NotMapped]
+        public const string KEY_SEMAT = "semat";
         public long ID { get; set; }
  
         public MainEntity_Status Status { get; set; }

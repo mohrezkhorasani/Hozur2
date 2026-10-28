@@ -4,6 +4,7 @@ using Application.General;
 using Application.Interface.IInfrastructure;
 using Application.Interface.IUsecase;
 using Application.Interfaces;
+using Application.Services;
 using Application.Usecase;
 using AutoMapper;
 using CoreMe.Presenter;
@@ -987,147 +988,296 @@ namespace CoreMe.Controllers
             return (true, string.Empty, user);
         }
 
-        [HttpGet("/admin/GetAdminMeetings")]
-        public async Task<IActionResult> GetAdminMeetings([FromQuery] int page = 1, [FromQuery] int count = 15, [FromQuery] string q = "", [FromQuery] int? type = null)
+        private async Task<UserTBL?> GetAuthenticatedUserAsync()
         {
-            var authCheck = await VerifyModeratorOrAboveAsync();
-            if (!authCheck.IsAllowed)
+            var head = HttpContext.GetGeneralHeaders();
+            UserTBL? user = head?.UserTBL;
+            if (user == null && !string.IsNullOrEmpty(head?.JWTUserToken))
             {
-                return Ok(new { message = authCheck.ErrorMessage, status = 403 });
+                user = await _commonMethods.GetUser(head.JWTUserToken);
+            }
+            if (user == null && !string.IsNullOrEmpty(head?.JWTMeetingUserToken))
+            {
+                user = await _commonMethods.GetUser(head.JWTMeetingUserToken);
+            }
+            return user;
+        }
+
+        [HttpGet("/admin/GetAdminMeetings")]
+        public async Task<IActionResult> GetAdminMeetings(
+            [FromQuery] int page = 1,
+            [FromQuery] int count = 15,
+            [FromQuery] string q = "",
+            [FromQuery] int? type = null,
+            [FromQuery] long? ownerId = null,
+            [FromQuery] long? teacherId = null)
+        {
+            var user = await GetAuthenticatedUserAsync();
+            if (user == null)
+            {
+                return Ok(new { message = "کاربر احراز هویت نشده است", status = 401 });
             }
 
-            if (page < 1) page = 1;
-            if (count < 1) count = 15;
-            if (count > 100) count = 100;
-
-            var query = _db.MeetingTBLs.AsQueryable();
-
-            // Filter for type 100 or 101 by default unless specific type requested
-            if (type.HasValue)
-            {
-                query = query.Where(e => (int)e.Type == type.Value);
-            }
-            else
-            {
-                query = query.Where(e => e.Type == MainEntity_Types.MEET_GREEN_LIGHT || e.Type == MainEntity_Types.MEET_API);
-            }
-
-            if (!string.IsNullOrWhiteSpace(q))
-            {
-                string search = q.Trim();
-                query = query.Where(e => (e.Title != null && e.Title.Contains(search)) ||
-                                         (e.MeetID != null && e.MeetID.Contains(search)) ||
-                                         (e.RoomFriendlyID != null && e.RoomFriendlyID.Contains(search)) ||
-                                         (e.RoomTBL != null && e.RoomTBL.Title != null && e.RoomTBL.Title.Contains(search)) ||
-                                         (e.Teacher != null && ((e.Teacher.Firstname != null && e.Teacher.Firstname.Contains(search)) || (e.Teacher.LastName != null && e.Teacher.LastName.Contains(search)))));
-            }
-
-            var totalCount = await query.CountAsync();
-            var totalPages = (int)Math.Ceiling((double)totalCount / count);
-
-            var meetings = await query
-                .OrderByDescending(e => e.DateInsert)
-                .Skip((page - 1) * count)
-                .Take(count)
-                .Select(m => new
-                {
-                    id = m.ID,
-                    meetID = m.MeetID,
-                    title = m.Title,
-                    type = (int)m.Type,
-                    status = (int)m.Status,
-                    statusTitle = MeetingTBL.GetStatusString(m.Status),
-                    dateInsert = m.DateInsert,
-                    endDate = m.EndDate,
-                    jalaliDate = m.JalaliDate,
-                    isRecorded = m.IsRecorded,
-                    explain = m.Explain,
-                    roomFriendlyID = m.RoomFriendlyID,
-                    roomTitle = m.RoomTBL != null ? m.RoomTBL.Title : null,
-                    teacher = m.Teacher != null ? new
-                    {
-                        id = m.Teacher.ID,
-                        name = m.Teacher.GetName(),
-                        avatar = m.Teacher.AvatarPath
-                    } : null,
-                    participantsCount = m.UserTBLToMeetingTBLs.Count(u => u.Type == MainEntity_Types.USER_VIEWER)
-                })
-                .ToListAsync();
-
-            var meetIds = meetings.Select(m => m.id).ToList();
-            var mediaLogs = await _db.MeetingLogTBLs
-                .Where(l => meetIds.Contains(l.IDMeetingTBL) &&
-                       (l.Key == MeetingLogTBL.KEY_SOUND || l.Key == "VOICE_URL" ||
-                        l.Key == MeetingLogTBL.KEY_VIDEO || l.Key == "VIDEO_URL" ||
-                        l.Key == MeetingLogTBL.KEY_REPORT || l.Key == "REPORT_URL"))
-                .OrderByDescending(l => l.ID)
-                .ToListAsync();
-
-            var enriched = meetings.Select(m =>
-            {
-                var voiceLog = mediaLogs.FirstOrDefault(l => l.IDMeetingTBL == m.id && (l.Key == MeetingLogTBL.KEY_SOUND || l.Key == "VOICE_URL"));
-                var videoLog = mediaLogs.FirstOrDefault(l => l.IDMeetingTBL == m.id && (l.Key == MeetingLogTBL.KEY_VIDEO || l.Key == "VIDEO_URL"));
-                var reportLog = mediaLogs.FirstOrDefault(l => l.IDMeetingTBL == m.id && (l.Key == MeetingLogTBL.KEY_REPORT || l.Key == "REPORT_URL"));
-
-                return new
-                {
-                    id = m.id,
-                    meetID = m.meetID,
-                    title = m.title,
-                    type = m.type,
-                    status = m.status,
-                    statusTitle = m.statusTitle,
-                    dateInsert = m.dateInsert,
-                    endDate = m.endDate,
-                    jalaliDate = m.jalaliDate,
-                    isRecorded = m.isRecorded,
-                    explain = m.explain,
-                    roomFriendlyID = m.roomFriendlyID,
-                    roomTitle = m.roomTitle,
-                    teacher = m.teacher,
-                    participantsCount = m.participantsCount,
-                    voiceUrl = voiceLog?.Value,
-                    voiceType = voiceLog != null ? (int)voiceLog.Type : (int)MainEntity_Types.MEETLOG_DOWNLOADABLE,
-                    voiceLogId = voiceLog?.ID,
-                    voiceExplain = voiceLog?.Explain,
-                    videoUrl = videoLog?.Value,
-                    videoType = videoLog != null ? (int)videoLog.Type : (int)MainEntity_Types.MEETLOG_DOWNLOADABLE,
-                    videoLogId = videoLog?.ID,
-                    videoExplain = videoLog?.Explain,
-                    reportUrl = reportLog?.Value,
-                    reportType = reportLog != null ? (int)reportLog.Type : (int)MainEntity_Types.MEETLOG_DOWNLOADABLE,
-                    reportLogId = reportLog?.ID,
-                    reportExplain = reportLog?.Explain
-                };
-            }).ToList();
+            var service = new AdminMeetingService(_db, bbb);
+            var result = await service.GetMeetingsAsync(user, page, count, type, q, ownerId, teacherId);
 
             return Ok(new
             {
                 message = "ok",
                 status = 200,
-                data = new
+                data = result
+            });
+        }
+
+        [HttpGet("/admin/GetMeetingStats")]
+        public async Task<IActionResult> GetMeetingStats(
+            [FromQuery] int? type = null,
+            [FromQuery] string q = "",
+            [FromQuery] long? ownerId = null,
+            [FromQuery] long? teacherId = null)
+        {
+            var user = await GetAuthenticatedUserAsync();
+            if (user == null)
+            {
+                return Ok(new { message = "کاربر احراز هویت نشده است", status = 401 });
+            }
+
+            var service = new AdminMeetingService(_db, bbb);
+            var stats = await service.GetMeetingStatsAsync(user, type, q, ownerId, teacherId);
+
+            return Ok(new
+            {
+                message = "ok",
+                status = 200,
+                data = stats
+            });
+        }
+
+        
+        [HttpGet("/admin/meetings/{meetingId}/recordings")]
+        public async Task<IActionResult> GetMeetingRecordings([FromRoute] long meetingId)
+        {
+            var user = await GetAuthenticatedUserAsync();
+            if (user == null)
+            {
+                return Ok(new { message = "کاربر احراز هویت نشده است", status = 401 });
+            }
+
+            try
+            {
+                var service = new AdminMeetingService(_db, bbb);
+                var result = await service.GetMeetingRecordingsAsync(meetingId, user);
+                return Ok(new
                 {
-                    items = enriched,
-                    totalCount = totalCount,
-                    totalPages = totalPages,
-                    page = page,
-                    count = count
-                }
+                    message = "ok",
+                    status = 200,
+                    data = result
+                });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Ok(new { message = ex.Message, status = 403 });
+            }
+            catch (Exception ex)
+            {
+                return Ok(new { message = ex.Message, status = 500 });
+            }
+        }
+
+        [HttpPost("/admin/meetings/recordings/settings")]
+        public async Task<IActionResult> UpdateRecordingSettings([FromBody] UpdateRecordingSettingsRequestDTO req)
+        {
+            var user = await GetAuthenticatedUserAsync();
+            if (user == null)
+            {
+                return Ok(new { message = "کاربر احراز هویت نشده است", status = 401 });
+            }
+
+            try
+            {
+                var service = new AdminMeetingService(_db, bbb);
+                var result = await service.UpdateRecordingSettingsAsync(req, user);
+                return Ok(new
+                {
+                    message = "تنظیمات رکورد با موفقیت ثبت شد",
+                    status = 200,
+                    data = result
+                });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Ok(new { message = ex.Message, status = 403 });
+            }
+            catch (ArgumentException ex)
+            {
+                return Ok(new { message = ex.Message, status = 400 });
+            }
+            catch (Exception ex)
+            {
+                return Ok(new { message = ex.Message, status = 500 });
+            }
+        }
+
+        [HttpPost("/admin/meetings/recordings/publish")]
+        public async Task<IActionResult> PublishRecording([FromBody] PublishRecordingRequestDTO req)
+        {
+            var user = await GetAuthenticatedUserAsync();
+            if (user == null)
+            {
+                return Ok(new { message = "کاربر احراز هویت نشده است", status = 401 });
+            }
+
+            try
+            {
+                var service = new AdminMeetingService(_db, bbb);
+                var success = await service.PublishRecordingAsync(req, user);
+                return Ok(new
+                {
+                    message = success ? "وضعیت انتشار با موفقیت تغییر کرد" : "خطا در تغییر وضعیت انتشار در بیگ بلو باتن",
+                    status = success ? 200 : 500,
+                    data = new { published = req.Publish, success }
+                });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Ok(new { message = ex.Message, status = 403 });
+            }
+            catch (Exception ex)
+            {
+                return Ok(new { message = ex.Message, status = 500 });
+            }
+        }
+
+        [HttpPost("/admin/meetings/recordings/delete")]
+        public async Task<IActionResult> DeleteRecording([FromBody] DeleteRecordingRequestDTO req)
+        {
+            var user = await GetAuthenticatedUserAsync();
+            if (user == null)
+            {
+                return Ok(new { message = "کاربر احراز هویت نشده است", status = 401 });
+            }
+
+            try
+            {
+                var service = new AdminMeetingService(_db, bbb);
+                var success = await service.DeleteRecordingAsync(req, user);
+                return Ok(new
+                {
+                    message = success ? "رکورد با موفقیت از سرور حذف شد" : "خطا در حذف رکورد از سرور بیگ بلو باتن",
+                    status = success ? 200 : 500,
+                    data = new { success }
+                });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Ok(new { message = ex.Message, status = 403 });
+            }
+            catch (Exception ex)
+            {
+                return Ok(new { message = ex.Message, status = 500 });
+            }
+        }
+
+        [HttpGet("/admin/meetings/recordings/tracks")]
+        public async Task<IActionResult> GetRecordingTracks([FromQuery] string recordId)
+        {
+            var user = await GetAuthenticatedUserAsync();
+            if (user == null)
+            {
+                return Ok(new { message = "کاربر احراز هویت نشده است", status = 401 });
+            }
+
+            try
+            {
+                var service = new AdminMeetingService(_db, bbb);
+                var tracksXml = await service.GetRecordingTracksAsync(recordId, user);
+                return Ok(new
+                {
+                    message = "ok",
+                    status = 200,
+                    data = tracksXml
+                });
+            }
+            catch (Exception ex)
+            {
+                return Ok(new { message = ex.Message, status = 500 });
+            }
+        }
+
+        [HttpGet("/admin/GetParticipants")]
+        public async Task<IActionResult> GetParticipants(
+            [FromQuery] int page = 1,
+            [FromQuery] int count = 10,
+            [FromQuery] string q = "")
+        {
+            var user = await GetAuthenticatedUserAsync();
+            if (user == null)
+            {
+                return Ok(new { message = "کاربر احراز هویت نشده است", status = 401 });
+            }
+
+            var service = new AdminParticipantService(_db);
+            bool canAccess = await service.CanUserAccessParticipantsPageAsync(user);
+            if (!canAccess)
+            {
+                return Ok(new { message = "دسترسی غیرمجاز: تنها مدیران دارای اتاق یا مدیران کل مجاز به مشاهده لیست شرکت‌کنندگان هستند", status = 403 });
+            }
+
+            var result = await service.GetParticipantsAsync(user, page, count, q);
+            return Ok(new
+            {
+                message = "ok",
+                status = 200,
+                data = result
+            });
+        }
+
+        [HttpGet("/admin/GetParticipantMeetings")]
+        public async Task<IActionResult> GetParticipantMeetings(
+            [FromQuery] long userId,
+            [FromQuery] string q = "")
+        {
+            var user = await GetAuthenticatedUserAsync();
+            if (user == null)
+            {
+                return Ok(new { message = "کاربر احراز هویت نشده است", status = 401 });
+            }
+
+            var service = new AdminParticipantService(_db);
+            bool canAccess = await service.CanUserAccessParticipantsPageAsync(user);
+            if (!canAccess)
+            {
+                return Ok(new { message = "دسترسی غیرمجاز: تنها مدیران دارای اتاق یا مدیران کل مجاز به مشاهده جلسات شرکت‌کننده هستند", status = 403 });
+            }
+
+            var result = await service.GetParticipantMeetingsAsync(user, userId, q);
+            return Ok(new
+            {
+                message = "ok",
+                status = 200,
+                data = result
             });
         }
 
         [HttpPost("/admin/UpdateMeetingMedia")]
         public async Task<IActionResult> UpdateMeetingMedia([FromBody] UpdateMeetingMediaVM model)
         {
-            var authCheck = await VerifyModeratorOrAboveAsync();
-            if (!authCheck.IsAllowed)
+            var user = await GetAuthenticatedUserAsync();
+            if (user == null)
             {
-                return Ok(new { message = authCheck.ErrorMessage, status = 403 });
+                return Ok(new { message = "کاربر احراز هویت نشده است", status = 401 });
             }
 
             if (model == null || model.MeetingId <= 0)
             {
                 return Ok(new { message = "شناسه جلسه معتبر نیست", status = 400 });
+            }
+
+            var service = new AdminMeetingService(_db, bbb);
+            bool canEdit = await service.CanUserEditMeetingAsync(user, model.MeetingId);
+            if (!canEdit)
+            {
+                return Ok(new { message = "دسترسی غیرمجاز: تنها مدیران کل یا مدیران و مالکین این اتاق مجاز به ویرایش این جلسه هستند", status = 403 });
             }
 
             var meeting = await _db.MeetingTBLs.FirstOrDefaultAsync(m => m.ID == model.MeetingId);
@@ -1265,10 +1415,10 @@ namespace CoreMe.Controllers
         [HttpPost("/admin/SaveMeetingMediaLog")]
         public async Task<IActionResult> SaveMeetingMediaLog([FromBody] SaveMeetingMediaLogVM model)
         {
-            var authCheck = await VerifyModeratorOrAboveAsync();
-            if (!authCheck.IsAllowed)
+            var user = await GetAuthenticatedUserAsync();
+            if (user == null)
             {
-                return Ok(new { message = authCheck.ErrorMessage, status = 403 });
+                return Ok(new { message = "کاربر احراز هویت نشده است", status = 401 });
             }
 
             if (model == null)
@@ -1289,6 +1439,13 @@ namespace CoreMe.Controllers
             if (meeting == null)
             {
                 return Ok(new { message = "جلسه مورد نظر یافت نشد", status = 404 });
+            }
+
+            var service = new AdminMeetingService(_db, bbb);
+            bool canEdit = await service.CanUserEditMeetingAsync(user, meeting.ID);
+            if (!canEdit)
+            {
+                return Ok(new { message = "دسترسی غیرمجاز برای ثبت رسانه‌های این جلسه", status = 403 });
             }
 
             string rawKey = (model.Key ?? "").Trim().ToLower();
@@ -1641,6 +1798,101 @@ namespace CoreMe.Controllers
             req.GeneralHeaders = HttpContext.GetGeneralHeaders();
             await useCase.handleAsync(req, presenter);
             return presenter.jsonContentResult;
+        }
+        #endregion
+
+        #region Cache Management Endpoints
+        [Authorize(AuthenticationSchemes = "vc2AuthNorm")]
+        [HttpGet("/admin/cache/details")]
+        public async Task<IActionResult> GetCacheDetails([FromServices] IAdminCacheService cacheService)
+        {
+            var user = await GetAuthenticatedUserAsync();
+            if (user == null)
+            {
+                return Ok(new { message = "کاربر احراز هویت نشده است", status = 401 });
+            }
+
+            bool isSuperAdmin = user.Type == MainEntity_Types.USER_ADMINSTRATOR || user.VerifyUserPermissions("manage_admins");
+            if (!isSuperAdmin)
+            {
+                return Ok(new { message = "دسترسی غیرمجاز: مدیریت کش فقط برای مدیر کل امکان‌پذیر است", status = 403 });
+            }
+
+            var result = await cacheService.GetCacheDetailsAsync(user);
+            return Ok(new
+            {
+                message = "ok",
+                status = 200,
+                data = result
+            });
+        }
+
+        [Authorize(AuthenticationSchemes = "vc2AuthNorm")]
+        [HttpPost("/admin/cache/clear")]
+        public async Task<IActionResult> ClearCache([FromBody] ClearCacheRequestDTO req, [FromServices] IAdminCacheService cacheService)
+        {
+            var user = await GetAuthenticatedUserAsync();
+            if (user == null)
+            {
+                return Ok(new { message = "کاربر احراز هویت نشده است", status = 401 });
+            }
+
+            bool isSuperAdmin = user.Type == MainEntity_Types.USER_ADMINSTRATOR || user.VerifyUserPermissions("manage_admins");
+            if (!isSuperAdmin)
+            {
+                return Ok(new { message = "دسترسی غیرمجاز: مدیریت کش فقط برای مدیر کل امکان‌پذیر است", status = 403 });
+            }
+
+            int count = 0;
+            if (req.Keys != null && req.Keys.Count > 0)
+            {
+                count = await cacheService.ClearKeysAsync(req.Keys, user);
+            }
+            else
+            {
+                count = await cacheService.ClearAllAsync(user);
+            }
+
+            return Ok(new
+            {
+                message = "ok",
+                status = 200,
+                clearedCount = count
+            });
+        }
+
+        [Authorize(AuthenticationSchemes = "vc2AuthNorm")]
+        [HttpPost("/admin/cache/recache")]
+        public async Task<IActionResult> ReCache([FromBody] ReCacheRequestDTO req, [FromServices] IAdminCacheService cacheService)
+        {
+            var user = await GetAuthenticatedUserAsync();
+            if (user == null)
+            {
+                return Ok(new { message = "کاربر احراز هویت نشده است", status = 401 });
+            }
+
+            bool isSuperAdmin = user.Type == MainEntity_Types.USER_ADMINSTRATOR || user.VerifyUserPermissions("manage_admins");
+            if (!isSuperAdmin)
+            {
+                return Ok(new { message = "دسترسی غیرمجاز: مدیریت کش فقط برای مدیر کل امکان‌پذیر است", status = 403 });
+            }
+
+            int count = 0;
+            if (req.Keys != null && req.Keys.Count > 0)
+            {
+                count = await cacheService.ReCacheKeysAsync(req.Keys, user);
+            }
+            else
+            {
+                count = await cacheService.ReCacheAllAsync(user);
+            }
+
+            return Ok(new
+            {
+                message = "ok",
+                status = 200,
+                recachedCount = count
+            });
         }
         #endregion
 

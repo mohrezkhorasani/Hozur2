@@ -315,8 +315,23 @@ namespace Application.Usecase
             IOutPutPort<GenericResponse<GetMembersOfMeetResponse>> outputPort)
         {
 
-            if (!_db.MeetingTBLs.Any(e => e.RoomTBL.IDOwnerTBL == message.GeneralHeaders.UserTBL.ID && e.MeetID == message.ID) &&
-                               !message.GeneralHeaders.UserTBL.VerifyUserPermissions("manage_admins"))
+            long id = 0;
+            long.TryParse(message.ID, out id);
+            var reqUser = message.GeneralHeaders?.UserTBL;
+            bool isSuperAdmin = reqUser != null && (reqUser.Type == MainEntity_Types.USER_ADMINSTRATOR || reqUser.VerifyUserPermissions("manage_admins"));
+            bool hasAccess = isSuperAdmin || (reqUser != null && _db.MeetingTBLs.Any(e =>
+                (e.MeetID == message.ID || e.ID == id) &&
+                ((e.RoomTBL != null && e.RoomTBL.IDOwnerTBL == reqUser.ID) ||
+                 _db.RoomTBLToUserTBLs.Any(r =>
+                    (r.FriendlyID == e.RoomFriendlyID || r.FriendlyIDRoomTBL == e.RoomFriendlyID || (e.RoomTBL != null && r.FriendlyID == e.RoomTBL.FriendlyID)) &&
+                    (r.UUIDParticipatorTBL == reqUser.UUID || (r.ParticipatorTBL != null && r.ParticipatorTBL.ID == reqUser.ID)) &&
+                    r.Type == MainEntity_Types.ROOMTOUSER_ADMIN &&
+                    r.Status != MainEntity_Status.Deactive &&
+                    r.Status != MainEntity_Status.Delete
+                 ))
+            ));
+
+            if (!hasAccess)
             {
                 outputPort.Handle(new GenericResponse<GetMembersOfMeetResponse>(new GetMembersOfMeetResponse
                 {
@@ -330,7 +345,6 @@ namespace Application.Usecase
                 message.Count = 50;
             if (!message.Page.HasValue)
                 message.Page = 0;
-            long id = 0;
             if (long.TryParse(message.ID, out id))
             {
 
@@ -382,7 +396,7 @@ namespace Application.Usecase
                             return new SharedOBJ_PartisBiggest
                             {
                                 ID = e.ID,
-                                Name = e.UserNickName != null ? e.UserNickName == "Teacher" ? e.UserTBL.GetName() : e.UserNickName : "نامشخص",
+                                Name = e.UserNickName != null ? (e.UserNickName == "Teacher" ? (e.UserTBL != null ? e.UserTBL.GetName() : "استاد") : e.UserNickName) : "نامشخص",
                                 Timer = _commonMethods.GetTimerStayUserInMeet(e).ToString(),
                                 CanTakeCertificate = e.CertificateTBL != null &&
                                                     e.CertificateTBL.Status == MainEntity_Status.CERT_FULL &&
@@ -403,7 +417,14 @@ namespace Application.Usecase
                                 // <<< اطلاعات دستگاه و مرورگر اضافه شده >>>
                                 Device = device,                    // مثلاً gl-006ad8b2-...
                                 Browser = browser,                  // مثلاً Firefox 146
-                                OS = os                             // مثلاً Windows 10 یا Android 15
+                                OS = os,
+                                IsMemberVIP = e.UserTBL != null && e.UserTBL.IsMemberVIP,
+                                IsTeacher = e.Type == MainEntity_Types.USER_TEACHER || (e.Role != null && (e.Role.Equals("Teacher", StringComparison.OrdinalIgnoreCase) || e.Role.Contains("استاد"))) || (e.UserNickName != null && e.UserNickName.Equals("Teacher", StringComparison.OrdinalIgnoreCase)) || (e.MeetingTBL != null && (e.MeetingTBL.IDTeacher == (e.UserTBL != null ? e.UserTBL.ID : 0))),
+                                HasAccount = !string.IsNullOrWhiteSpace(e.UserTBL?.Email) || (e.UserTBL != null && !string.IsNullOrEmpty(e.UserTBL.Username)),
+                                UserID = e.UserTBL?.ID,
+                                UserMeetID = e.UserMeetID,
+                                EnteredAt = (e.UserTBLToMeetingTBLLogs != null && e.UserTBLToMeetingTBLLogs.Any()) ? Statics.GetPersianDate(e.UserTBLToMeetingTBLLogs.OrderBy(l => l.DateInsert).First().DateInsert) : (e.DateInsert != default ? Statics.GetPersianDate(e.DateInsert) : "-"),
+                                LeftAt = (e.UserTBLToMeetingTBLLogs != null && e.UserTBLToMeetingTBLLogs.Count() > 1) ? Statics.GetPersianDate(e.UserTBLToMeetingTBLLogs.OrderBy(l => l.DateInsert).Last().DateInsert) : (e.DateUpdate.HasValue ? Statics.GetPersianDate(e.DateUpdate.Value) : (e.TimeSpendSeconds > 0 ? Statics.GetPersianDate(e.DateInsert.AddSeconds(e.TimeSpendSeconds)) : "-"))
                             };
                         }).ToList()
                     }));
@@ -1185,7 +1206,7 @@ namespace Application.Usecase
 
 
                         // ایجاد جلسه در بیگ بلو باتن
-                        var meet = await this.bbb.CreateMeetingAsync(room);
+                        var meet = await this.bbb.CreateMeetingAsync(room, planTBL);
                         if (meet.Status != "created")
                         {
                             outputPort.Handle(new GenericResponse<StartNewMeetResponse>(new StartNewMeetResponse
@@ -1297,95 +1318,124 @@ namespace Application.Usecase
                     // پردازش دبیر
                     if (!string.IsNullOrEmpty(data.PlanTBL.Dabir))
                     {
-                        UserTBL dabir = null;
-                        var existingDabir = await db.UserTBLs.FirstOrDefaultAsync(e =>
-                            (e.Firstname + " " + e.LastName).Trim() == data.PlanTBL.Dabir &&
-                            e.Status == MainEntity_Status.USER_ACTIVE &&
-                            (e.Type == MainEntity_Types.USER_TEACHER || e.Type == MainEntity_Types.USER_DABIR));
+                        var (dabirName, dabirPosition) = RoomTBLPlanTBL.ParsePersonInfo(data.PlanTBL.Dabir);
+                        if (!string.IsNullOrWhiteSpace(dabirName))
+                        {
+                            UserTBL dabir = null;
+                            var existingDabir = await db.UserTBLs.Include(u => u.UserTBLLogs).FirstOrDefaultAsync(e =>
+                                (e.Firstname + " " + e.LastName).Trim() == dabirName &&
+                                e.Status == MainEntity_Status.USER_ACTIVE &&
+                                (e.Type == MainEntity_Types.USER_TEACHER || e.Type == MainEntity_Types.USER_DABIR));
 
-                        if (existingDabir != null)
-                        {
-                            dabir = existingDabir;
-                        }
-                        else
-                        {
-                            dabir = new UserTBL
+                            if (existingDabir != null)
                             {
-                                Firstname = data.PlanTBL.Dabir,
-                                Type = MainEntity_Types.USER_DABIR,
-                                Status = MainEntity_Status.USER_ACTIVE,
-                                Username = data.PlanTBL.Dabir,
-                                UUID = new Random().NextInt64(-999999999999999999, -99999999999999999).ToString()
-                            };
-                            db.UserTBLs.Add(dabir);
-                            await db.SaveChangesAsync();
-                        }
+                                dabir = existingDabir;
+                            }
+                            else
+                            {
+                                dabir = new UserTBL
+                                {
+                                    Firstname = dabirName,
+                                    Type = MainEntity_Types.USER_DABIR,
+                                    Status = MainEntity_Status.USER_ACTIVE,
+                                    Username = dabirName,
+                                    UUID = new Random().NextInt64(-999999999999999999, -99999999999999999).ToString()
+                                };
+                                db.UserTBLs.Add(dabir);
+                                await db.SaveChangesAsync();
+                            }
 
-                        if (!db.UserTBLToMeetingTBLs.Any(e => e.UUID == dabir.UUID && e.MeetID == data.MeetID))
-                        {
-                            db.UserTBLToMeetingTBLs.Add(new UserTBLToMeetingTBL
+                            // ثبت سمت دبیر در صورت وجود در جدول UserTBLLogs
+                            if (!string.IsNullOrWhiteSpace(dabirPosition))
                             {
-                                MeetID = data.MeetID,
-                                Type = MainEntity_Types.USER_DABIR,
-                                Status = MainEntity_Status.MEETING_STARTED_LATER,
-                                UUID = dabir.UUID,
-                                UserMeetID = "Dabir",
-                                Role = "Dabir",
-                                UserNickName = dabir.GetName(),
-                                IsCertificated = false,
-                                TokenJWT = "nope",
-                                TimeSpendSeconds = 0,
-                            });
-                            var q = new MeetPollQuizTBL
+                                var existingPos = await db.UserTBLLogs.FirstOrDefaultAsync(l => l.IDUser == dabir.ID && (l.Key == UserTBLLogs.KEY_POSITION || l.Key == UserTBLLogs.KEY_SEMAT));
+                                if (existingPos != null)
+                                {
+                                    existingPos.Value = dabirPosition;
+                                    db.UserTBLLogs.Update(existingPos);
+                                }
+                                else
+                                {
+                                    db.UserTBLLogs.Add(new UserTBLLogs
+                                    {
+                                        IDUser = dabir.ID,
+                                        Key = UserTBLLogs.KEY_POSITION,
+                                        Value = dabirPosition,
+                                        DateInsert = DateTime.UtcNow,
+                                        Status = MainEntity_Status.LOG_NORMAL,
+                                        Type = MainEntity_Types.Normal
+                                    });
+                                }
+                                await db.SaveChangesAsync();
+                            }
+
+                            if (!db.UserTBLToMeetingTBLs.Any(e => e.UUID == dabir.UUID && e.MeetID == data.MeetID))
                             {
-                                IDMeetingTBL = data.MeetTBLId,
-                                IsForAll = false,
-                                Question = $"نظرتان درباره میزان تسلط دبیر علمی محترم {$"**{dabir.GetName()}**"} چیست؟"
-                            };
-                            db.MeetPollQuizTBLs.Add(q);
-                            await db.SaveChangesAsync();
-                            db.MeetPollQuizAnsTBLs.Add(new MeetPollQuizAnsTBL
-                            {
-                                Answer = "ضعیف",
-                                IDQuizTBL = q.ID,
-                                Score = 25,
-                                Type = q.Type,
-                                Status = q.Status,
-                            });
-                            db.MeetPollQuizAnsTBLs.Add(new MeetPollQuizAnsTBL
-                            {
-                                Answer = "متوسط",
-                                IDQuizTBL = q.ID,
-                                Score = 50,
-                                Type = q.Type,
-                                Status = q.Status,
-                            });
-                            db.MeetPollQuizAnsTBLs.Add(new MeetPollQuizAnsTBL
-                            {
-                                Answer = "خوب",
-                                IDQuizTBL = q.ID,
-                                Score = 75,
-                                Type = q.Type,
-                                Status = q.Status,
-                            });
-                            db.MeetPollQuizAnsTBLs.Add(new MeetPollQuizAnsTBL
-                            {
-                                Answer = "عالی",
-                                IDQuizTBL = q.ID,
-                                Score = 100,
-                                Type = q.Type,
-                                Status = q.Status,
-                            });
-                            await db.SaveChangesAsync();
+                                db.UserTBLToMeetingTBLs.Add(new UserTBLToMeetingTBL
+                                {
+                                    MeetID = data.MeetID,
+                                    Type = MainEntity_Types.USER_DABIR,
+                                    Status = MainEntity_Status.MEETING_STARTED_LATER,
+                                    UUID = dabir.UUID,
+                                    UserMeetID = "Dabir",
+                                    Role = "Dabir",
+                                    UserNickName = dabir.GetName(),
+                                    IsCertificated = false,
+                                    TokenJWT = "nope",
+                                    TimeSpendSeconds = 0,
+                                });
+                                var q = new MeetPollQuizTBL
+                                {
+                                    IDMeetingTBL = data.MeetTBLId,
+                                    IsForAll = false,
+                                    Question = $"نظرتان درباره میزان تسلط دبیر علمی محترم {$"**{dabir.GetName()}**"} چیست؟"
+                                };
+                                db.MeetPollQuizTBLs.Add(q);
+                                await db.SaveChangesAsync();
+                                db.MeetPollQuizAnsTBLs.Add(new MeetPollQuizAnsTBL
+                                {
+                                    Answer = "ضعیف",
+                                    IDQuizTBL = q.ID,
+                                    Score = 25,
+                                    Type = q.Type,
+                                    Status = q.Status,
+                                });
+                                db.MeetPollQuizAnsTBLs.Add(new MeetPollQuizAnsTBL
+                                {
+                                    Answer = "متوسط",
+                                    IDQuizTBL = q.ID,
+                                    Score = 50,
+                                    Type = q.Type,
+                                    Status = q.Status,
+                                });
+                                db.MeetPollQuizAnsTBLs.Add(new MeetPollQuizAnsTBL
+                                {
+                                    Answer = "خوب",
+                                    IDQuizTBL = q.ID,
+                                    Score = 75,
+                                    Type = q.Type,
+                                    Status = q.Status,
+                                });
+                                db.MeetPollQuizAnsTBLs.Add(new MeetPollQuizAnsTBL
+                                {
+                                    Answer = "عالی",
+                                    IDQuizTBL = q.ID,
+                                    Score = 100,
+                                    Type = q.Type,
+                                    Status = q.Status,
+                                });
+                                await db.SaveChangesAsync();
+                            }
                         }
                     }
 
                     // پردازش معلمان
-                    var teacherList = data.PlanTBL.Teachers?.Split("،").ToList() ?? new List<string>();
-                    foreach (var t1 in teacherList)
+                    var teacherList = data.PlanTBL.GetParsedTeachers();
+                    foreach (var (t, tPosition) in teacherList)
                     {
-                        var t = t1.Trim();
-                        var existingTeacher = await db.UserTBLs.FirstOrDefaultAsync(e =>
+                        if (string.IsNullOrWhiteSpace(t)) continue;
+
+                        var existingTeacher = await db.UserTBLs.Include(u => u.UserTBLLogs).FirstOrDefaultAsync(e =>
                             ((e.Firstname + " " + e.LastName).Trim() == t || e.Username == t) &&
                              (e.Type == MainEntity_Types.USER_TEACHER || e.Type == MainEntity_Types.USER_DABIR));
 
@@ -1405,6 +1455,30 @@ namespace Application.Usecase
                                 UUID = new Random().NextInt64(-999999999999999999, -99999999999999999).ToString()
                             };
                             db.UserTBLs.Add(teacher);
+                            await db.SaveChangesAsync();
+                        }
+
+                        // ثبت سمت استاد در صورت وجود در جدول UserTBLLogs
+                        if (!string.IsNullOrWhiteSpace(tPosition))
+                        {
+                            var existingPos = await db.UserTBLLogs.FirstOrDefaultAsync(l => l.IDUser == teacher.ID && (l.Key == UserTBLLogs.KEY_POSITION || l.Key == UserTBLLogs.KEY_SEMAT));
+                            if (existingPos != null)
+                            {
+                                existingPos.Value = tPosition;
+                                db.UserTBLLogs.Update(existingPos);
+                            }
+                            else
+                            {
+                                db.UserTBLLogs.Add(new UserTBLLogs
+                                {
+                                    IDUser = teacher.ID,
+                                    Key = UserTBLLogs.KEY_POSITION,
+                                    Value = tPosition,
+                                    DateInsert = DateTime.UtcNow,
+                                    Status = MainEntity_Status.LOG_NORMAL,
+                                    Type = MainEntity_Types.Normal
+                                });
+                            }
                             await db.SaveChangesAsync();
                         }
 

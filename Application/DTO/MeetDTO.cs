@@ -110,6 +110,13 @@ namespace Application.DTO
         public int LogCount { get; set; }
         public bool HasTakenCertificate { get; set; }
         public string? CertificateURL { get; set; }
+        public bool IsMemberVIP { get; set; }
+        public bool IsTeacher { get; set; }
+        public bool HasAccount { get; set; }
+        public long? UserID { get; set; }
+        public string? UserMeetID { get; set; }
+        public string? EnteredAt { get; set; }
+        public string? LeftAt { get; set; }
     }
     #endregion
 
