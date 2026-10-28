@@ -1,8 +1,9 @@
 // LoginForm.jsx with Tailwind
 import React, { useState } from 'react';
 import Cookies from 'js-cookie';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Login } from '@/api/StartNewMeeting';
+import { setCookieWithConfig, syncUserTokens } from '@/api/apiNeed';
 
 function LoginForm() {
   const [username, setUsername] = useState('');
@@ -10,6 +11,10 @@ function LoginForm() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation(); // اضافه کردن این خط
+
+  const from = location.state?.from || '/';
+  console.log("LoginForm", from, location)
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -19,15 +24,12 @@ function LoginForm() {
     try {
       const response = await Login(username, password);
       if (response.data.token != null) {
-        Cookies.set('vc2AuthNorm', response.data.token, {
-          expires: 7,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'Lax'
-        });
+        setCookieWithConfig('vc2AuthNorm', response.data.token, 7);
+        syncUserTokens();
 
         console.log('Login successful!');
-        navigate('/');
-        window.location.href = "/";
+        navigate(from, { replace: true });
+        window.location.href = from;
       } else {
         setError(response.message || 'خطا در ورود.');
       }

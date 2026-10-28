@@ -15,7 +15,12 @@
     "@fortawesome/free-regular-svg-icons": "^7.2.0",
     "@fortawesome/free-solid-svg-icons": "^7.2.0",
     "@fortawesome/react-fontawesome": "^3.3.1",
+    "@persian-tools/persian-tools": "^4.0.4",
+    "@react-pdf/font": "^4.0.8",
+    "@react-pdf/renderer": "^4.5.1",
+    "@reduxjs/toolkit": "^2.12.0",
     "@tailwindcss/vite": "^4.1.18",
+    "html2pdf.js": "^0.14.0",
     "js-cookie": "^3.0.5",
     "lucide-react": "^0.564.0",
     "moment-jalaali": "^0.10.4",
@@ -24,8 +29,12 @@
     "react-dom": "^19.2.0",
     "react-iconly": "^2.2.10",
     "react-icons": "^5.5.0",
+    "react-intersection-observer": "^10.1.0",
+    "react-multi-date-picker": "^4.5.2",
+    "react-redux": "^9.3.0",
     "react-router-dom": "^7.13.0",
-    "react-select": "^5.10.2"
+    "react-select": "^5.10.2",
+    "recharts": "^3.8.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

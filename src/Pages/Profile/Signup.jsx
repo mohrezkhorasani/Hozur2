@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import Cookies from 'js-cookie';
 import { useNavigate } from 'react-router-dom';
 import { SignUp } from '@/api/StartNewMeeting';
+import { setCookieWithConfig, syncUserTokens } from '@/api/apiNeed';
 
 function SignUpForm() {
   const [formData, setFormData] = useState({
@@ -69,11 +70,9 @@ function SignUpForm() {
       var data = response.data;
       if (data.token || data.token !== "wrong") {
         if (response.data) {
-          Cookies.set('vc2AuthNorm', response.data.token || data.token, {
-            expires: 7,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'Lax'
-          });
+          const token = response.data.token || data.token;
+          setCookieWithConfig('vc2AuthNorm', token, 7);
+          syncUserTokens();
         }
 
         console.log(response);

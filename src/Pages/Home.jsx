@@ -40,6 +40,8 @@ import { GetTeacherList } from "../api/GetRooms";
 import StartMeetingModal from "./Admin/startMeetModal";
 import RoomCardOwn from "../Component/Home/roomCardOwn";
 import DayMeetingsModal from "../Component/Home/MiniCalanderMeetingsModal";
+import QuickAccessToolbar from "../Component/QuickAccess";
+import EditRoomLargeModal from "../Modal/Admin/EditRoomLargeModal";
 
 
 
@@ -59,11 +61,11 @@ const HomePage = () => {
   const [plans, setPlans] = useState([]);
   const [plansLoading, setPlansLoading] = useState(true);
 
-    const [modalOpen, setModalOpen] = useState(false);
-    const [selectedDayMeetings, setSelectedDayMeetings] = useState([]);
-    const [selectedDayNumber, setSelectedDayNumber] = useState(null);
-    const [selectedYearNumber, setSelectedYearNumber] = useState(null);
-    const [selectedMonthNumber, setSelectedMonthNumber] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedDayMeetings, setSelectedDayMeetings] = useState([]);
+  const [selectedDayNumber, setSelectedDayNumber] = useState(null);
+  const [selectedYearNumber, setSelectedYearNumber] = useState(null);
+  const [selectedMonthNumber, setSelectedMonthNumber] = useState(null);
 
 
   const [activeMenu, setActiveMenu] = useState(null); // برای کنترل باز/بسته شدن منو
@@ -73,6 +75,8 @@ const HomePage = () => {
   const [isStartMeetingModalOpen, setIsStartMeetingModalOpen] = useState(false);
 
   const [showPlanMenu, setShowPlanMenu] = useState(null);
+  const [isEditRoomModalOpen, setIsEditRoomModalOpen] = useState(false);
+  const [selectedRoomIdForEdit, setSelectedRoomIdForEdit] = useState(null);
   const menuRef = useRef({});
   const [flippedCards, setFlippedCards] = useState({});
 
@@ -91,15 +95,15 @@ const HomePage = () => {
       return planDate > now;
     });
   };
-    const handleDayClick = (meetings,day,month,year) => {
-        if (!meetings) return;
-        if (meetings.length === 0) return;
-        setSelectedDayMeetings(meetings);
-        setSelectedDayNumber(day);
-        setSelectedMonthNumber(month)
-        setSelectedYearNumber(year)
-        setModalOpen(true);
-    };
+  const handleDayClick = (meetings, day, month, year) => {
+    if (!meetings) return;
+    if (meetings.length === 0) return;
+    setSelectedDayMeetings(meetings);
+    setSelectedDayNumber(day);
+    setSelectedMonthNumber(month)
+    setSelectedYearNumber(year)
+    setModalOpen(true);
+  };
 
   const loadRooms = async () => {
     try {
@@ -199,8 +203,12 @@ const HomePage = () => {
       }
     }
   };
+  const handleEndMeet = async (roomID) => {
+    CheckLives()
 
-  const handleStart = async (roomID, title = "", teachers = [], dabir = null, ispublic = true) => {
+  }
+  const handleStart = async (roomID, planID = -1, title = "", teachers = [], dabir = null, hasCert = false, ispublic = true) => {
+    console.log("handleStart", planID)
     let teacherStrings = []
     let dabire = null
     teachers.map((t) => {
@@ -223,13 +231,16 @@ const HomePage = () => {
         } else {
           if (data?.message) {
             alert(data.message)
-          } else
+          } else  
             alert("لینک ورود یافت نشد.");
         }
       } else {
-        const data = await startNewMeet(roomID, user.fullname, title, teacherStrings);
+        const data = await startNewMeet(roomID, user.fullname, title, teacherStrings, dabir, planID, hasCert);
         console.warn(data)
-
+        if (data.status != 200) {
+          alert(data.message);
+          return  
+        }
         if (data?.redirectURL) {
           window.open(data.redirectURL, '_blank');
         } else {
@@ -289,6 +300,8 @@ const HomePage = () => {
   // بقیه ساختار کارت‌ها...
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
+      <QuickAccessToolbar />
+
       {/* Header with stats */}
       <div className="mb-8 text-right">
         <h2 className="text-2xl font-bold text-[#1f2937] mb-2">اتاق‌های جلسات</h2>
@@ -320,10 +333,15 @@ const HomePage = () => {
             onSetModalOpenMobileEmojiModal={setModalOpenMobileEmojiModal}
             getFuturePlans={getFuturePlans}
             handleStart={handleStart}
+            handleEndMeet={handleEndMeet}
             timeAgo={timeAgo}
             menuRef={menuRef}
             EmojiIcon={EmojiIcon}
             handleDayClick={handleDayClick}
+            onOpenEditRoomModal={(roomId) => {
+              setSelectedRoomIdForEdit(roomId);
+              setIsEditRoomModalOpen(true);
+            }}
           />
         ))}
 
@@ -361,18 +379,24 @@ const HomePage = () => {
         room={selectedRoomForMeeting}
         onStartWithoutInfo={(data) => { handleStart(data.roomId) }}
         teachersList={teachers}
-        onStartMeeting={(data) => { handleStart(data.roomId, data.title, data.teachers, data.scientificSecretary, data.isPublic) }}
+        onStartMeeting={(data) => { handleStart(data.roomId, 0, data.title, data.teachers, data.scientificSecretary?.name || null, true, data.isPublic) }}
       />
-       {modalOpen && (
-                <DayMeetingsModal
-                    isOpen={modalOpen}
-                    onClose={() => setModalOpen(false)}
-                    meetings={selectedDayMeetings}
-                    persianMonth={selectedMonthNumber}
-                    day={selectedDayNumber}
-                    year={selectedYearNumber}
-                />
-            )}
+      {modalOpen && (
+        <DayMeetingsModal
+          isOpen={modalOpen}
+          onClose={() => setModalOpen(false)}
+          meetings={selectedDayMeetings}
+          persianMonth={selectedMonthNumber}
+          day={selectedDayNumber}
+          year={selectedYearNumber}
+        />
+      )}
+      <EditRoomLargeModal
+        isOpen={isEditRoomModalOpen}
+        onClose={() => setIsEditRoomModalOpen(false)}
+        roomId={selectedRoomIdForEdit}
+        onUpdated={loadRooms}
+      />
     </div>
   );
 };

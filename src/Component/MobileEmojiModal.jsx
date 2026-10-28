@@ -15,7 +15,7 @@ const MobileEmojiModal = ({ isOpen, onClose, onSelectEmoji, roomid }) => {
   const [emojiList, setEmojiList] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const tabs = ['Apple', 'HTC', 'LG', 'Samsung'];
+  const tabs = ['Apple', 'HTC', 'LG', 'Samsung','icon8'];
 
   // تابع لود ایموجی‌ها با کش
 

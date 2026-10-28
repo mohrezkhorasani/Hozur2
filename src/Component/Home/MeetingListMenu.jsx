@@ -5,7 +5,7 @@ export const MeetingMenu = ({ planList }) => {
   const [showAll, setShowAll] = useState(false);
 
   const displayData = showAll ? planList : planList?.slice(0, 3);
-
+  console.log("planList",displayData)
   return (
     <div className="bg-[#ffffff] rounded-2xl shadow-sm border border-[#f3f4f6] overflow-hidden mt-7">
       <div className="bg-gradient-to-r from-[#0b3f32] to-[#0a352a] px-5 py-4">
@@ -62,7 +62,7 @@ export const MeetingMenu = ({ planList }) => {
                         {prettDate === 'امروز' ? 'امروز' :
                           prettDate === 'فردا' ? 'فردا' :
                             prettDate === 'پس فردا' ? 'پس فردا' :
-                              prettDate} ساعت {time}
+                              prettDate} ساعت {time}  
                       </span>
                     </span>
                   </div>

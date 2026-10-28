@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { persianAndArabicToEnglishNumbers } from '../../Tools/tools';
 import DayMeetingsModal from './MiniCalanderMeetingsModal';
+import { GetRoomCalendarActivity } from '../../api/GetRooms';
 
-const RoomCardMiniCalander = ({ data = [],handleDayClick }) => {
+const RoomCardMiniCalander = ({ data = [], roomid, handleDayClick, load, onMonthChange }) => {
     // تنظیم روی ماه جاری شمسی
     const [currentMonth, setCurrentMonth] = useState(() => {
         const now = new Date();
@@ -11,28 +12,29 @@ const RoomCardMiniCalander = ({ data = [],handleDayClick }) => {
             year: 'numeric',
             month: 'numeric'
         }).format(now);
-        console.log(jalaliDate)
 
-        // فرمت خروجی: 1404/12/5
         const [year, month] = persianAndArabicToEnglishNumbers(jalaliDate).split('/').map(Number);
         return { year, month: month - 1 };
     });
 
     const [hoveredDay, setHoveredDay] = useState(null);
     const [hoveredCount, setHoveredCount] = useState(0);
+    const [calendarData, setCalendarData] = useState(data);
+    const [calendarDataLoading, setCalendarDataLoading] = useState(false);
+    const abortControllerRef = useRef(null);
 
     // نام ماه‌های شمسی
     const persianMonths = [
         'فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور',
         'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'
     ];
-    // پیدا کردن داده‌های ماه جاری
+
+    // پیدا کردن داده‌های ماه جاری       
     const currentMonthData = useMemo(() => {
-        return data.find(
+        return calendarData.find(
             item => item.month === currentMonth.month && item.year === currentMonth.year
         );
-    }, [data, currentMonth]);
-
+    }, [calendarData, currentMonth]);
 
     // دریافت تعداد جلسات یک روز خاص (حداکثر 3)
     const getDayCount = (day) => {
@@ -40,7 +42,6 @@ const RoomCardMiniCalander = ({ data = [],handleDayClick }) => {
         const count = activity?.count || 0;
         return Math.min(count, 3);
     };
-
 
     // تابع دریافت لیست جلسات یک روز
     const getDayMeetings = (day) => {
@@ -58,6 +59,51 @@ const RoomCardMiniCalander = ({ data = [],handleDayClick }) => {
             default: return 'bg-[#ebedf0]';
         }
     };
+
+    // تابع لود دیتا با ماه و سال
+    const loadData = async (month, year) => {
+        if (!roomid) return;
+        
+        setCalendarDataLoading(true);
+        
+        // کنسل کردن درخواست قبلی
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+        
+        abortControllerRef.current = new AbortController();
+
+        try {
+            const teas = await GetRoomCalendarActivity(
+                roomid,
+                month,
+                year,
+                abortControllerRef.current.signal
+            );
+            console.log("Data loaded for:", month, year, teas);
+            setCalendarData(teas);
+        } catch (error) {
+            if (error.name !== 'AbortError') {
+                console.error("Error loading calendar data:", error);
+            }
+        } finally {
+            setCalendarDataLoading(false);
+        }
+    };
+
+    // وقتی ماه عوض می‌شه، دیتا رو لود کن
+    useEffect(() => {
+        const monthName = persianMonths[currentMonth.month];
+        const year = currentMonth.year;
+        
+        // لود کردن دیتا با ماه و سال جدید
+        loadData(monthName, year);
+        
+        // اگر تابع onMonthChange وجود داشت، صدا بزن
+        if (onMonthChange) {
+            onMonthChange(monthName, year);
+        }
+    }, [currentMonth.month, currentMonth.year, roomid]);
 
     // تولید روزهای ماه شمسی
     const getDaysInMonth = (year, month) => {
@@ -79,11 +125,9 @@ const RoomCardMiniCalander = ({ data = [],handleDayClick }) => {
 
     // تبدیل تاریخ شمسی به میلادی (ساده شده)
     const getFirstDayOfMonth = (year, month) => {
-        // ساخت یک تاریخ تقریبی
         const persianMonthDays = [31, 31, 31, 31, 31, 31, 30, 30, 30, 30, 30, 29];
         let totalDays = 0;
 
-        // روزهای سال‌های گذشته
         for (let y = 1400; y < year; y++) {
             totalDays += 365;
             const diff = y - 1375;
@@ -95,16 +139,12 @@ const RoomCardMiniCalander = ({ data = [],handleDayClick }) => {
             }
         }
 
-        // روزهای ماه‌های گذشته در سال جاری
         for (let m = 0; m < month; m++) {
             totalDays += persianMonthDays[m];
         }
 
-        // 1 فروردین 1400 = 21 مارس 2021
         const epoch = new Date(2021, 2, 21);
         const targetDate = new Date(epoch.getTime() + totalDays * 86400000);
-
-        // محاسبه روز هفته (0 = یکشنبه، تبدیل به شنبه = 0)
         let dayOfWeek = targetDate.getDay();
         let saturdayBased = (dayOfWeek + 1) % 7;
         return saturdayBased;
@@ -115,11 +155,9 @@ const RoomCardMiniCalander = ({ data = [],handleDayClick }) => {
 
     // ساخت آرایه روزها
     const days = [];
-    // روزهای خالی قبل از شروع ماه
     for (let i = 0; i < firstDayOfMonth; i++) {
         days.push(null);
     }
-    // روزهای ماه
     for (let i = 1; i <= daysInMonth; i++) {
         days.push(i);
     }
@@ -151,8 +189,24 @@ const RoomCardMiniCalander = ({ data = [],handleDayClick }) => {
         }
     };
 
+    // پاک کردن AbortController هنگام unmount
+    useEffect(() => {
+        return () => {
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
+        };
+    }, []);
+
     return (
         <div className="w-full bg-white rounded-xl shadow-lg p-4">
+            {/* نمایش لودینگ */}
+            {calendarDataLoading && (
+                <div className="absolute inset-0 bg-white/50 flex items-center justify-center rounded-xl z-10">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#30d4cc]"></div>
+                </div>
+            )}
+            
             {/* Header با نام ماه و فلش‌ها */}
             <div className="flex items-center justify-between mb-4">
                 <button
@@ -204,16 +258,15 @@ const RoomCardMiniCalander = ({ data = [],handleDayClick }) => {
                                 <>
                                     <div
                                         className={`
-                      aspect-square rounded-md flex items-center justify-center
-                      transition-all duration-200 cursor-pointer max-w-8 max-h-8
-                      ${bgColor}
-                      hover:scale-85 hover:shadow-md
-                    `}
-                      onClick={() => handleDayClick(getDayMeetings(day),day,currentMonth.month,currentMonth.year)}
-
+                                            aspect-square rounded-md flex items-center justify-center
+                                            transition-all duration-200 cursor-pointer max-w-8 max-h-8
+                                            ${bgColor}
+                                            hover:scale-85 hover:shadow-md
+                                        `}
+                                        onClick={() => handleDayClick(getDayMeetings(day), day, currentMonth.month, currentMonth.year)}
                                     >
                                         <span className={`text-[10px] font-light
-                                             ${count > 0 ? 'text-white' : 'text-gray-600'}`}>
+                                            ${count > 0 ? 'text-white' : 'text-gray-600'}`}>
                                             {day}
                                         </span>
                                     </div>
@@ -221,7 +274,7 @@ const RoomCardMiniCalander = ({ data = [],handleDayClick }) => {
                                     {/* Tooltip */}
                                     {hoveredDay === day && (
                                         <div className="absolute bottom-full 
-                                        left-1/2 transform -translate-x-1/2 mb-1 z-20">
+                                            left-1/2 transform -translate-x-1/2 mb-1 z-20">
                                             <div className="bg-gray-800 text-white text-[10px] rounded-lg px-2 py-1 whitespace-nowrap shadow-lg">
                                                 {count === 0 ? 'بدون جلسه' : `${count} جلسه`}
                                             </div>
@@ -236,9 +289,6 @@ const RoomCardMiniCalander = ({ data = [],handleDayClick }) => {
                     );
                 })}
             </div>
-
-           
-
         </div>
     );
 };

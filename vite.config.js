@@ -19,6 +19,10 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  build: {
+    target: ['chrome80', 'firefox78', 'edge80', 'safari13'],
+    cssTarget: ['chrome80', 'firefox78', 'edge80', 'safari13'],
+  },
   resolve: {
     alias: {
       // گزینه ۱: @ یعنی src (رایج‌ترین و بهترین)

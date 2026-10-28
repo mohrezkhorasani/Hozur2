@@ -3,6 +3,7 @@ import { FaBars, FaInfoCircle, FaSearch, FaShoppingCart, FaSignOutAlt, FaTachome
 import Cookies from "js-cookie";
 import LoginModal from "../Modal/Auth/LoginModal";
 import { useNavigate } from 'react-router-dom';
+import { removeAuthToken, removeRegisteredUserToken } from "../api/apiNeed";
 
 
 
@@ -40,7 +41,8 @@ export default function HeaderStickTop({ user }) {
     }
   };
   function logout() {
-    Cookies.remove("vc2AuthNorm")
+    removeAuthToken();
+    removeRegisteredUserToken();
     window.location.href = "/";
   }
 
@@ -60,7 +62,7 @@ export default function HeaderStickTop({ user }) {
         </div>
 
         {/* هدر اصلی - mobile first */}
-        <div className="w-full bg-[#0b3f32] py-3 sm:py-4 flex items-center justify-between px-3 sm:px-4 md:px-6 lg:px-20 xl:px-40 2xl:px-60 gap-2 sm:gap-4 z-50 relative">
+        <div className="w-full bg-[#02592A] py-3 sm:py-4 flex items-center justify-between px-3 sm:px-4 md:px-6 lg:px-20 xl:px-40 2xl:px-60 gap-2 sm:gap-4 z-50 relative">
 
           {/* RIGHT SIDE - Logo Area */}
           <div className="flex items-center gap-2 sm:gap-4 md:gap-10 flex-1 sm:flex-none">
@@ -68,6 +70,7 @@ export default function HeaderStickTop({ user }) {
               <h1 className="text-sm xs:text-base sm:text-lg md:text-xl font-bold whitespace-nowrap">
                 <span className="text-[#30d4cc] font-bold">فضای مجازی</span>{" "}
                 <span className="hidden xs:inline text-[#ffffff]">مجمع عالی حکمت اسلامی</span>
+                
                 <span className="xs:hidden text-[#ffffff]">حکمت اسلامی</span>
               </h1>
             </a>
@@ -143,8 +146,8 @@ export default function HeaderStickTop({ user }) {
                     <div className="py-2">
                       {user?.permissions?.includes("manage_admins") && (
                         <a
-                          href="/admin/dashboard"
-                          className="flex items-center justify-between px-4 py-2.5 text-sm text-[#374151] hover:bg-[#f9fafb] transition-colors"
+                          href="/adminlay"
+                          className="flex items-center justify-between px-4 py-2.5 text-sm text-[#02592A] hover:bg-[#f9fafb] transition-colors"
                           onClick={() => setShowAccountDropdown(false)}
                         >
                           <span>داشبورد مدیریت</span>
@@ -153,7 +156,7 @@ export default function HeaderStickTop({ user }) {
                       )}
                       <a
                         href="/"
-                        className="flex items-center justify-between px-4 py-2.5 text-sm text-[#374151] hover:bg-[#f9fafb] transition-colors"
+                        className="flex items-center justify-between px-4 py-2.5 text-sm text-[#02592A] hover:bg-[#f9fafb] transition-colors"
                         onClick={() => setShowAccountDropdown(false)}
                       >
                         <span>داشبورد من</span>
@@ -164,7 +167,7 @@ export default function HeaderStickTop({ user }) {
                       {user?.permissions?.includes("manage_users") && (
                         <a
                           href="/admin/users"
-                          className="flex items-center justify-between px-4 py-2.5 text-sm text-[#374151] hover:bg-[#f9fafb] transition-colors"
+                          className="flex items-center justify-between px-4 py-2.5 text-sm text-[#02592A] hover:bg-[#f9fafb] transition-colors"
                           onClick={() => setShowAccountDropdown(false)}
                         >
                           <span>مدیریت کاربران</span>
@@ -201,7 +204,7 @@ export default function HeaderStickTop({ user }) {
               />
 
               {/* Menu Panel */}
-              <div className="fixed top-0 left-0 bottom-0 w-80 bg-[#0b3f32] shadow-2xl z-50 transform transition-transform duration-300 flex flex-col">
+              <div className="fixed top-0 left-0 bottom-0 w-80 bg-[#02592A] shadow-2xl z-50 transform transition-transform duration-300 flex flex-col">
                 {/* Header with close button */}
                 <div className="flex justify-between items-center p-4 border-b border-white/20">
                   <h2 className="text-[#ffffff] font-bold text-lg">منو</h2>
@@ -323,12 +326,12 @@ export default function HeaderStickTop({ user }) {
               ✕
             </button>
 
-            <h3 className="text-right font-bold mb-4 text-base sm:text-lg text-[#1f2937]">جستجو</h3>
+            <h3 className="text-right font-bold mb-4 text-base sm:text-lg text-[#02592A]">جستجو</h3>
 
             <input
               type="text"
               placeholder="جستجو کنید..."
-              className="w-full border rounded-lg p-2 sm:p-3 text-right outline-none focus:ring-2 focus:ring-[#30d4cc] text-sm sm:text-base text-[#1f2937]"
+              className="w-full border rounded-lg p-2 sm:p-3 text-right outline-none focus:ring-2 focus:ring-[#30d4cc] text-sm sm:text-base text-[#02592A]"
               autoFocus
             />
           </div>

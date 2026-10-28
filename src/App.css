@@ -1,7 +1,4 @@
-@import "tailwindcss";
-@import "./icon.css";
-@import "./bulk-style.css";
-@import "./woocommerce.css";
+/* Custom styles and animations */
 
 /* globals.css یا tailwind layer */
 @keyframes ping-slow {
@@ -220,4 +217,23 @@ button {
 
 .animate-custom-spin {
   animation: custom-spin 1s linear infinite;
+}
+
+/* در انتهای فایل CSS یا در یک فایل جداگانه اضافه کنید */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(30, 41, 59, 0.5);
+    border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(59, 130, 246, 0.5);
+    border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(59, 130, 246, 0.8);
 }

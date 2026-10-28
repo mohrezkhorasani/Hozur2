@@ -1,62 +1,74 @@
-import React from "react";
-import ImageBackground from "@assets/ax/ups/2025/02/footerbg.png";
+import React from 'react';
 
-export default function Footer() {
-    return (
-        <section
-            id="footer"
-            className="mt-2 text-xs relative flex flex-col overflow-hidden rounded-t-4xl lg:mx-60 pt-2 justify-center px-4 sm:px-10 md:mx-60"
-        >
-            {/* تصویر پس‌زمینه */}
-            <div
-                className="absolute inset-0 bg-cover bg-center"
-                style={{ backgroundImage: `url(${ImageBackground})` }}
-            ></div>
+const Footer = () => {
+  return (
+    <footer className="bg-[#003117] text-white py-8 mt-auto" dir="rtl">
+      <div className="container mx-auto px-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {/* بخش اول: درباره ما */}
+          <div>
+            <h3 className="text-xl font-bold mb-4 text-amber-400">درباره ما</h3>
+            <p className="text-gray-400 text-sm leading-relaxed">
+در زمستان ۱۳۸۲، به دستور مقام معظم رهبری مبنی بر تشکیل مرکزی برای علوم عقلی در حوزه، جمعی از اساتید با نظارت آیات جوادی آملی، سبحانی و مصباح یزدی، اساسنامه را تدوین و هیئت مؤسس را تعیین کردند.
+پس از تأیید مراجع و تشکیل مجمع عمومی، مجمع عالی حکمت اسلامی فعالیت رسمی خود را از اسفند ۱۳۸۴ با برگزاری نخستین نشست کرسی نظریه‌پردازی آغاز کرد.
+            </p>
+          </div>
 
-            {/* هاله / overlay آبی */}
-            <div className="absolute inset-0 bg-[#0b3f32e3] opacity-80"></div>
+          {/* بخش دوم: لینک‌های مفید */}
+          <div>
+            <h3 className="text-xl font-bold mb-4 text-amber-400">لینک‌های مفید</h3>
+            <ul className="space-y-2 text-sm">
+              <li>
+                <a href="#" className="text-gray-400 hover:text-amber-400 transition-colors duration-300">
+                  صفحه اصلی
+                </a>
+              </li>
+              <li>
+                <a href="https://shop.hekmateislami.com" className="text-gray-400 hover:text-amber-400 transition-colors duration-300">
+                  محصولات انتشارات مجمع عالی
+                </a>
+              </li>
+              <li>
+                <a href="https://hekmateislami.com" className="text-gray-400 hover:text-amber-400 transition-colors duration-300">
+                  پایگاه اینترنتی
+                </a>
+              </li>
+              <li>
+                <a href="contact-form" className="text-gray-400 hover:text-amber-400 transition-colors duration-300">
+                  تماس با ما
+                </a>
+              </li>
+            </ul>
+          </div>
 
-            {/* محتوای اصلی روی overlay */}
-            <div className="flex flex-col relative z-10" >
-                <div className="flex flex-col items-center 
-                sm:flex-row sm:items-start sm:text-right p-4 sm:p-8 text-white flex-wrap gap-4 text-xl">
-                    {/* لوگو */}
-                    <img
-                        src="https://hekmateislami.com/wp-content/uploads/2025/12/logo-majma-low.png"
-                        className="w-15 sm:w-3xs  mb-4 sm:mb-0 "
-                    />
+          {/* بخش سوم: اطلاعات تماس */}
+          <div>
+            <h3 className="text-xl font-bold mb-4 text-amber-400">تماس با ما</h3>
+            <ul className="space-y-2 text-sm text-gray-400">
+              <li className="flex items-center gap-2">
+                <span>📧</span>
+                <span>info@hekmateislami.com</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span>📞</span>
+                <span>025۳۷۷۵۷۶۱۰</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span>📍</span>
+                <span>نشانی: قم- خیابان ۱۹ دی (باجک) کوچه ۱۰ فرعی اول سمت چپ پلاک ۵</span>
+              </li>
+            </ul>
+          </div>
+        </div>
 
-                    {/* لینک‌ها */}
-                    <div className="flex flex-col items-center sm:items-start sm:mr-8 mb-4 sm:mb-0 ">
-                        <a className="hover:text-[#30d4cc] transition-all duration-300" href="https://hekmateislami.com">پایگاه اینترنتی</a>
-                        <a className="hover:text-[#30d4cc] transition-all duration-300" href="https://shop.hekmateislami.com/">فروشگاه کتاب</a>
-                    </div>
+        {/* خط جداکننده و کپی‌رایت */}
+        <div className="border-t border-gray-800 mt-8 pt-6 text-center text-gray-500 text-sm">
+          <p>© {new Date().getFullYear()} تمامی حقوق مادی و معنوی این سایت متعلق به مجمع عالی حکمت اسلامی می باشد.
+.</p>
+        </div>
+      </div>
+    </footer>
+  );
+};
 
-                    <div className="flex flex-col items-center sm:items-start sm:mr-4 mb-4 sm:mb-0">
-                        <a className="hover:text-[#30d4cc] transition-all duration-300" href="#">درخواست اشتراک کلاس های مجازی</a>
-                        <a className="hover:text-[#30d4cc] transition-all duration-300" href="#">قوانین اشتراک کلاس های مجازی</a>
-                    </div>
-
-                    <div className="flex flex-col items-center sm:items-start sm:mr-4 mb-4 sm:mb-0">
-                        <a className="hover:text-[#30d4cc] transition-all duration-300" href="#">شعبات مجمع عالی</a>
-                        <a className="hover:text-[#30d4cc] transition-all duration-300" href="#">جدول زمانبندی</a>
-                    </div>
-
-                </div>
-
-                {/* Footer Bottom */}
-                <div className="flex flex-col sm:flex-row items-center mt-4 sm:mt-0 bg-myg z-50 mx-auto sm:mx-[30%] py-2 rounded-t-2xl text-myb px-4 sm:px-5 text-xs">
-                    <p className="text-right w-full sm:w-auto mb-1 sm:mb-0">
-                        کلیه حقوق متعلق به مجمع عالی حکمت اسلامی میباشد.
-                    </p>
-
-                    <div className="flex-1 mx-0 sm:mx-2 border-t sm:border-t-0 border-gray-400 sm:border-l"></div>
-
-                    <p className="text-left w-full sm:w-auto">
-                        
-                    </p>
-                </div>
-            </div>
-        </section >
-    );
-}
+export default Footer;

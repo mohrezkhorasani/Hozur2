@@ -5,11 +5,13 @@ import FooterUpper from "../Component/FooterUpper";
 import BreadCrumbParent from "@/Component/BreadCrumbParent";
 import { useState } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
+import { useAuth } from "../Tools/AuthProvider";
 
 const AccountLayout = () => {
 
 
 
+    const { logout } = useAuth();
     const [breadcrumb, setBreadcrumb] = useState(null);
     return (
         <div className="min-h-screen bg-white"
@@ -108,7 +110,7 @@ const AccountLayout = () => {
                             </a>
 
                             {/* logout */}
-                            <a href="#" className="group relative flex flex-col items-center justify-center text-center py-3 text-rose-500 hover:text-rose-700 lg:mr-auto lg:w-[100px] flex-shrink-0">
+                            <a href="#" onClick={(e) => { e.preventDefault(); logout(); }} className="group relative flex flex-col items-center justify-center text-center py-3 text-rose-500 hover:text-rose-700 lg:mr-auto lg:w-[100px] flex-shrink-0">
                                 <span className="profile-nav-item-icon iconlyBulk-Logout text-[28px] mb-1 transition-colors">
                                     <span className="path1"></span>
                                     <span className="path2"></span>
