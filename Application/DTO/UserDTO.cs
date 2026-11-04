@@ -487,6 +487,8 @@ namespace Application.DTO
     public class BotNewPlanRoomRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<BotNewPlanRoomResponse>>
     {
         public string? FriendlyID { get; set; }
+        public string? RoomId { get; set; }
+        public string? Room { get; set; }
         public string Title { get; set; } = string.Empty;
         public string? Teachers { get; set; }
         public string? Teacher { get; set; }

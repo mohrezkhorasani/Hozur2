@@ -290,6 +290,9 @@ namespace CoreMe.VM
     public class BotNewPlanRoomViewModel
     {
         public string? FriendlyID { get; set; }
+        public string? RoomId { get; set; }
+        public string? Room { get; set; }
+        public string? RoomTitle { get; set; }
         public string Title { get; set; } = string.Empty;
         public string? Teachers { get; set; }
         public string? Teacher { get; set; }

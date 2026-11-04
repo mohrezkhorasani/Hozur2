@@ -4989,10 +4989,30 @@ namespace Application.Usecase
                     return;
                 }
 
+                string? roomIdentifier = !string.IsNullOrWhiteSpace(message.FriendlyID)
+                    ? message.FriendlyID
+                    : (!string.IsNullOrWhiteSpace(message.RoomId)
+                        ? message.RoomId
+                        : message.Room);
+
                 RoomTBL? room = null;
-                if (!string.IsNullOrWhiteSpace(message.FriendlyID))
+                if (!string.IsNullOrWhiteSpace(roomIdentifier))
                 {
-                    room = _db.RoomTBLs.FirstOrDefault(e => e.FriendlyID == message.FriendlyID.Trim());
+                    var cleanId = roomIdentifier.Trim();
+                    // 1. By FriendlyID (e.g. "jtb-a8e-ydl-05b")
+                    room = _db.RoomTBLs.FirstOrDefault(e => e.FriendlyID == cleanId);
+
+                    // 2. By numeric ID if integer
+                    if (room == null && long.TryParse(cleanId, out var numId))
+                    {
+                        room = _db.RoomTBLs.FirstOrDefault(e => e.ID == numId);
+                    }
+
+                    // 3. By Room Title
+                    if (room == null)
+                    {
+                        room = _db.RoomTBLs.FirstOrDefault(e => e.Title.Contains(cleanId) && e.Status == MainEntity_Status.Enabled);
+                    }
                 }
 
                 if (room == null)

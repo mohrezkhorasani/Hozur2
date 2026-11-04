@@ -936,9 +936,15 @@ namespace CoreMe.Controllers
                 secret = Request.Headers["X-Bot-Token"].ToString();
             }
 
+            string? roomInput = !string.IsNullOrWhiteSpace(vm.FriendlyID) ? vm.FriendlyID
+                : (!string.IsNullOrWhiteSpace(vm.RoomId) ? vm.RoomId
+                : (!string.IsNullOrWhiteSpace(vm.Room) ? vm.Room : vm.RoomTitle));
+
             var req = new BotNewPlanRoomRequest
             {
-                FriendlyID = vm.FriendlyID,
+                FriendlyID = roomInput,
+                RoomId = vm.RoomId,
+                Room = vm.Room,
                 Title = vm.Title,
                 Teachers = vm.Teachers,
                 Teacher = vm.Teacher,
