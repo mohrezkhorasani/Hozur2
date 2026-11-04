@@ -420,7 +420,7 @@ namespace Application.Usecase
                                 OS = os,
                                 IsMemberVIP = e.UserTBL != null && e.UserTBL.IsMemberVIP,
                                 IsTeacher = e.Type == MainEntity_Types.USER_TEACHER || (e.Role != null && (e.Role.Equals("Teacher", StringComparison.OrdinalIgnoreCase) || e.Role.Contains("استاد"))) || (e.UserNickName != null && e.UserNickName.Equals("Teacher", StringComparison.OrdinalIgnoreCase)) || (e.MeetingTBL != null && (e.MeetingTBL.IDTeacher == (e.UserTBL != null ? e.UserTBL.ID : 0))),
-                                HasAccount = !string.IsNullOrWhiteSpace(e.UserTBL?.Email) || (e.UserTBL != null && !string.IsNullOrEmpty(e.UserTBL.Username)),
+                                HasAccount = !string.IsNullOrWhiteSpace(e.UserTBL?.Email),
                                 UserID = e.UserTBL?.ID,
                                 UserMeetID = e.UserMeetID,
                                 EnteredAt = (e.UserTBLToMeetingTBLLogs != null && e.UserTBLToMeetingTBLLogs.Any()) ? Statics.GetPersianDate(e.UserTBLToMeetingTBLLogs.OrderBy(l => l.DateInsert).First().DateInsert) : (e.DateInsert != default ? Statics.GetPersianDate(e.DateInsert) : "-"),

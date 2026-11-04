@@ -1,4 +1,5 @@
 using Application.DTO;
+using Application.DTO.Generals;
 using Application.Interface.IUsecase;
 using Application.Interfaces;
 using Application.Usecase;
@@ -109,8 +110,9 @@ namespace CoreMe.Tests
             {
                 ID = 100,
                 MeetID = "meet-test-100",
+                RoomFriendlyID = "room-test-100",
                 Title = "نشست تخصصی مجمع عالی حکمت",
-                Type = MainEntity_Types.MEETING_BBB,
+                Type = MainEntity_Types.MEET_API,
                 Status = MainEntity_Status.MEETING_END,
                 DateInsert = DateTime.UtcNow.AddHours(-2),
                 Teacher = teacherUser,
@@ -132,6 +134,7 @@ namespace CoreMe.Tests
                 DateInsert = DateTime.UtcNow.AddHours(-2),
                 DateUpdate = DateTime.UtcNow,
                 IsCertificated = false,
+                TokenJWT = "jwt-teacher",
                 UserMeetID = "um-teacher"
             };
             db.UserTBLToMeetingTBLs.Add(attTeacher);
@@ -150,6 +153,7 @@ namespace CoreMe.Tests
                 DateUpdate = DateTime.UtcNow,
                 IsCertificated = true,
                 CertificateFileURL = "https://vc.hekmateislami.com/cert/certif-20.pdf",
+                TokenJWT = "jwt-vip",
                 UserMeetID = "um-vip"
             };
             db.UserTBLToMeetingTBLs.Add(attVip);
@@ -167,6 +171,7 @@ namespace CoreMe.Tests
                 DateInsert = DateTime.UtcNow.AddHours(-1.5),
                 DateUpdate = DateTime.UtcNow,
                 IsCertificated = false,
+                TokenJWT = "jwt-guest",
                 UserMeetID = "um-guest"
             };
             db.UserTBLToMeetingTBLs.Add(attGuest);
@@ -190,12 +195,12 @@ namespace CoreMe.Tests
 
             // Assert
             Assert.NotNull(output.Result);
-            Assert.Equal(200, output.Result.Value.Status);
-            Assert.NotNull(output.Result.Value.Members);
-            Assert.Equal(3, output.Result.Value.Members.Count);
+            Assert.Equal(200, output.Result.data.Status);
+            Assert.NotNull(output.Result.data.Members);
+            Assert.Equal(3, output.Result.data.Members.Count);
 
             // Check Teacher Attendee tags
-            var teacherResult = output.Result.Value.Members.FirstOrDefault(m => m.ID == attTeacher.ID);
+            var teacherResult = output.Result.data.Members.FirstOrDefault(m => m.ID == attTeacher.ID);
             Assert.NotNull(teacherResult);
             Assert.True(teacherResult.IsTeacher);
             Assert.False(teacherResult.IsMemberVIP);
@@ -203,7 +208,7 @@ namespace CoreMe.Tests
             Assert.False(teacherResult.HasTakenCertificate);
 
             // Check VIP Attendee tags
-            var vipResult = output.Result.Value.Members.FirstOrDefault(m => m.ID == attVip.ID);
+            var vipResult = output.Result.data.Members.FirstOrDefault(m => m.ID == attVip.ID);
             Assert.NotNull(vipResult);
             Assert.False(vipResult.IsTeacher);
             Assert.True(vipResult.IsMemberVIP);
@@ -212,7 +217,7 @@ namespace CoreMe.Tests
             Assert.Equal("https://vc.hekmateislami.com/cert/certif-20.pdf", vipResult.CertificateURL);
 
             // Check Guest Attendee tags
-            var guestResult = output.Result.Value.Members.FirstOrDefault(m => m.ID == attGuest.ID);
+            var guestResult = output.Result.data.Members.FirstOrDefault(m => m.ID == attGuest.ID);
             Assert.NotNull(guestResult);
             Assert.False(guestResult.IsTeacher);
             Assert.False(guestResult.IsMemberVIP);

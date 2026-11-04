@@ -287,6 +287,35 @@ namespace CoreMe.VM
         public bool IsBannerAndPresentationSame { get; set; } = true;
 
     }
+    public class BotNewPlanRoomViewModel
+    {
+        public string? FriendlyID { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public string? Teachers { get; set; }
+        public string? Teacher { get; set; }
+        public string? Dabir { get; set; }
+        public string Date { get; set; } = string.Empty;
+        public string? Time { get; set; }
+        public IFormFile? Banner { get; set; }
+        public IFormFile? BannerPresentation { get; set; }
+        public bool IsBannerAndPresentationSame { get; set; } = true;
+        public string? Secret { get; set; }
+    }
+    public class UpdatePlanRoomViewModel
+    {
+        public long IDPlan { get; set; }
+        public string? FriendlyID { get; set; }
+        public string? Title { get; set; }
+        public string? Teacher { get; set; }
+        public string? Teachers { get; set; }
+        public string? Dabir { get; set; }
+        public DateTime? StartDate { get; set; }
+        public string? Date { get; set; }
+        public string? Time { get; set; }
+        public IFormFile? Banner { get; set; }
+        public IFormFile? BannerPresentation { get; set; }
+        public bool IsBannerAndPresentationSame { get; set; } = true;
+    }
     public class UpdatePresentMinToCertOfMeetViewModel
     {
         public int Minutes { get; set; }

@@ -483,6 +483,51 @@ namespace Application.DTO
     }
     #endregion
 
+    #region BotNewPlanRoom
+    public class BotNewPlanRoomRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<BotNewPlanRoomResponse>>
+    {
+        public string? FriendlyID { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public string? Teachers { get; set; }
+        public string? Teacher { get; set; }
+        public string? Dabir { get; set; }
+        public string Date { get; set; } = string.Empty; // Format e.g. 1405/08/13
+        public string? Time { get; set; } // Format e.g. 10:30
+        public IFormFile? Banner { get; set; }
+        public IFormFile? BannerPresentation { get; set; }
+        public bool IsBannerAndPresentationSame { get; set; } = true;
+        public string? Secret { get; set; }
+    }
+
+    public class BotNewPlanRoomResponse : BaseParentResponce
+    {
+        public object? Data { get; set; }
+    }
+    #endregion
+
+    #region UpdatePlanRoom
+    public class UpdatePlanRoomRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<UpdatePlanRoomResponse>>
+    {
+        public long IDPlan { get; set; }
+        public string? FriendlyID { get; set; }
+        public string? Title { get; set; }
+        public string? Teacher { get; set; }
+        public string? Teachers { get; set; }
+        public string? Dabir { get; set; }
+        public DateTime? StartDate { get; set; }
+        public string? Date { get; set; } // Optional Jalali date
+        public string? Time { get; set; } // Optional time
+        public IFormFile? Banner { get; set; }
+        public IFormFile? BannerPresentation { get; set; }
+        public bool IsBannerAndPresentationSame { get; set; } = true;
+    }
+
+    public class UpdatePlanRoomResponse : BaseParentResponce
+    {
+        public object? Data { get; set; }
+    }
+    #endregion
+
     #region NewReservation
     public class NewReservationRequest : BaseParentRequest, IUseCaseRequest<GenericResponse<NewReservationResponse>>
     {

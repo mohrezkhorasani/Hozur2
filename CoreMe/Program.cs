@@ -201,6 +201,8 @@ builder.Services.AddScoped<IGetHekmatShobeUseCase, GetHekmatShobeUseCase>();
 builder.Services.AddScoped<IEditSlideShowUseCase, EditSlideShowUseCase>();
 builder.Services.AddScoped<IInsertSlideShowUseCase, InsertSlideShowUseCase>();
 builder.Services.AddScoped<INewPlanRoomUseCase, NewPlanRoomUseCase>();
+builder.Services.AddScoped<IBotNewPlanRoomUseCase, BotNewPlanRoomUseCase>();
+builder.Services.AddScoped<IUpdatePlanRoomUseCase, UpdatePlanRoomUseCase>();
 builder.Services.AddScoped<IGetLatestMeetingsUseCase, GetLatestMeetingsUseCase>();
 builder.Services.AddScoped<IDeletePlanRoomUseCase, DeletePlanRoomUseCase>();
 builder.Services.AddScoped<IChangeAvatarOfRoomUseCase, ChangeAvatarOfRoomUseCase>();

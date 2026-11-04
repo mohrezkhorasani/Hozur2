@@ -79,6 +79,10 @@ namespace CoreMe.Controllers
         public ApiPresenter<NewQuestionResponse> _NewQuestionResponse { get; }
         public INewPlanRoomUseCase _INewPlanRoomUseCase { get; }
         public ApiPresenter<NewPlanRoomResponse> _NewPlanRoomResponse { get; }
+        public IBotNewPlanRoomUseCase? _IBotNewPlanRoomUseCase { get; }
+        public ApiPresenter<BotNewPlanRoomResponse>? _BotNewPlanRoomResponse { get; }
+        public IUpdatePlanRoomUseCase? _IUpdatePlanRoomUseCase { get; }
+        public ApiPresenter<UpdatePlanRoomResponse>? _UpdatePlanRoomResponse { get; }
         public IGetQuestionOfMeetUseCase _IGetQuestionOfMeetUseCase { get; }
         public ApiPresenter<GetQuestionOfMeetResponse> _GetQuestionOfMeetResponse { get; }
         public IQuestionAnsweredUseCase _IQuestionAnsweredUseCase { get; }
@@ -134,7 +138,7 @@ namespace CoreMe.Controllers
         public IDeletePlanRoomUseCase _IDeletePlanRoomUseCase { get; }
         public ApiPresenter<DeletePlanRoomResponse> _DeletePlanRoomResponse { get; }
 
-        public BBBController(ILogger<BBBController> logger, IMapper mapper, INewUserUseCase iNewUserUseCase, ApiPresenter<NewUserResponse> newUserResponse, INewMeetingUseCase iNewMeetingUseCase, ApiPresenter<NewMeetingResponse> newMeetingResponse, IUpdateMeetingUseCase iUpdateMeetingUseCase, ApiPresenter<UpdateMeetingResponse> updateMeetingResponse, ISencCheckListOfAttendsUseCase iSencCheckListOfAttendsUseCase, ApiPresenter<SencCheckListOfAttendsResponse> sencCheckListOfAttendsResponse, IEditRoomUseCase iEditRoomUseCase, ApiPresenter<EditRoomResponse> editRoomResponse, IGetAttendsInBBBForAdminUseCase iGetAttendsInBBBForAdminUseCase, ApiPresenter<GetAttendsInBBBForAdminResponse> getAttendsInBBBForAdminResponse, INewUserMettingsUseCase iNewUserMettingsUseCase, ApiPresenter<NewUserMettingsResponse> newUserMettingsResponse, INewUserMeetingLogUseCase iNewUserMeetingLogUseCase, ApiPresenter<NewUserMeetingLogResponse> newUserMeetingLogResponse, INewUserMeetingLogFromModeratorUseCase iNewUserMeetingLogFromModeratorUseCase, ApiPresenter<NewUserMeetingLogFromModeratorResponse> newUserMeetingLogFromModeratorResponse, IGetTeacherListUseCase iGetTeacherListUseCase, ApiPresenter<GetTeacherListResponse> getTeacherListResponse, IGetRoomsUseCase iGetRoomsUseCase, ApiPresenter<GetRoomsResponse> getRoomsResponse, IGetRoomsPublicUseCase iGetRoomsPublicUseCase, ApiPresenter<GetRoomsPublicResponse> getRoomsPublicResponse, IGetLivesOfProfileUseCase iGetLivesOfProfileUseCase, ApiPresenter<GetLivesOfProfileResponse> getLivesOfProfileResponse, IGetLivesUseCase iGetLivesUseCase, ApiPresenter<GetLivesResponse> getLivesResponse, IGetLiveWithIDUseCase iGetLiveWithIDUseCase, ApiPresenter<GetLiveWithIDResponse> getLiveWithIDResponse, IGetMembersOfMeetUseCase iGetMembersOfMeetUseCase, ApiPresenter<GetMembersOfMeetResponse> getMembersOfMeetResponse, IGetRoomCalendarActivityUseCase iGetRoomCalendarActivityUseCase, ApiPresenter<GetRoomCalendarActivityResponse> getRoomCalendarActivityResponse, IGetLivesPublicUseCase iGetLivesPublicUseCase, ApiPresenter<GetLivesPublicResponse> getLivesPublicResponse, IStartNewMeetUseCase iStartNewMeetUseCase, ApiPresenter<StartNewMeetResponse> startNewMeetResponse, IGetMeetingURLUseCase iGetMeetingURLUseCase, ApiPresenter<GetMeetingURLResponse> getMeetingURLResponse, IGetRoomByFriendlyIDUseCase iGetRoomByFriendlyIDUseCase, ApiPresenter<GetRoomByFriendlyIDResponse> getRoomByFriendlyIDResponse, INewRoomUseCase iNewRoomUseCase, ApiPresenter<NewRoomResponse> newRoomResponse, IGenerateCertificateUseCase iGenerateCertificateUseCase, ApiPresenter<GenerateCertificateResponse> generateCertificateResponse, IGuarantCertificateUseCase iGuarantCertificateUseCase, ApiPresenter<GuarantCertificateResponse> guarantCertificateResponse, IEndTheMeetingUseCase iEndTheMeetingUseCase, ApiPresenter<EndTheMeetingResponse> endTheMeetingResponse, IGetTheMembersUseCase iGetTheMembersUseCase, ApiPresenter<GetTheMembersResponse> getTheMembersResponse, IEndTheMeetingWithAPIUseCase iEndTheMeetingWithAPIUseCase, ApiPresenter<EndTheMeetingWithAPIResponse> endTheMeetingWithAPIResponse, INewQuestionUseCase iNewQuestionUseCase, ApiPresenter<NewQuestionResponse> newQuestionResponse, INewPlanRoomUseCase iNewPlanRoomUseCase, ApiPresenter<NewPlanRoomResponse> newPlanRoomResponse, IGetQuestionOfMeetUseCase iGetQuestionOfMeetUseCase, ApiPresenter<GetQuestionOfMeetResponse> getQuestionOfMeetResponse, IQuestionAnsweredUseCase iQuestionAnsweredUseCase, ApiPresenter<QuestionAnsweredResponse> questionAnsweredResponse, ISignInUserPanelUseCase iSignInUserPanelUseCase, ApiPresenter<SignInUserPanelResponse> signInUserPanelResponse, ILoginUserPanelUseCase iLoginUserPanelUseCase, ApiPresenter<LoginUserPanelResponse> loginUserPanelResponse, IVerifyTokenUseCase iVerifyTokenUseCase, ApiPresenter<VerifyTokenResponse> verifyTokenResponse, IGetSlideShowUseCase iGetSlideShowUseCase, ApiPresenter<GetSlideShowResponse> getSlideShowResponse, ISendOTPConfirmationUseCase iSendOTPConfirmationUseCase, ApiPresenter<SendOTPConfirmationResponse> sendOTPConfirmationResponse, IConfirmOTPUseCase iConfirmOTPUseCase, ApiPresenter<ConfirmOTPResponse> confirmOTPResponse, IContactusUseCase iContactusUseCase, ApiPresenter<ContactusResponse> contactusResponse, IGetProfileInfoUseCase iGetProfileInfoUseCase, ApiPresenter<GetProfileInfoResponse> getProfileInfoResponse, IFollowProfileUseCase iFollowProfileUseCase, ApiPresenter<FollowProfileResponse> followProfileResponse, IGetReservationUseCase iGetReservationUseCase, ApiPresenter<GetReservationResponse> getReservationResponse, INewReservationUseCase iNewReservationUseCase, ApiPresenter<NewReservationResponse> newReservationResponse, IGetHekmatShobeUseCase iGetHekmatShobeUseCase, ApiPresenter<GetHekmatShobeResponse> getHekmatShobeResponse, IGetPlanRoomUseCase iGetPlanRoomUseCase, ApiPresenter<GetPlanRoomResponse> getPlanRoomResponse, IGetPlanRoomPublicUseCase iGetPlanRoomPublicUseCase, ApiPresenter<GetPlanRoomPublicResponse> getPlanRoomPublicResponse, IGetLatestMeetingsUseCase iGetLatestMeetingsUseCase, ApiPresenter<GetLatestMeetingsResponse> getLatestMeetingsResponse, IGetPollListUseCase iGetPollListUseCase, ApiPresenter<GetPollListResponse> getPollListResponse, IGetUnansweredPollListUseCase iGetUnansweredPollListUseCase, ApiPresenter<GetUnansweredPollListResponse> getUnansweredPollListResponse, IGetFileStorageUseCase iGetFileStorageUseCase, ApiPresenter<GetFileStorageResponse> getFileStorageResponse, IGetSingleFileUseCase iGetSingleFileUseCase, ApiPresenter<GetSingleFileResponse> getSingleFileResponse, IAnswerPollListUseCase iAnswerPollListUseCase, ApiPresenter<AnswerPollListResponse> answerPollListResponse, IUpdatePresentMinToCertOfMeetUseCase iUpdatePresentMinToCertOfMeetUseCase, ApiPresenter<UpdatePresentMinToCertOfMeetResponse> updatePresentMinToCertOfMeetResponse, IUploadFileStorageUseCase iUploadFileStorageUseCase, ApiPresenter<UploadFileStorageResponse> uploadFileStorageResponse, IDeletePlanRoomUseCase iDeletePlanRoomUseCase, ApiPresenter<DeletePlanRoomResponse> deletePlanRoomResponse, IVerifyCertificateUserUseCase iVerifyCertificateUserUseCase, ApiPresenter<VerifyCertificateUserResponse> verifyCertificateUserResponse, IConfirmCertVerificationUseCase iConfirmCertVerificationUseCase, ApiPresenter<ConfirmCertVerificationResponse> confirmCertVerificationResponse)
+        public BBBController(ILogger<BBBController> logger, IMapper mapper, INewUserUseCase iNewUserUseCase, ApiPresenter<NewUserResponse> newUserResponse, INewMeetingUseCase iNewMeetingUseCase, ApiPresenter<NewMeetingResponse> newMeetingResponse, IUpdateMeetingUseCase iUpdateMeetingUseCase, ApiPresenter<UpdateMeetingResponse> updateMeetingResponse, ISencCheckListOfAttendsUseCase iSencCheckListOfAttendsUseCase, ApiPresenter<SencCheckListOfAttendsResponse> sencCheckListOfAttendsResponse, IEditRoomUseCase iEditRoomUseCase, ApiPresenter<EditRoomResponse> editRoomResponse, IGetAttendsInBBBForAdminUseCase iGetAttendsInBBBForAdminUseCase, ApiPresenter<GetAttendsInBBBForAdminResponse> getAttendsInBBBForAdminResponse, INewUserMettingsUseCase iNewUserMettingsUseCase, ApiPresenter<NewUserMettingsResponse> newUserMettingsResponse, INewUserMeetingLogUseCase iNewUserMeetingLogUseCase, ApiPresenter<NewUserMeetingLogResponse> newUserMeetingLogResponse, INewUserMeetingLogFromModeratorUseCase iNewUserMeetingLogFromModeratorUseCase, ApiPresenter<NewUserMeetingLogFromModeratorResponse> newUserMeetingLogFromModeratorResponse, IGetTeacherListUseCase iGetTeacherListUseCase, ApiPresenter<GetTeacherListResponse> getTeacherListResponse, IGetRoomsUseCase iGetRoomsUseCase, ApiPresenter<GetRoomsResponse> getRoomsResponse, IGetRoomsPublicUseCase iGetRoomsPublicUseCase, ApiPresenter<GetRoomsPublicResponse> getRoomsPublicResponse, IGetLivesOfProfileUseCase iGetLivesOfProfileUseCase, ApiPresenter<GetLivesOfProfileResponse> getLivesOfProfileResponse, IGetLivesUseCase iGetLivesUseCase, ApiPresenter<GetLivesResponse> getLivesResponse, IGetLiveWithIDUseCase iGetLiveWithIDUseCase, ApiPresenter<GetLiveWithIDResponse> getLiveWithIDResponse, IGetMembersOfMeetUseCase iGetMembersOfMeetUseCase, ApiPresenter<GetMembersOfMeetResponse> getMembersOfMeetResponse, IGetRoomCalendarActivityUseCase iGetRoomCalendarActivityUseCase, ApiPresenter<GetRoomCalendarActivityResponse> getRoomCalendarActivityResponse, IGetLivesPublicUseCase iGetLivesPublicUseCase, ApiPresenter<GetLivesPublicResponse> getLivesPublicResponse, IStartNewMeetUseCase iStartNewMeetUseCase, ApiPresenter<StartNewMeetResponse> startNewMeetResponse, IGetMeetingURLUseCase iGetMeetingURLUseCase, ApiPresenter<GetMeetingURLResponse> getMeetingURLResponse, IGetRoomByFriendlyIDUseCase iGetRoomByFriendlyIDUseCase, ApiPresenter<GetRoomByFriendlyIDResponse> getRoomByFriendlyIDResponse, INewRoomUseCase iNewRoomUseCase, ApiPresenter<NewRoomResponse> newRoomResponse, IGenerateCertificateUseCase iGenerateCertificateUseCase, ApiPresenter<GenerateCertificateResponse> generateCertificateResponse, IGuarantCertificateUseCase iGuarantCertificateUseCase, ApiPresenter<GuarantCertificateResponse> guarantCertificateResponse, IEndTheMeetingUseCase iEndTheMeetingUseCase, ApiPresenter<EndTheMeetingResponse> endTheMeetingResponse, IGetTheMembersUseCase iGetTheMembersUseCase, ApiPresenter<GetTheMembersResponse> getTheMembersResponse, IEndTheMeetingWithAPIUseCase iEndTheMeetingWithAPIUseCase, ApiPresenter<EndTheMeetingWithAPIResponse> endTheMeetingWithAPIResponse, INewQuestionUseCase iNewQuestionUseCase, ApiPresenter<NewQuestionResponse> newQuestionResponse, INewPlanRoomUseCase iNewPlanRoomUseCase, ApiPresenter<NewPlanRoomResponse> newPlanRoomResponse, IGetQuestionOfMeetUseCase iGetQuestionOfMeetUseCase, ApiPresenter<GetQuestionOfMeetResponse> getQuestionOfMeetResponse, IQuestionAnsweredUseCase iQuestionAnsweredUseCase, ApiPresenter<QuestionAnsweredResponse> questionAnsweredResponse, ISignInUserPanelUseCase iSignInUserPanelUseCase, ApiPresenter<SignInUserPanelResponse> signInUserPanelResponse, ILoginUserPanelUseCase iLoginUserPanelUseCase, ApiPresenter<LoginUserPanelResponse> loginUserPanelResponse, IVerifyTokenUseCase iVerifyTokenUseCase, ApiPresenter<VerifyTokenResponse> verifyTokenResponse, IGetSlideShowUseCase iGetSlideShowUseCase, ApiPresenter<GetSlideShowResponse> getSlideShowResponse, ISendOTPConfirmationUseCase iSendOTPConfirmationUseCase, ApiPresenter<SendOTPConfirmationResponse> sendOTPConfirmationResponse, IConfirmOTPUseCase iConfirmOTPUseCase, ApiPresenter<ConfirmOTPResponse> confirmOTPResponse, IContactusUseCase iContactusUseCase, ApiPresenter<ContactusResponse> contactusResponse, IGetProfileInfoUseCase iGetProfileInfoUseCase, ApiPresenter<GetProfileInfoResponse> getProfileInfoResponse, IFollowProfileUseCase iFollowProfileUseCase, ApiPresenter<FollowProfileResponse> followProfileResponse, IGetReservationUseCase iGetReservationUseCase, ApiPresenter<GetReservationResponse> getReservationResponse, INewReservationUseCase iNewReservationUseCase, ApiPresenter<NewReservationResponse> newReservationResponse, IGetHekmatShobeUseCase iGetHekmatShobeUseCase, ApiPresenter<GetHekmatShobeResponse> getHekmatShobeResponse, IGetPlanRoomUseCase iGetPlanRoomUseCase, ApiPresenter<GetPlanRoomResponse> getPlanRoomResponse, IGetPlanRoomPublicUseCase iGetPlanRoomPublicUseCase, ApiPresenter<GetPlanRoomPublicResponse> getPlanRoomPublicResponse, IGetLatestMeetingsUseCase iGetLatestMeetingsUseCase, ApiPresenter<GetLatestMeetingsResponse> getLatestMeetingsResponse, IGetPollListUseCase iGetPollListUseCase, ApiPresenter<GetPollListResponse> getPollListResponse, IGetUnansweredPollListUseCase iGetUnansweredPollListUseCase, ApiPresenter<GetUnansweredPollListResponse> getUnansweredPollListResponse, IGetFileStorageUseCase iGetFileStorageUseCase, ApiPresenter<GetFileStorageResponse> getFileStorageResponse, IGetSingleFileUseCase iGetSingleFileUseCase, ApiPresenter<GetSingleFileResponse> getSingleFileResponse, IAnswerPollListUseCase iAnswerPollListUseCase, ApiPresenter<AnswerPollListResponse> answerPollListResponse, IUpdatePresentMinToCertOfMeetUseCase iUpdatePresentMinToCertOfMeetUseCase, ApiPresenter<UpdatePresentMinToCertOfMeetResponse> updatePresentMinToCertOfMeetResponse, IUploadFileStorageUseCase iUploadFileStorageUseCase, ApiPresenter<UploadFileStorageResponse> uploadFileStorageResponse, IDeletePlanRoomUseCase iDeletePlanRoomUseCase, ApiPresenter<DeletePlanRoomResponse> deletePlanRoomResponse, IVerifyCertificateUserUseCase iVerifyCertificateUserUseCase, ApiPresenter<VerifyCertificateUserResponse> verifyCertificateUserResponse, IConfirmCertVerificationUseCase iConfirmCertVerificationUseCase, ApiPresenter<ConfirmCertVerificationResponse> confirmCertVerificationResponse, IBotNewPlanRoomUseCase? iBotNewPlanRoomUseCase = null, ApiPresenter<BotNewPlanRoomResponse>? botNewPlanRoomResponse = null, IUpdatePlanRoomUseCase? iUpdatePlanRoomUseCase = null, ApiPresenter<UpdatePlanRoomResponse>? updatePlanRoomResponse = null)
         {
             _logger = logger;
             _mapper = mapper;
@@ -196,6 +200,10 @@ namespace CoreMe.Controllers
             _NewQuestionResponse = newQuestionResponse;
             _INewPlanRoomUseCase = iNewPlanRoomUseCase;
             _NewPlanRoomResponse = newPlanRoomResponse;
+            _IBotNewPlanRoomUseCase = iBotNewPlanRoomUseCase;
+            _BotNewPlanRoomResponse = botNewPlanRoomResponse;
+            _IUpdatePlanRoomUseCase = iUpdatePlanRoomUseCase;
+            _UpdatePlanRoomResponse = updatePlanRoomResponse;
             _IGetQuestionOfMeetUseCase = iGetQuestionOfMeetUseCase;
             _GetQuestionOfMeetResponse = getQuestionOfMeetResponse;
             _IQuestionAnsweredUseCase = iQuestionAnsweredUseCase;
@@ -911,6 +919,74 @@ namespace CoreMe.Controllers
 
             await _INewPlanRoomUseCase.handleAsync(req, _NewPlanRoomResponse);
             return _NewPlanRoomResponse.jsonContentResult;
+        }
+
+        [HttpPost("/api/bot/NewPlanRoom")]
+        [HttpPost("/user/BotNewPlanRoom")]
+        public async Task<IActionResult> BotNewPlanRoom([FromForm] BotNewPlanRoomViewModel vm)
+        {
+            var head = HttpContext.GetGeneralHeaders();
+            string secret = vm.Secret ?? "";
+            if (string.IsNullOrWhiteSpace(secret))
+            {
+                secret = Request.Headers["X-Secret"].ToString();
+            }
+            if (string.IsNullOrWhiteSpace(secret))
+            {
+                secret = Request.Headers["X-Bot-Token"].ToString();
+            }
+
+            var req = new BotNewPlanRoomRequest
+            {
+                FriendlyID = vm.FriendlyID,
+                Title = vm.Title,
+                Teachers = vm.Teachers,
+                Teacher = vm.Teacher,
+                Dabir = vm.Dabir,
+                Date = vm.Date,
+                Time = vm.Time,
+                Banner = vm.Banner,
+                BannerPresentation = vm.BannerPresentation,
+                IsBannerAndPresentationSame = vm.IsBannerAndPresentationSame,
+                Secret = secret,
+                GeneralHeaders = head
+            };
+
+            var usecase = _IBotNewPlanRoomUseCase ?? HttpContext.RequestServices.GetRequiredService<IBotNewPlanRoomUseCase>();
+            var presenter = _BotNewPlanRoomResponse ?? HttpContext.RequestServices.GetRequiredService<ApiPresenter<BotNewPlanRoomResponse>>();
+
+            await usecase.handleAsync(req, presenter);
+            return presenter.jsonContentResult;
+        }
+
+        [HttpPost("/user/UpdatePlanRoom")]
+        [HttpPut("/user/UpdatePlanRoom")]
+        [Authorize(AuthenticationSchemes = "vc2AuthNorm")]
+        public async Task<IActionResult> UpdatePlanRoom([FromForm] UpdatePlanRoomViewModel vm)
+        {
+            var head = HttpContext.GetGeneralHeaders();
+            var req = new UpdatePlanRoomRequest
+            {
+                IDPlan = vm.IDPlan,
+                FriendlyID = vm.FriendlyID,
+                Title = vm.Title,
+                Teacher = vm.Teacher,
+                Teachers = vm.Teachers,
+                Dabir = vm.Dabir,
+                StartDate = vm.StartDate,
+                Date = vm.Date,
+                Time = vm.Time,
+                Banner = vm.Banner,
+                BannerPresentation = vm.BannerPresentation,
+                IsBannerAndPresentationSame = vm.IsBannerAndPresentationSame,
+                GeneralHeaders = head
+            };
+
+            var usecase = _IUpdatePlanRoomUseCase ?? HttpContext.RequestServices.GetRequiredService<IUpdatePlanRoomUseCase>();
+            var presenter = _UpdatePlanRoomResponse ?? HttpContext.RequestServices.GetRequiredService<ApiPresenter<UpdatePlanRoomResponse>>();
+
+            await usecase.handleAsync(req, presenter);
+            return presenter.jsonContentResult;
         }
     
         [HttpGet("/user/GetPlanRoom")]

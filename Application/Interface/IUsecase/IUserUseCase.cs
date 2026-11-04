@@ -51,6 +51,8 @@ namespace Application.Interface.IUsecase
     public interface IGetLatestMeetingsUseCase : IUseCaseRequestHandler<GetLatestMeetingsRequest, GenericResponse<GetLatestMeetingsResponse>> { }
     public interface IDeletePlanRoomUseCase : IUseCaseRequestHandler<DeletePlanRoomRequest, GenericResponse<DeletePlanRoomResponse>> { }
     public interface INewPlanRoomUseCase : IUseCaseRequestHandler<NewPlanRoomRequest, GenericResponse<NewPlanRoomResponse>> { }
+    public interface IBotNewPlanRoomUseCase : IUseCaseRequestHandler<BotNewPlanRoomRequest, GenericResponse<BotNewPlanRoomResponse>> { }
+    public interface IUpdatePlanRoomUseCase : IUseCaseRequestHandler<UpdatePlanRoomRequest, GenericResponse<UpdatePlanRoomResponse>> { }
     public interface IGetReservationUseCase : IUseCaseRequestHandler<GetReservationRequest, GenericResponse<GetReservationResponse>> { }
     public interface INewReservationUseCase : IUseCaseRequestHandler<NewReservationRequest, GenericResponse<NewReservationResponse>> { }
     public interface IConfirmOTPUseCase : IUseCaseRequestHandler<ConfirmOTPRequest, GenericResponse<ConfirmOTPResponse>> { }

@@ -4926,6 +4926,388 @@ namespace Application.Usecase
     }
     #endregion
 
+    #region BotNewPlanRoom
+    public class BotNewPlanRoomUseCase : IBotNewPlanRoomUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        private IBBBGetMeetings bbb { get; }
+        private readonly IMediator _mediator;
+        private readonly IConfiguration _configuration;
+
+        public BotNewPlanRoomUseCase(IDBContext repository,
+            IConfiguration configuration,
+            IBBBGetMeetings bbb,
+            IMediator mediator)
+        {
+            _db = repository;
+            _configuration = configuration;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+            this.bbb = bbb;
+            _mediator = mediator;
+        }
+
+        public async Task handleAsync(BotNewPlanRoomRequest message,
+            IOutPutPort<GenericResponse<BotNewPlanRoomResponse>> outputPort)
+        {
+            try
+            {
+                string secretFromHeader = "";
+                if (message.GeneralHeaders != null && !string.IsNullOrWhiteSpace(message.GeneralHeaders.JWTMeetingToken))
+                {
+                    secretFromHeader = message.GeneralHeaders.JWTMeetingToken;
+                }
+
+                const string expectedBotSecret = "xXxxXxXXxXXxXxTokenSecret@1239988mfaMgfo";
+                bool isSecretValid = (!string.IsNullOrWhiteSpace(message.Secret) && message.Secret.Trim() == expectedBotSecret)
+                    || (!string.IsNullOrWhiteSpace(secretFromHeader) && secretFromHeader.Trim() == expectedBotSecret)
+                    || (_configuration["Bot:Secret"] != null && message.Secret == _configuration["Bot:Secret"]);
+
+                bool isUserAuthorized = message.GeneralHeaders?.UserTBL != null &&
+                    (message.GeneralHeaders.UserTBL.VerifyUserPermissions("create_meeting") ||
+                     message.GeneralHeaders.UserTBL.Type == MainEntity_Types.USER_ADMIN ||
+                     message.GeneralHeaders.UserTBL.Type == MainEntity_Types.USER_ADMINSTRATOR);
+
+                if (!isSecretValid && !isUserAuthorized)
+                {
+                    outputPort.Handle(new GenericResponse<BotNewPlanRoomResponse>(new BotNewPlanRoomResponse
+                    {
+                        Message = "دسترسی غیرمجاز. کلید احراز هویت ربات یا توکن مدیریت نامعتبر است",
+                        Status = 401
+                    }));
+                    return;
+                }
+
+                if (string.IsNullOrWhiteSpace(message.Title))
+                {
+                    outputPort.Handle(new GenericResponse<BotNewPlanRoomResponse>(new BotNewPlanRoomResponse
+                    {
+                        Message = "موضوع جلسه الزامی است",
+                        Status = 400
+                    }));
+                    return;
+                }
+
+                RoomTBL? room = null;
+                if (!string.IsNullOrWhiteSpace(message.FriendlyID))
+                {
+                    room = _db.RoomTBLs.FirstOrDefault(e => e.FriendlyID == message.FriendlyID.Trim());
+                }
+
+                if (room == null)
+                {
+                    room = _db.RoomTBLs.FirstOrDefault(e => e.FriendlyID == "jtb-a8e-ydl-05b")
+                        ?? _db.RoomTBLs.FirstOrDefault(e => e.IsPublicRoom && e.Status == MainEntity_Status.Enabled)
+                        ?? _db.RoomTBLs.FirstOrDefault(e => e.Status == MainEntity_Status.Enabled);
+                }
+
+                if (room == null)
+                {
+                    outputPort.Handle(new GenericResponse<BotNewPlanRoomResponse>(new BotNewPlanRoomResponse
+                    {
+                        Message = "اتاق مورد نظر یافت نشد",
+                        Status = 400
+                    }));
+                    return;
+                }
+
+                var (dateSuccess, utcDateTime, dateError) = TeacherNameMatcher.ParseJalaliDateTime(message.Date, message.Time);
+                if (!dateSuccess)
+                {
+                    outputPort.Handle(new GenericResponse<BotNewPlanRoomResponse>(new BotNewPlanRoomResponse
+                    {
+                        Message = dateError,
+                        Status = 400
+                    }));
+                    return;
+                }
+
+                var rawTeachers = !string.IsNullOrWhiteSpace(message.Teachers) ? message.Teachers : (message.Teacher ?? "");
+                var dbTeachers = _db.UserTBLs.Include(u => u.TeacherMeetings).Where(u => u.Type == MainEntity_Types.USER_TEACHER || (u.TeacherMeetings != null && u.TeacherMeetings.Any())).ToList();
+                var matchedTeachers = TeacherNameMatcher.MatchAndFormatTeachers(rawTeachers, dbTeachers);
+
+                string teachersSummary = string.Join("، ", matchedTeachers.Select(m => m.FormattedDisplayName));
+                string teachersJson = JsonConvert.SerializeObject(matchedTeachers.Select(m => new { name = m.FormattedDisplayName, id = m.Id }));
+
+                string? dabirClean = null;
+                if (!string.IsNullOrWhiteSpace(message.Dabir) && !message.Dabir.Trim().Equals("null", StringComparison.OrdinalIgnoreCase))
+                {
+                    var (dabirName, dabirPos) = TeacherNameMatcher.ExtractPosition(message.Dabir);
+                    var dabirCore = TeacherNameMatcher.NormalizePersianText(dabirName);
+                    dabirClean = string.IsNullOrWhiteSpace(dabirPos) ? dabirCore : $"{dabirCore}({dabirPos})";
+                }
+
+                string bannerURL = "";
+                string bannerPresentationURL = "";
+                var uploadPath = @"C:\hekmatFiles\img\plan_baner";
+                if (!Directory.Exists(uploadPath))
+                {
+                    Directory.CreateDirectory(uploadPath);
+                }
+
+                if (message.Banner != null && message.Banner.Length > 0)
+                {
+                    var fileExtension = Path.GetExtension(message.Banner.FileName).ToLower();
+                    var uniqueFileName = $"{Guid.NewGuid()}{fileExtension}";
+                    var filePath = Path.Combine(uploadPath, uniqueFileName);
+
+                    using (var stream = new FileStream(filePath, FileMode.Create))
+                    {
+                        await message.Banner.CopyToAsync(stream);
+                    }
+                    var fileLink = $"/img/plan_baner/{uniqueFileName}";
+                    bannerURL = Statics.CombinePath(Statics.URLFiles, fileLink);
+                }
+
+                if (message.IsBannerAndPresentationSame)
+                {
+                    bannerPresentationURL = bannerURL;
+                }
+                else if (message.BannerPresentation != null && message.BannerPresentation.Length > 0)
+                {
+                    var fileExtension = Path.GetExtension(message.BannerPresentation.FileName).ToLower();
+                    var uniqueFileName = $"{Guid.NewGuid()}{fileExtension}";
+                    var filePath = Path.Combine(uploadPath, uniqueFileName);
+
+                    using (var stream = new FileStream(filePath, FileMode.Create))
+                    {
+                        await message.BannerPresentation.CopyToAsync(stream);
+                    }
+                    var fileLink = $"/img/plan_baner/{uniqueFileName}";
+                    bannerPresentationURL = Statics.CombinePath(Statics.URLFiles, fileLink);
+                }
+
+                var plan = new RoomTBLPlanTBL
+                {
+                    IDRoomTBL = room.ID,
+                    StartDate = utcDateTime.AddHours(-17),
+                    Status = MainEntity_Status.Enabled,
+                    Type = MainEntity_Types.PLAN_NORMAL,
+                    Teachers = teachersSummary,
+                    Dabir = dabirClean,
+                    Title = message.Title.Trim(),
+                    PresentationFileURL = bannerPresentationURL,
+                };
+
+                _db.RoomTBLPlanTBLs.Add(plan);
+
+                if (!string.IsNullOrWhiteSpace(bannerURL))
+                {
+                    _db.SlideshowTBL.Add(new SlideshowTBL
+                    {
+                        DateExpire = plan.StartDate.Value.AddHours(5),
+                        Href = $"/rooms/{room.FriendlyID}/join",
+                        Name = plan.Title,
+                        Path = bannerURL.Replace(Statics.URLFiles, ""),
+                        Position = 2,
+                        Type = MainEntity_Types.Normal,
+                        Status = MainEntity_Status.Enabled
+                    });
+                }
+
+                _db.SaveChanges();
+
+                await _mediator.Publish(new PlanUpdateEvent
+                {
+                    FriendlyID = room.FriendlyID,
+                    Action = "create"
+                });
+
+                outputPort.Handle(new GenericResponse<BotNewPlanRoomResponse>(new BotNewPlanRoomResponse
+                {
+                    Message = "جلسه با موفقیت تنظیم شد",
+                    Status = 200,
+                    Data = new
+                    {
+                        PlanID = plan.ID,
+                        RoomFriendlyID = room.FriendlyID,
+                        Title = plan.Title,
+                        Teachers = plan.Teachers,
+                        TeachersJson = teachersJson,
+                        Dabir = plan.Dabir,
+                        StartDateUtc = utcDateTime,
+                        BannerURL = bannerURL,
+                        MatchedTeachers = matchedTeachers
+                    }
+                }));
+            }
+            catch (Exception e)
+            {
+                Statics.Log("BotNewPlanRoomUseCase", e.Message);
+                outputPort.Handle(new GenericResponse<BotNewPlanRoomResponse>(new BotNewPlanRoomResponse
+                {
+                    Message = "خطای غیرمنتظره در سرور: " + e.Message,
+                    Status = 500
+                }));
+            }
+        }
+    }
+    #endregion
+
+    #region UpdatePlanRoom
+    public class UpdatePlanRoomUseCase : IUpdatePlanRoomUseCase
+    {
+        public IDBContext _db { get; }
+        public CommonMethods _commonMethods { get; }
+        private IWebHostEnvironment hosting;
+        private readonly IMediator _mediator;
+
+        public UpdatePlanRoomUseCase(IDBContext repository,
+            IConfiguration configuration,
+            IMediator mediator)
+        {
+            _db = repository;
+            _commonMethods = new CommonMethods(configuration, repository, hosting);
+            _mediator = mediator;
+        }
+
+        public async Task handleAsync(UpdatePlanRoomRequest message,
+            IOutPutPort<GenericResponse<UpdatePlanRoomResponse>> outputPort)
+        {
+            try
+            {
+                var plan = _db.RoomTBLPlanTBLs.Include(p => p.RoomTBL).FirstOrDefault(p => p.ID == message.IDPlan);
+                if (plan == null)
+                {
+                    outputPort.Handle(new GenericResponse<UpdatePlanRoomResponse>(new UpdatePlanRoomResponse
+                    {
+                        Message = "جلسه مورد نظر یافت نشد",
+                        Status = 404
+                    }));
+                    return;
+                }
+
+                var user = message.GeneralHeaders?.UserTBL;
+                bool hasAccess = user != null &&
+                    (plan.RoomTBL.IDOwnerTBL == user.ID ||
+                     user.VerifyUserPermissions("edit_meeting") ||
+                     user.VerifyUserPermissions("manage_admins") ||
+                     user.Type == MainEntity_Types.USER_ADMIN ||
+                     user.Type == MainEntity_Types.USER_ADMINSTRATOR);
+
+                if (!hasAccess)
+                {
+                    outputPort.Handle(new GenericResponse<UpdatePlanRoomResponse>(new UpdatePlanRoomResponse
+                    {
+                        Message = "دسترسی ندارید",
+                        Status = 403
+                    }));
+                    return;
+                }
+
+                if (!string.IsNullOrWhiteSpace(message.Title))
+                {
+                    plan.Title = message.Title.Trim();
+                }
+
+                var rawTeachers = !string.IsNullOrWhiteSpace(message.Teachers) ? message.Teachers : message.Teacher;
+                if (!string.IsNullOrWhiteSpace(rawTeachers))
+                {
+                    var dbTeachers = _db.UserTBLs.Include(u => u.TeacherMeetings).Where(u => u.Type == MainEntity_Types.USER_TEACHER || (u.TeacherMeetings != null && u.TeacherMeetings.Any())).ToList();
+                    var matched = TeacherNameMatcher.MatchAndFormatTeachers(rawTeachers, dbTeachers);
+                    plan.Teachers = string.Join("، ", matched.Select(m => m.FormattedDisplayName));
+                }
+
+                if (message.Dabir != null)
+                {
+                    if (string.IsNullOrWhiteSpace(message.Dabir) || message.Dabir.Trim().Equals("null", StringComparison.OrdinalIgnoreCase))
+                    {
+                        plan.Dabir = null;
+                    }
+                    else
+                    {
+                        var (dabirName, dabirPos) = TeacherNameMatcher.ExtractPosition(message.Dabir);
+                        var dabirCore = TeacherNameMatcher.NormalizePersianText(dabirName);
+                        plan.Dabir = string.IsNullOrWhiteSpace(dabirPos) ? dabirCore : $"{dabirCore}({dabirPos})";
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(message.Date))
+                {
+                    var (dateSuccess, utcDate, _) = TeacherNameMatcher.ParseJalaliDateTime(message.Date, message.Time);
+                    if (dateSuccess)
+                    {
+                        plan.StartDate = utcDate.AddHours(-17);
+                    }
+                }
+                else if (message.StartDate.HasValue)
+                {
+                    plan.StartDate = message.StartDate.Value.AddHours(-17);
+                }
+
+                var uploadPath = @"C:\hekmatFiles\img\plan_baner";
+                if (!Directory.Exists(uploadPath)) Directory.CreateDirectory(uploadPath);
+
+                string? newBannerUrl = null;
+                if (message.Banner != null && message.Banner.Length > 0)
+                {
+                    var fileExtension = Path.GetExtension(message.Banner.FileName).ToLower();
+                    var uniqueFileName = $"{Guid.NewGuid()}{fileExtension}";
+                    var filePath = Path.Combine(uploadPath, uniqueFileName);
+
+                    using (var stream = new FileStream(filePath, FileMode.Create))
+                    {
+                        await message.Banner.CopyToAsync(stream);
+                    }
+                    var fileLink = $"/img/plan_baner/{uniqueFileName}";
+                    newBannerUrl = Statics.CombinePath(Statics.URLFiles, fileLink);
+                }
+
+                if (message.IsBannerAndPresentationSame && !string.IsNullOrWhiteSpace(newBannerUrl))
+                {
+                    plan.PresentationFileURL = newBannerUrl;
+                }
+                else if (message.BannerPresentation != null && message.BannerPresentation.Length > 0)
+                {
+                    var fileExtension = Path.GetExtension(message.BannerPresentation.FileName).ToLower();
+                    var uniqueFileName = $"{Guid.NewGuid()}{fileExtension}";
+                    var filePath = Path.Combine(uploadPath, uniqueFileName);
+
+                    using (var stream = new FileStream(filePath, FileMode.Create))
+                    {
+                        await message.BannerPresentation.CopyToAsync(stream);
+                    }
+                    var fileLink = $"/img/plan_baner/{uniqueFileName}";
+                    plan.PresentationFileURL = Statics.CombinePath(Statics.URLFiles, fileLink);
+                }
+
+                _db.RoomTBLPlanTBLs.Update(plan);
+                _db.SaveChanges();
+
+                await _mediator.Publish(new PlanUpdateEvent
+                {
+                    FriendlyID = plan.RoomTBL.FriendlyID,
+                    Action = "update"
+                });
+
+                outputPort.Handle(new GenericResponse<UpdatePlanRoomResponse>(new UpdatePlanRoomResponse
+                {
+                    Message = "جلسه با موفقیت ویرایش شد",
+                    Status = 200,
+                    Data = new
+                    {
+                        PlanID = plan.ID,
+                        Title = plan.Title,
+                        Teachers = plan.Teachers,
+                        Dabir = plan.Dabir,
+                        StartDate = plan.StartDate
+                    }
+                }));
+            }
+            catch (Exception ex)
+            {
+                Statics.Log("UpdatePlanRoomUseCase", ex.Message);
+                outputPort.Handle(new GenericResponse<UpdatePlanRoomResponse>(new UpdatePlanRoomResponse
+                {
+                    Message = "خطا در ویرایش جلسه: " + ex.Message,
+                    Status = 500
+                }));
+            }
+        }
+    }
+    #endregion
+
     #region GetPlanRoom
     public class GetPlanRoomUseCase : IGetPlanRoomUseCase
     {

@@ -80,7 +80,7 @@ namespace CoreMe.Tests
         public Task<List<MiniRoomJSON>> RequestAll(GetLivesRequest req) => Task.FromResult(new List<MiniRoomJSON>());
         public Task<List<MiniRoomJSON>> Request(GetLiveWithIDRequest req) => Task.FromResult(new List<MiniRoomJSON>());
         public Task<List<MiniRoomJSON>> GetLivesShort(GetLivesRequest req) => Task.FromResult(new List<MiniRoomJSON>());
-        public Task<MeetJSON> CreateMeetingAsync(RoomTBL room) => Task.FromResult(new MeetJSON());
+        public Task<MeetJSON> CreateMeetingAsync(RoomTBL room, RoomTBLPlanTBL? plan = null) => Task.FromResult(new MeetJSON());
         public Task<string> GetJoinUrlAsync(MeetingTBL meet, string fullName, string userId, string nationalCode, string phone = "", string vc2AuthNorm = "", bool asModerator = false, string moderatorPassowrd = "") => Task.FromResult("https://fake.url");
         public Task GetMeeting(string meetingId) => Task.CompletedTask;
         public Task<bool> EndMeetingAsync(string meetingId, string moderatorPass = "") => Task.FromResult(true);
