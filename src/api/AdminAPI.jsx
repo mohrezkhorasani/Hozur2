@@ -184,6 +184,21 @@ export async function NewPlanRoom(data) {
     if (json.status !== 200) throw new Error(json.message || "خطا در ایجاد اتاق");
     return json;
 }
+export async function UpdatePlanRoom(data) {
+    const url = combinePath(BaseURL, `/user/UpdatePlanRoom`);
+    const res = await fetch(url, {
+        method: "POST",
+        headers: {
+            ...NormalHeaderAPI,
+        },
+        body: data
+    });
+    if (!res.ok) throw new Error("Failed to update plan room");
+    const json = await res.json();
+    if (json.status !== 200) throw new Error(json.message || "خطا در ویرایش جلسه");
+    return json;
+}
+
 export async function DeletePlanRoom(idplan) {
     //console.log(`Deleting plan room with ID: ${idplan}`);
     const url = combinePath(BaseURL, `/user/DeletePlanRoom/${idplan}`);
