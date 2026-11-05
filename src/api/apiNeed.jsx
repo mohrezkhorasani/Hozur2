@@ -1,10 +1,22 @@
 import Cookies from 'js-cookie';
 
-// export const BaseURL = "https://core.hekmateislami.com/"
-// export const BaseURL = "https://192.168.0.122:7087/"
-export const BaseURL = "https://vc9.hekmateislami.com/"; // this is localhost for DEBUG
-export const BaseURLFiles = "https://vcfile.hekmateislami.com/";
-export const BaseURLSite = "https://vc2.hekmateislami.com/";
+const normalizeBaseUrl = (url, fallback) => {
+  const target = (url && url.trim()) || fallback;
+  return target.endsWith('/') ? target : `${target}/`;
+};
+
+export const BaseURL = normalizeBaseUrl(
+  import.meta.env.VITE_API_BASE_URL,
+  import.meta.env.DEV ? "https://vc9.hekmateislami.com/" : "https://core.hekmateislami.com/"
+);
+export const BaseURLFiles = normalizeBaseUrl(
+  import.meta.env.VITE_BASE_URL_FILES,
+  "https://vcfile.hekmateislami.com/"
+);
+export const BaseURLSite = normalizeBaseUrl(
+  import.meta.env.VITE_BASE_URL_SITE,
+  "https://vc2.hekmateislami.com/"
+);
 
 /**
  * Returns cookie domain if running under .hekmateislami.com, otherwise undefined (for localhost/IP).

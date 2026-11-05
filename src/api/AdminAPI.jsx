@@ -511,7 +511,7 @@ export async function UpdateWebhookCallbackURL(hookID, newCallbackURL) {
 
 
 export async function GetPollReport(meetID, qid = null, userid = null) {
-    let url = `${BaseURL}admin/poll/GetPollReport?MeetID=${meetID}`;
+    let url = combinePath(BaseURL, `/admin/poll/GetPollReport?MeetID=${meetID}`);
     
     if (qid && qid !== null) {
         url += `&QID=${qid}`;

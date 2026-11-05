@@ -1,12 +1,15 @@
 // src/config.js
+const envApiUrl = typeof import.meta !== 'undefined' ? import.meta?.env?.VITE_API_BASE_URL : undefined;
+const envSiteUrl = typeof import.meta !== 'undefined' ? import.meta?.env?.VITE_BASE_URL_SITE : undefined;
+
 const config = {
   development: {
-    API_BASE_URL: "https://localhost:7087",
-    REACT_BASE_URL: "http://localhost:3000",
+    API_BASE_URL: envApiUrl || "https://vc9.hekmateislami.com",
+    REACT_BASE_URL: envSiteUrl || "http://localhost:3000",
   },
   production: {
-    API_BASE_URL: "https://core.hekmateislami.com",
-    REACT_BASE_URL: "https://vc2.hekmateislami.com",
+    API_BASE_URL: envApiUrl || "https://core.hekmateislami.com",
+    REACT_BASE_URL: envSiteUrl || "https://vc2.hekmateislami.com",
   },
 };
 
