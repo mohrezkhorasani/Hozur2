@@ -60,6 +60,7 @@ function JoinForm() {
   const [roomDetails, setRoomDetails] = useState(null);
   const [roomLive, setRoomLive] = useState([]);
   const [isMeetingLive, setIsMeetingLive] = useState(false);
+  const [isCheckingLive, setIsCheckingLive] = useState(true);
   const [nextSessionInfo, setNextSessionInfo] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
 
@@ -187,8 +188,6 @@ function JoinForm() {
           });
         }
       }
-
-      checkLives();
     } catch (error) {
       console.error('Error fetching meeting info:', error);
       setMeet(null);
@@ -196,27 +195,41 @@ function JoinForm() {
     }
   };
 
-  const checkLives = async () => {
+  const checkLives = async (isInitial = false) => {
     try {
       let livedata = await fetchRoomLivesPublicWithID(Mid);
       if (!Array.isArray(livedata) || livedata.length === 0) {
         livedata = await fetchRoomLivesPublic();
       }
-      setRoomLive(livedata || []);
+      const list = livedata || [];
+      setRoomLive(list);
+      const liveStatus = list.some((room) => room.roomID === Mid || room.RoomID === Mid || room.friendlyID === Mid);
+      setIsMeetingLive(liveStatus);
     } catch (error) {
       console.error('Error fetching live rooms:', error);
+    } finally {
+      if (isInitial) {
+        setIsCheckingLive(false);
+      }
     }
   };
 
   useEffect(() => {
+    setIsCheckingLive(true);
+    // 1. Immediately check live status in parallel on mount so user doesn't wait
+    checkLives(true);
+    // 2. Fetch room details in parallel
     fetchMeetingInfo();
-    const intervalId = setInterval(checkLives, 15000);
+
+    const intervalId = setInterval(() => checkLives(false), 15000);
     return () => clearInterval(intervalId);
   }, [Mid]);
 
   useEffect(() => {
-    const liveStatus = (roomLive || []).some((room) => room.roomID === Mid);
-    setIsMeetingLive(liveStatus);
+    if (roomLive && roomLive.length > 0) {
+      const liveStatus = roomLive.some((room) => room.roomID === Mid || room.RoomID === Mid || room.friendlyID === Mid);
+      setIsMeetingLive(liveStatus);
+    }
   }, [roomLive, Mid]);
 
   useEffect(() => {
@@ -912,10 +925,19 @@ function JoinForm() {
                     {meet?.title || 'در حال بارگذاری اطلاعات جلسه...'}
                   </h2>
                 </div>
-                {isMeetingLive && (
+                {isCheckingLive ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 text-amber-800 rounded-full text-xs font-bold border border-amber-200/80 shadow-sm flex-shrink-0 animate-pulse">
+                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
+                    در حال بررسی وضعیت...
+                  </span>
+                ) : isMeetingLive ? (
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-red-500 text-white rounded-full text-xs font-black shadow-md animate-pulse flex-shrink-0">
                     <span className="w-2 h-2 rounded-full bg-white"></span>
                     زنده (آنلاین)
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-semibold border border-gray-200 flex-shrink-0">
+                    غیرفعال
                   </span>
                 )}
               </div>
@@ -938,8 +960,21 @@ function JoinForm() {
             </div>
 
             {/* Live Banner or Next Session Card */}
-            {isMeetingLive ? (
-              <div className="bg-gradient-to-r from-emerald-600 to-teal-700 text-white p-4 rounded-2xl mb-5 shadow-lg shadow-emerald-900/20 flex items-center gap-3">
+            {isCheckingLive ? (
+              <div className="bg-gradient-to-r from-amber-50 to-orange-50/60 border border-amber-200/80 rounded-2xl p-4 mb-5 text-amber-900 shadow-sm flex items-center gap-3 animate-pulse">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-lg flex-shrink-0 text-amber-700">
+                  <svg className="animate-spin h-5 w-5 text-amber-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                  </svg>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-bold text-xs sm:text-sm text-amber-950">در حال بررسی وضعیت زنده جلسه...</p>
+                  <p className="text-xs text-amber-700/80 mt-0.5 font-medium">لطفاً چند لحظه شکیبا باشید</p>
+                </div>
+              </div>
+            ) : isMeetingLive ? (
+              <div className="bg-gradient-to-r from-emerald-600 to-teal-700 text-white p-4 rounded-2xl mb-5 shadow-lg shadow-emerald-900/20 flex items-center gap-3 animate-fadeIn">
                 <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center text-xl flex-shrink-0">
                   🎙️
                 </div>
@@ -957,7 +992,7 @@ function JoinForm() {
                 </div>
               </div>
             ) : (
-              <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 mb-5 text-gray-700 space-y-2.5">
+              <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 mb-5 text-gray-700 space-y-2.5 animate-fadeIn">
                 <div className="flex items-center gap-2 text-amber-700 font-bold text-xs sm:text-sm">
                   <span>⏳</span>
                   <span>در حال حاضر جلسه‌ای در این اتاق در جریان نیست.</span>
@@ -1041,7 +1076,12 @@ function JoinForm() {
             )}
 
             {/* ONLY RENDER THE JOIN FORM SECTIONS IF MEETING IS LIVE */}
-            {isMeetingLive && (
+            {isCheckingLive ? (
+              <div className="p-8 bg-gray-50/70 rounded-2xl border border-gray-200/80 flex flex-col items-center justify-center gap-3 text-gray-500 my-4 animate-pulse">
+                <div className="w-8 h-8 border-3 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-xs font-bold text-gray-600">در حال بررسی و دریافت وضعیت نشست آنلاین...</span>
+              </div>
+            ) : isMeetingLive && (
               <div className="space-y-5">
 
                 {/* Segmented Tab Bar: 2 Simplified Sections */}
