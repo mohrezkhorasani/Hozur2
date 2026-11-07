@@ -4298,13 +4298,8 @@ namespace Application.Usecase
             }
 
             UserTBL? user = null;
-            if (!string.IsNullOrWhiteSpace(cleanPhone) && !string.IsNullOrWhiteSpace(cleanNatCode))
-            {
-                user = await _db.UserTBLs.FirstOrDefaultAsync(e =>
-                    e.PhoneNumber == normPhone || e.PhoneNumber == localPhone || e.PhoneNumber == cleanPhone ||
-                    e.NationalCode == cleanNatCode);
-            }
-            else if (!string.IsNullOrWhiteSpace(cleanPhone))
+            // اگر شماره موبایل از قبل در سیستم بود با همان لاگین میکند (کد ملی در نظر گرفته نمیشود)
+            if (!string.IsNullOrWhiteSpace(cleanPhone))
             {
                 user = await _db.UserTBLs.FirstOrDefaultAsync(e =>
                     e.PhoneNumber == normPhone || e.PhoneNumber == localPhone || e.PhoneNumber == cleanPhone);
@@ -4504,7 +4499,8 @@ namespace Application.Usecase
                 Token = token,
                 Fullname = user.GetName(),
                 NationalCode = user.NationalCode,
-                Phone = user.PhoneNumber
+                Phone = user.PhoneNumber,
+                IsMemberVIP = user.IsMemberVIP
             }));
         }
     }

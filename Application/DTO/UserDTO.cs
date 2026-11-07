@@ -873,6 +873,7 @@ namespace Application.DTO
         public string? Fullname { get; set; }
         public string? NationalCode { get; set; }
         public string? Phone { get; set; }
+        public bool IsMemberVIP { get; set; }
     }
     #endregion
 
