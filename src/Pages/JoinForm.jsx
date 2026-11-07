@@ -235,19 +235,32 @@ function JoinForm() {
   const fetchMeetingInfo = async () => {
     try {
       const data = await fetchRoom(Mid);
-      const details = await GetRoomDetails(Mid);
-      CheckLives();
-      setMeet(data);
-      setRoomDetails({
-        ...details,
-        subscriptionStatus: data.subscriptionStatus,
-        isSubscribedByUser: data.isSubscribedByUser,
-
-
-      });
-      if (data?.title) {
-        document.title = `مجمع عالی حکمت اسلامی | ${data.title}`;
+      if (data) {
+        setMeet(data);
+        if (data.title) {
+          document.title = `مجمع عالی حکمت اسلامی | ${data.title}`;
+        }
       }
+
+      try {
+        const details = await GetRoomDetails(Mid);
+        setRoomDetails({
+          ...details,
+          subscriptionStatus: data?.subscriptionStatus ?? details?.subscriptionStatus,
+          isSubscribedByUser: data?.isSubscribedByUser ?? details?.isSubscribedByUser,
+        });
+      } catch (detailErr) {
+        console.warn('Could not fetch extra room details:', detailErr);
+        if (data) {
+          setRoomDetails({
+            ...data,
+            subscriptionStatus: data.subscriptionStatus,
+            isSubscribedByUser: data.isSubscribedByUser,
+          });
+        }
+      }
+
+      CheckLives();
     } catch (error) {
       console.error('Error fetching meeting info:', error);
       setMeet(null);

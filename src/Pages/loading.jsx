@@ -56,7 +56,7 @@ const LoadingPage = () => {
         </div>
       </div>
       
-      <style jsx>{`
+      <style>{`
         @keyframes loading {
           0% {
             width: 0%;
