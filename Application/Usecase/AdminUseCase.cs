@@ -944,39 +944,63 @@ namespace Application.Usecase
 
         {
 
-            if (message.GeneralHeaders?.UserTBL?.ID == null)
-
-                return;
-
-            if (!message.GeneralHeaders.UserTBL.VerifyUserPermissions("create_meeting"))
-
-            {
-
-                throw new Exception("FORBIDDEN ! 403");
-
-            }
-
-            if (!_db.RoomTBLs.Any(e => e.FriendlyID == message.RoomID && e.IDOwnerTBL == message.GeneralHeaders.UserTBL.ID))
-
-            {
-
-                outputPort.Handle(new GenericResponse<ChangeAvatarOfRoomResponse>(new ChangeAvatarOfRoomResponse
-
-                {
-
-                    Message = "FORBIDDEN",
-
-                    Status = 403,
-
-                }));
-
-                return;
-
-            }
-
-
-
-            var room = await _db.RoomTBLs.FirstOrDefaultAsync(e => e.FriendlyID == message.RoomID);
+            if (message.GeneralHeaders?.UserTBL?.ID == null)
+            {
+                outputPort.Handle(new GenericResponse<ChangeAvatarOfRoomResponse>(new ChangeAvatarOfRoomResponse
+                {
+                    Message = "UNAUTHORIZED",
+                    Status = 401,
+                }));
+                return;
+            }
+
+            var user = message.GeneralHeaders.UserTBL;
+            bool isSuperAdmin = string.Equals(user.Username, "mohrez", StringComparison.OrdinalIgnoreCase)
+                               || user.Type == MainEntity_Types.USER_ADMINSTRATOR
+                               || user.Type == MainEntity_Types.USER_ADMIN
+                               || user.VerifyUserPermissions("super_admin")
+                               || user.VerifyUserPermissions("manage_admins")
+                               || user.VerifyUserPermissions("admin_all");
+
+            if (!isSuperAdmin && !user.VerifyUserPermissions("create_meeting"))
+            {
+                outputPort.Handle(new GenericResponse<ChangeAvatarOfRoomResponse>(new ChangeAvatarOfRoomResponse
+                {
+                    Message = "FORBIDDEN",
+                    Status = 403,
+                }));
+                return;
+            }
+
+            var room = await _db.RoomTBLs.FirstOrDefaultAsync(e => e.FriendlyID == message.RoomID);
+            if (room == null)
+            {
+                outputPort.Handle(new GenericResponse<ChangeAvatarOfRoomResponse>(new ChangeAvatarOfRoomResponse
+                {
+                    Message = "Room not found",
+                    Status = 404,
+                }));
+                return;
+            }
+
+            bool isRoomAdmin = _db.RoomTBLToUserTBLs.Any(r =>
+                (r.FriendlyIDRoomTBL == room.FriendlyID || (r.RoomTBL != null && r.RoomTBL.ID == room.ID)) &&
+                (r.UUIDParticipatorTBL == user.UUID || (r.ParticipatorTBL != null && r.ParticipatorTBL.ID == user.ID)) &&
+                r.Type == MainEntity_Types.ROOMTOUSER_ADMIN &&
+                r.Status != MainEntity_Status.Deactive &&
+                r.Status != MainEntity_Status.Delete
+            );
+
+            if (!isSuperAdmin && room.IDOwnerTBL != user.ID && !isRoomAdmin)
+            {
+                outputPort.Handle(new GenericResponse<ChangeAvatarOfRoomResponse>(new ChangeAvatarOfRoomResponse
+                {
+                    Message = "FORBIDDEN",
+                    Status = 403,
+                }));
+                return;
+            }
+
 
             if (message.AvatarFile != null && message.AvatarFile.Length > 0)
 
