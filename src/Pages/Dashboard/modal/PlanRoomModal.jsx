@@ -91,8 +91,8 @@ const PlanRoomModal = ({ isOpen, onClose, roomId, roomTitle }) => {
       title: plan.title || '',
       teacher: plan.teacher || '',
       dabir: plan.dabir || '',
-      date: plan.startAt ? m.format('jYYYY/jMM/jDD') : '',
-      time: plan.startAt ? m.format('HH:mm') : '10:00',
+      date: plan.date || plan.startDateJalali || (plan.startAt ? m.format('jYYYY/jMM/jDD') : ''),
+      time: plan.time || plan.startTimeTehran || (plan.startAt ? m.format('HH:mm') : '10:00'),
       banner: null
     });
   };
@@ -470,11 +470,11 @@ const PlanRoomModal = ({ isOpen, onClose, roomId, roomTitle }) => {
                               )}
                               <span className="flex items-center gap-1.5 text-xs text-[#6b7280]">
                                 <FaCalendarAlt className="text-[#30d4cc] text-xs" />
-                                {formatDateOnly(plan.startAt)}
+                                {plan.date || plan.startDateJalali || formatDateOnly(plan.startAt)}
                               </span>
                               <span className="flex items-center gap-1.5 text-xs text-[#6b7280]">
                                 <FaClock className="text-[#30d4cc] text-xs" />
-                                {formatTimeOnly(plan.startAt)}
+                                {plan.time || plan.startTimeTehran || formatTimeOnly(plan.startAt)}
                               </span>
                             </div>
                           </div>
