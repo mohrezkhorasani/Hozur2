@@ -1,7 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { joinMeeting, VerifyToken, SendOTPConfirmation, ConfirmOTP, VerifyCertificateUser, ConfirmCertVerification, SendOTPRoomSubscribedUser, ConfirmOTPRoomSubscribedUser, DirectRoomSubscribedRegistration } from '@/api/StartNewMeeting';
-import { fetchRoom, fetchRoomLivesPublic, fetchRoomLivesPublicWithID, GetReservation, NewReservation, GetRoomDetails } from '../api/GetRooms';
+import {
+  joinMeeting,
+  VerifyCertificateUser,
+  ConfirmCertVerification,
+  SendOTPRoomSubscribedUser,
+  ConfirmOTPRoomSubscribedUser,
+  DirectRoomSubscribedRegistration
+} from '@/api/StartNewMeeting';
+import {
+  fetchRoom,
+  fetchRoomLivesPublic,
+  fetchRoomLivesPublicWithID,
+  GetReservation,
+  NewReservation,
+  GetRoomDetails
+} from '../api/GetRooms';
 import Cookies from 'js-cookie';
 import { useAuth } from '../Tools/AuthProvider';
 import { useToast } from '../Tools/ToastProvider';
@@ -38,61 +52,44 @@ function JoinForm() {
   const { Mid } = useParams();
   const toast = useToast();
   const navigate = useNavigate();
-  const { user, loadingAuth } = useAuth();
+  const { user, loadingAuth, verifyAndSetUser } = useAuth();
 
-  // --- Meeting and Room States ---
-  const [displayName, setDisplayName] = useState('');
+  // --- Meeting & Room States ---
   const [loading, setLoading] = useState(false);
-  const [meet, setMeet] = useState('');
+  const [meet, setMeet] = useState(null);
   const [roomDetails, setRoomDetails] = useState(null);
-  const [isSubscribedByUser, setIsSubscribedByUser] = useState(null);
-  const [subscriptionStatus, setSubscriptionStatus] = useState(null);
-  const [reservation, setReservation] = useState(null);
   const [roomLive, setRoomLive] = useState([]);
   const [isMeetingLive, setIsMeetingLive] = useState(false);
   const [nextSessionInfo, setNextSessionInfo] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // --- Reservation states (when meeting is not live) ---
-  const [reservationName, setReservationName] = useState('');
-  const [reservationPhone, setReservationPhone] = useState('');
-  const [reservationNationalCode, setReservationNationalCode] = useState('');
-  const [reservationLoading, setReservationLoading] = useState(false);
-  const [showReservationForm, setShowReservationForm] = useState(false);
+  // --- Active Tab: 'guest' | 'account' ---
+  const [activeTab, setActiveTab] = useState('guest');
 
-  // --- Certificate info states (when meeting is live) ---
-  const [showCertForm, setShowCertForm] = useState(false);
-  const [certPhone, setCertPhone] = useState('');
-  const [certNationalCode, setCertNationalCode] = useState('');
-  const [wantCertificate, setWantCertificate] = useState(false);
-  const [certInfoSaved, setCertInfoSaved] = useState(false);
-  const [nameError, setNameError] = useState('');
+  // --- Section 1: Guest States ---
+  const [guestName, setGuestName] = useState('');
+  const [guestWantCert, setGuestWantCert] = useState(false);
+  const [guestNationalCode, setGuestNationalCode] = useState('');
+  const [guestPhone, setGuestPhone] = useState('');
+  const [guestError, setGuestError] = useState('');
 
-  // --- Certificate OTP verification states (for non-member attendees) ---
-  const [isCertOtpSent, setIsCertOtpSent] = useState(false);
-  const [certOtpCode, setCertOtpCode] = useState('');
-  const [certOtpGuid, setCertOtpGuid] = useState('');
-  const [certOtpTimer, setCertOtpTimer] = useState(0);
-  const [certOtpLoading, setCertOtpLoading] = useState(false);
-  const [certVerifyError, setCertVerifyError] = useState('');
-  const [certVerificationLoading, setCertVerificationLoading] = useState(false);
-  const [certMaskedPhone, setCertMaskedPhone] = useState('');
+  // --- Section 2: Account Authentication States ---
+  const [accountPhone, setAccountPhone] = useState('');
+  const [accountNationalCode, setAccountNationalCode] = useState('');
+  const [accountName, setAccountName] = useState('');
+  const [isAccountOtpSent, setIsAccountOtpSent] = useState(false);
+  const [accountOtpGuid, setAccountOtpGuid] = useState('');
+  const [accountMaskedPhone, setAccountMaskedPhone] = useState('');
+  const [accountOtpCode, setAccountOtpCode] = useState('');
+  const [accountOtpTimer, setAccountOtpTimer] = useState(0);
+  const [accountOtpLoading, setAccountOtpLoading] = useState(false);
+  const [accountVerifyLoading, setAccountVerifyLoading] = useState(false);
+  const [accountError, setAccountError] = useState('');
 
-  // --- Member verification states (VIP Assembly Members) ---
-  const [isMember, setIsMember] = useState(false);
-  const [memberNationalCode, setMemberNationalCode] = useState('');
-  const [maskedPhone, setMaskedPhone] = useState('');
-  const [otpCode, setOtpCode] = useState('');
-  const [otpGuid, setOtpGuid] = useState('');
-  const [isOtpSent, setIsOtpSent] = useState(false);
-  const [isOtpVerified, setIsOtpVerified] = useState(false);
-  const [otpTimer, setOtpTimer] = useState(0);
-  const [otpLoading, setOtpLoading] = useState(false);
-  const [memberVerifyError, setMemberVerifyError] = useState('');
-  const [memberVerificationLoading, setMemberVerificationLoading] = useState(false);
-  const [isMemberModeActive, setIsMemberModeActive] = useState(false);
+  // Account Join Name override (for logged in user)
+  const [userDisplayName, setUserDisplayName] = useState('');
 
-  // --- Subscribed Room Verification states ---
+  // --- Subscribed Room States ---
   const [subNationalCode, setSubNationalCode] = useState('');
   const [isSubOtpSent, setIsSubOtpSent] = useState(false);
   const [subOtpCode, setSubOtpCode] = useState('');
@@ -102,136 +99,67 @@ function JoinForm() {
   const [subVerificationLoading, setSubVerificationLoading] = useState(false);
   const [subMaskedPhone, setSubMaskedPhone] = useState('');
 
-  // --- Initialize default values from cookies or auth context ---
+  // --- Next Session Reservation States ---
+  const [reservation, setReservation] = useState(null);
+  const [reservationName, setReservationName] = useState('');
+  const [reservationPhone, setReservationPhone] = useState('');
+  const [reservationNationalCode, setReservationNationalCode] = useState('');
+  const [reservationLoading, setReservationLoading] = useState(false);
+  const [showReservationForm, setShowReservationForm] = useState(false);
+
+  // --- Initialize defaults from cookies or auth context ---
   useEffect(() => {
-    const defaultName = (user && user.fullname) || getCookie('joinName') || '';
-    const defaultPhone = (user && user.phone) || getCookie('joinPhone') || '';
-    const defaultNationalCode = (user && user.nationalCode) || getCookie('joinNationalCode') || '';
+    const defaultName = getCookie('joinName') || '';
+    const defaultPhone = getCookie('joinPhone') || '';
+    const defaultNationalCode = getCookie('joinNationalCode') || '';
     const defaultWantCert = getCookie('wantCertificate') === 'true';
-    const defaultCertPhone = getCookie('certPhone') || '';
-    const defaultCertNationalCode = getCookie('certNationalCode') || '';
 
-    if (defaultName && !displayName) setDisplayName(defaultName);
-    if (defaultPhone) setReservationPhone(defaultPhone);
+    if (defaultName) {
+      setGuestName(defaultName);
+      setAccountName(defaultName);
+      setReservationName(defaultName);
+    }
+    if (defaultPhone) {
+      setGuestPhone(defaultPhone);
+      setAccountPhone(defaultPhone);
+      setReservationPhone(defaultPhone);
+    }
     if (defaultNationalCode) {
+      setGuestNationalCode(defaultNationalCode);
+      setAccountNationalCode(defaultNationalCode);
       setReservationNationalCode(defaultNationalCode);
-      setMemberNationalCode(defaultNationalCode);
     }
-    if (defaultWantCert) setWantCertificate(true);
-    if (defaultCertPhone) setCertPhone(defaultCertPhone);
-    if (defaultCertNationalCode) setCertNationalCode(defaultCertNationalCode);
-    if (defaultWantCert && defaultCertPhone && defaultCertNationalCode) setCertInfoSaved(true);
-  }, [user]);
+    if (defaultWantCert) {
+      setGuestWantCert(true);
+    }
+  }, []);
 
-  // Handle logged-in VIP member automatically
+  // Update states when user logs in or is already authenticated
   useEffect(() => {
-    if (user != null && user.isVIPMember) {
-      setIsMember(true);
-      setDisplayName(user.fullname);
-      setIsMemberModeActive(true);
-      setIsOtpVerified(true);
-      if (user.nationalCode) {
-        setMemberNationalCode(user.nationalCode);
-        setCertNationalCode(user.nationalCode);
-      }
+    if (user) {
+      setActiveTab('account');
+      setUserDisplayName(user.fullname || user.name || guestName || '');
       if (user.phone || user.phoneNumber) {
-        setCertPhone(user.phone || user.phoneNumber);
+        setAccountPhone(user.phone || user.phoneNumber);
       }
-      setWantCertificate(true);
-      setCertInfoSaved(true);
+      if (user.nationalCode) {
+        setAccountNationalCode(user.nationalCode);
+      }
     }
   }, [user]);
 
-  // When member OTP is verified, automatically check and lock certificate info
-  useEffect(() => {
-    if (isOtpVerified) {
-      setWantCertificate(true);
-      setCertInfoSaved(true);
-      setShowCertForm(false);
-      setIsCertOtpSent(false);
-      setCertOtpCode('');
-      setCertVerifyError('');
-      if (memberNationalCode && !certNationalCode) {
-        setCertNationalCode(memberNationalCode);
-      }
-      if ((user?.phone || user?.phoneNumber) && !certPhone) {
-        setCertPhone(user.phone || user.phoneNumber);
-      }
-    }
-  }, [isOtpVerified, memberNationalCode, user]);
-
-  // --- OTP Timer countdown (Member) ---
+  // Account OTP Countdown Timer
   useEffect(() => {
     let interval = null;
-    if (otpTimer > 0) {
+    if (accountOtpTimer > 0) {
       interval = setInterval(() => {
-        setOtpTimer((prev) => prev - 1);
+        setAccountOtpTimer((prev) => prev - 1);
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [otpTimer]);
+  }, [accountOtpTimer]);
 
-  // --- Certificate OTP Timer countdown ---
-  useEffect(() => {
-    let interval = null;
-    if (certOtpTimer > 0) {
-      interval = setInterval(() => {
-        setCertOtpTimer((prev) => prev - 1);
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [certOtpTimer]);
-
-  // --- Parse next session info ---
-  useEffect(() => {
-    if (meet?.nextMeet) {
-      const nextMeetDate = new Date(meet.nextMeet);
-      const now = new Date();
-
-      const nextUTCDate = new Date(Date.UTC(
-        nextMeetDate.getUTCFullYear(),
-        nextMeetDate.getUTCMonth(),
-        nextMeetDate.getUTCDate()
-      ));
-
-      const nowUTCDate = new Date(Date.UTC(
-        now.getUTCFullYear(),
-        now.getUTCMonth(),
-        now.getUTCDate()
-      ));
-
-      let dateString = '';
-      if (nextUTCDate.getTime() === nowUTCDate.getTime()) {
-        dateString = 'امروز';
-      } else {
-        const daysDifference = Math.ceil((nextUTCDate - nowUTCDate) / (1000 * 60 * 60 * 24));
-        if (daysDifference === 1) {
-          dateString = 'فردا';
-        } else if (daysDifference > 0 && daysDifference <= 30) {
-          const persianDate = new Intl.DateTimeFormat('fa-IR', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-          }).format(nextMeetDate);
-          dateString = persianDate;
-        }
-      }
-
-      if (dateString) {
-        const timeString = nextMeetDate.toLocaleTimeString('fa-IR', {
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: false,
-          timeZone: 'UTC'
-        });
-        setNextSessionInfo(`${dateString} ساعت ${timeString}`);
-      } else {
-        setNextSessionInfo('');
-      }
-    }
-  }, [meet]);
-
-  // --- Fetch Meeting and Live status ---
+  // --- Fetch Room & Live status ---
   const fetchMeetingInfo = async () => {
     try {
       const data = await fetchRoom(Mid);
@@ -260,7 +188,7 @@ function JoinForm() {
         }
       }
 
-      CheckLives();
+      checkLives();
     } catch (error) {
       console.error('Error fetching meeting info:', error);
       setMeet(null);
@@ -268,24 +196,7 @@ function JoinForm() {
     }
   };
 
-  useEffect(() => {
-    fetchMeetingInfo();
-    const intervalId = setInterval(CheckLives, 15000);
-    return () => clearInterval(intervalId);
-  }, [Mid]);
-
-  useEffect(() => {
-    const liveStatus = roomLive.some((room) => room.roomID === Mid);
-    setIsMeetingLive(liveStatus);
-  }, [roomLive, Mid]);
-
-  useEffect(() => {
-    if (meet?.nextPlan) {
-      fetchReservation(meet.nextPlan.id);
-    }
-  }, [meet]);
-
-  async function CheckLives() {
+  const checkLives = async () => {
     try {
       let livedata = await fetchRoomLivesPublicWithID(Mid);
       if (!Array.isArray(livedata) || livedata.length === 0) {
@@ -295,7 +206,24 @@ function JoinForm() {
     } catch (error) {
       console.error('Error fetching live rooms:', error);
     }
-  }
+  };
+
+  useEffect(() => {
+    fetchMeetingInfo();
+    const intervalId = setInterval(checkLives, 15000);
+    return () => clearInterval(intervalId);
+  }, [Mid]);
+
+  useEffect(() => {
+    const liveStatus = (roomLive || []).some((room) => room.roomID === Mid);
+    setIsMeetingLive(liveStatus);
+  }, [roomLive, Mid]);
+
+  useEffect(() => {
+    if (meet?.nextPlan) {
+      fetchReservation(meet.nextPlan.id);
+    }
+  }, [meet]);
 
   const fetchReservation = async (pid) => {
     try {
@@ -314,167 +242,421 @@ function JoinForm() {
     }
   };
 
-  // --- Validation Helpers ---
+  // --- Next Session String Formatting ---
+  useEffect(() => {
+    if (meet?.nextMeet) {
+      const nextMeetDate = new Date(meet.nextMeet);
+      const now = new Date();
+
+      const nextUTCDate = new Date(Date.UTC(
+        nextMeetDate.getUTCFullYear(),
+        nextMeetDate.getUTCMonth(),
+        nextMeetDate.getUTCDate()
+      ));
+
+      const nowUTCDate = new Date(Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate()
+      ));
+
+      let dateString = '';
+      if (nextUTCDate.getTime() === nowUTCDate.getTime()) {
+        dateString = 'امروز';
+      } else {
+        const daysDifference = Math.ceil((nextUTCDate - nowUTCDate) / (1000 * 60 * 60 * 24));
+        if (daysDifference === 1) {
+          dateString = 'فردا';
+        } else if (daysDifference > 0 && daysDifference <= 30) {
+          dateString = new Intl.DateTimeFormat('fa-IR', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          }).format(nextMeetDate);
+        }
+      }
+
+      if (dateString) {
+        const timeString = nextMeetDate.toLocaleTimeString('fa-IR', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+          timeZone: 'UTC'
+        });
+        setNextSessionInfo(`${dateString} ساعت ${timeString}`);
+      } else {
+        setNextSessionInfo('');
+      }
+    }
+  }, [meet]);
+
+  // --- Name Validation Helper ---
   const validatePersianName = (name) => {
     if (!name || name.trim() === '') {
-      return { isValid: false, message: 'لطفاً نام و نام خانوادگی خود را وارد کنید' };
+      return { isValid: false, message: 'لطفاً نام و نام خانوادگی را وارد کنید' };
     }
     const cleanName = name.trim();
     const words = cleanName.split(/\s+/);
     if (words.length < 2) {
-      return { isValid: false, message: 'لطفاً نام و نام خانوادگی خود را به صورت کامل وارد کنید' };
+      return { isValid: false, message: 'لطفاً نام و نام خانوادگی را به صورت کامل (حداقل دو بخش) وارد کنید' };
     }
     const persianRegex = /^[\u0600-\u06FF\s]+$/;
     if (!persianRegex.test(cleanName)) {
-      return { isValid: false, message: 'نام باید با حروف فارسی وارد شود' };
+      return { isValid: false, message: 'نام و نام خانوادگی باید با حروف فارسی وارد شود' };
     }
     return { isValid: true, message: '' };
   };
 
-  const validateDisplayName = (name) => {
-    if (wantCertificate && certInfoSaved && name.trim()) {
-      const res = validatePersianName(name);
-      if (!res.isValid) {
-        setNameError(res.message);
-        return false;
-      }
+  // ==========================================
+  // Section 1: Guest Join Handler
+  // ==========================================
+  const handleJoinAsGuest = async () => {
+    setGuestError('');
+    const cleanName = guestName.trim();
+
+    if (!cleanName) {
+      setGuestError('لطفاً نام و نام خانوادگی خود را وارد نمایید');
+      return;
     }
-    setNameError('');
-    return true;
+
+    let natCode = null;
+    let phone = null;
+
+    if (guestWantCert) {
+      const nameCheck = validatePersianName(cleanName);
+      if (!nameCheck.isValid) {
+        setGuestError(nameCheck.message);
+        return;
+      }
+
+      const cleanNatCode = toEnglishDigits(guestNationalCode).trim();
+      if (!cleanNatCode || cleanNatCode.length !== 10 || !/^\d{10}$/.test(cleanNatCode)) {
+        setGuestError('جهت صدور گواهی، وارد کردن کد ملی معتبر (۱۰ رقم) الزامی است');
+        return;
+      }
+      natCode = cleanNatCode;
+
+      const cleanPhone = toEnglishDigits(guestPhone).trim();
+      if (cleanPhone) {
+        if (!/^(\+98|0|0098)?9\d{9}$/.test(cleanPhone)) {
+          setGuestError('شماره همراه وارد شده نامعتبر است (مثال: 09123456789)');
+          return;
+        }
+        phone = cleanPhone;
+      }
+
+      // Save cookie state
+      setCookie('wantCertificate', 'true', 30);
+      setCookie('joinNationalCode', cleanNatCode, 30);
+      if (cleanPhone) setCookie('joinPhone', cleanPhone, 30);
+    } else {
+      setCookie('wantCertificate', 'false', 30);
+    }
+
+    setCookie('joinName', cleanName, 30);
+
+    setLoading(true);
+    try {
+      const livedata = await fetchRoomLivesPublicWithID(Mid);
+      setRoomLive(livedata || []);
+      const liveStatus = (livedata || []).some((room) => room.roomID === Mid);
+
+      if (!liveStatus) {
+        setLoading(false);
+        alert('جلسه هنوز آغاز نشده است. لطفاً پس از شروع جلسه مجدداً تلاش نمایید.');
+        return;
+      }
+
+      const res = await joinMeeting(
+        Mid,
+        cleanName,
+        isAdmin,
+        '123',
+        natCode,
+        phone
+      );
+
+      if (res.status !== 200) {
+        if (res.status === 500) {
+          window.location.reload();
+        } else {
+          toast?.error?.(res.message || 'خطا در ورود به جلسه');
+        }
+      } else if (res.link) {
+        window.open(res.link, '_blank');
+      }
+    } catch (error) {
+      console.error('Error joining meeting as guest:', error);
+      alert('خطا در ورود به جلسه. لطفاً مجدداً تلاش فرمایید.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // --- Member OTP Verification Handlers (via National Code) ---
-  const handleSendOTP = async () => {
-    const rawCode = toEnglishDigits(memberNationalCode).trim();
+  // ==========================================
+  // Section 2: Account Authentication Handlers
+  // ==========================================
+  const handleSendAccountOTP = async () => {
+    setAccountError('');
+    const cleanPhone = toEnglishDigits(accountPhone).trim();
+    const cleanNatCode = toEnglishDigits(accountNationalCode).trim();
+    const cleanName = accountName.trim();
 
-    if (!rawCode) {
-      setMemberVerifyError('لطفاً کد ملی ۱۰ رقمی خود را وارد نمایید');
+    if (!cleanPhone || !/^(\+98|0|0098)?9\d{9}$/.test(cleanPhone)) {
+      setAccountError('لطفاً شماره همراه معتبر وارد کنید (مثال: 09123456789)');
       return;
     }
 
-    if (rawCode.length !== 10 || !/^\d{10}$/.test(rawCode)) {
-      setMemberVerifyError('کد ملی باید دقیقاً ۱۰ رقم عددی باشد');
+    if (!cleanNatCode || cleanNatCode.length !== 10 || !/^\d{10}$/.test(cleanNatCode)) {
+      setAccountError('کد ملی باید دقیقاً ۱۰ رقم عددی باشد');
       return;
     }
 
-    setOtpLoading(true);
-    setMemberVerifyError('');
-
+    setAccountOtpLoading(true);
     try {
-      const response = await SendOTPConfirmation({
-        nationalCode: rawCode,
-        phone: ''
+      const response = await VerifyCertificateUser({
+        phone: cleanPhone,
+        nationalCode: cleanNatCode,
+        name: cleanName,
+        uuid: getEffectiveUserToken()
       });
 
       if (response.status === 200 && response.guid) {
-        setOtpGuid(response.guid);
-        setIsOtpSent(true);
-        setOtpTimer(120); // 2 minutes countdown
-        setMaskedPhone(response.maskedPhone || response.phone || '');
-        setMemberVerifyError('');
+        setAccountOtpGuid(response.guid);
+        setIsAccountOtpSent(true);
+        setAccountOtpTimer(120);
+        setAccountMaskedPhone(response.maskedPhone || cleanPhone);
+        if (response.phone) {
+          setAccountPhone(response.phone);
+        }
+        setAccountError('');
         toast?.success?.('کد تایید پیامکی با موفقیت ارسال شد');
       } else {
-        setMemberVerifyError(response.message || 'کد ملی در لیست اعضای مجمع یافت نشد');
+        setAccountError(response.message || 'خطا در بررسی اطلاعات یا ارسال کد تایید');
       }
     } catch (error) {
-      console.error('Error sending OTP:', error);
-      setMemberVerifyError('خطا در ارسال کد تایید. لطفاً اتصال اینترنت خود را بررسی نمایید.');
+      console.error('Error sending account OTP:', error);
+      setAccountError('خطا در برقراری ارتباط با سرور. لطفاً مجدداً تلاش نمایید.');
     } finally {
-      setOtpLoading(false);
+      setAccountOtpLoading(false);
     }
   };
 
-  const handleConfirmOTP = async () => {
-    const cleanOtp = toEnglishDigits(otpCode).trim();
+  const handleConfirmAccountOTP = async () => {
+    setAccountError('');
+    const cleanOtp = toEnglishDigits(accountOtpCode).trim();
 
     if (!cleanOtp || cleanOtp.length < 4) {
-      setMemberVerifyError('لطفاً کد تایید ۴ رقمی پیامک‌شده را وارد کنید');
+      setAccountError('لطفاً کد تایید ۴ رقمی پیامک‌شده را وارد کنید');
       return;
     }
 
-    setMemberVerificationLoading(true);
-    setMemberVerifyError('');
+    const cleanPhone = toEnglishDigits(accountPhone).trim();
+    const cleanNatCode = toEnglishDigits(accountNationalCode).trim();
+    const cleanName = accountName.trim();
 
+    setAccountVerifyLoading(true);
     try {
-      const response = await ConfirmOTP({
-        guid: otpGuid,
-        code: cleanOtp
+      const response = await ConfirmCertVerification({
+        guid: accountOtpGuid,
+        code: cleanOtp,
+        phone: cleanPhone,
+        nationalCode: cleanNatCode,
+        name: cleanName
       });
 
       if (response.status === 200 && response.token) {
         setCookieWithConfig('vc2AuthNorm', response.token, 365 * 10);
         syncUserTokens();
 
-        const verifiedName = response.fullname || displayName || 'عضو مجمع';
-        const verifiedNatCode = response.nationalCode || memberNationalCode;
-        const verifiedPhone = response.phone || '';
+        const verifiedName = response.fullname || cleanName;
+        const verifiedPhone = response.phone || cleanPhone;
+        const verifiedNatCode = response.nationalCode || cleanNatCode;
 
         setCookie('joinName', verifiedName, 30);
+        setCookie('joinPhone', verifiedPhone, 30);
         setCookie('joinNationalCode', verifiedNatCode, 30);
-
-        setDisplayName(verifiedName);
-        setIsOtpVerified(true);
-        setIsMemberModeActive(true);
-        setIsMember(true);
-        setMemberVerifyError('');
-
-        // Automatically check and lock certificate info for verified member
-        setWantCertificate(true);
-        setCertInfoSaved(true);
-        setShowCertForm(false);
-        setCertNationalCode(verifiedNatCode);
         setCookie('wantCertificate', 'true', 30);
-        setCookie('certNationalCode', verifiedNatCode, 30);
-        if (verifiedPhone) {
-          setCertPhone(verifiedPhone);
-          setCookie('certPhone', verifiedPhone, 30);
-        }
 
-        toast?.success?.(`خوش آمدید، جناب آقای/سرکار خانم ${verifiedName}`);
-        setTimeout(() => {
+        setUserDisplayName(verifiedName);
+        setIsAccountOtpSent(false);
+        setAccountOtpCode('');
+        setAccountError('');
+
+        toast?.success?.(`خوش آمدید، ${verifiedName}`);
+
+        if (verifyAndSetUser) {
+          await verifyAndSetUser();
+        } else {
           window.location.reload();
-        }, 1000);
+        }
       } else {
-        setMemberVerifyError(response.message || 'کد تایید وارد شده نادرست یا منقضی شده است');
+        setAccountError(response.message || 'کد تایید وارد شده نادرست یا منقضی شده است');
       }
     } catch (error) {
-      console.error('Error confirming OTP:', error);
-      setMemberVerifyError('خطا در تایید کد. لطفاً دوباره تلاش کنید.');
+      console.error('Error confirming account OTP:', error);
+      setAccountError('خطا در تایید کد. لطفاً دوباره تلاش نمایید.');
     } finally {
-      setMemberVerificationLoading(false);
+      setAccountVerifyLoading(false);
     }
   };
 
-  const handleResendOTP = () => {
-    if (otpTimer === 0) {
-      setOtpCode('');
-      handleSendOTP();
+  const handleResendAccountOTP = () => {
+    if (accountOtpTimer === 0) {
+      setAccountOtpCode('');
+      handleSendAccountOTP();
     }
   };
 
-  const handleToggleMemberMode = (checked) => {
-    if (!checked) {
-      setIsMember(false);
-      setIsOtpSent(false);
-      setIsOtpVerified(false);
-      setIsMemberModeActive(false);
-      setOtpCode('');
-      setOtpGuid('');
-      setOtpTimer(0);
-      setMaskedPhone('');
-      setMemberVerifyError('');
+  const handleLogoutAccount = () => {
+    if (window.confirm('آیا از خروج از این حساب کاربری اطمینان دارید؟')) {
       removeAuthToken();
       removeRegisteredUserToken();
-      // Unlock certificate section
-      setCertInfoSaved(false);
-      setWantCertificate(false);
-      setCookie('wantCertificate', 'false', 30);
-    } else {
-      setIsMember(true);
+      Cookies.remove('vc2AuthNorm');
+      Cookies.remove('joinName');
+      Cookies.remove('joinPhone');
+      Cookies.remove('joinNationalCode');
+      setIsAccountOtpSent(false);
+      setAccountOtpCode('');
+      setAccountError('');
+      window.location.reload();
     }
   };
 
-  // --- Next Session Reservation Handler ---
+  // Join meeting with Authenticated Account
+  const handleJoinAsAccount = async () => {
+    const finalDisplayName = (userDisplayName || user?.fullname || accountName || 'عضو سامانه').trim();
+
+    if (!finalDisplayName) {
+      alert('لطفاً نام نمایشی خود را وارد فرمایید.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const livedata = await fetchRoomLivesPublicWithID(Mid);
+      setRoomLive(livedata || []);
+      const liveStatus = (livedata || []).some((room) => room.roomID === Mid);
+
+      if (!liveStatus) {
+        setLoading(false);
+        alert('جلسه هنوز آغاز نشده است. لطفاً پس از شروع جلسه مجدداً تلاش نمایید.');
+        return;
+      }
+
+      setCookie('joinName', finalDisplayName, 30);
+
+      const finalNatCode = user?.nationalCode || accountNationalCode || null;
+      const finalPhone = user?.phone || user?.phoneNumber || accountPhone || null;
+
+      const res = await joinMeeting(
+        Mid,
+        finalDisplayName,
+        isAdmin,
+        '123',
+        finalNatCode,
+        finalPhone
+      );
+
+      if (res.status !== 200) {
+        if (res.status === 500) {
+          window.location.reload();
+        } else {
+          toast?.error?.(res.message || 'خطا در ورود به جلسه');
+        }
+      } else if (res.link) {
+        window.open(res.link, '_blank');
+      }
+    } catch (error) {
+      console.error('Error joining meeting with account:', error);
+      alert('خطا در ورود به جلسه. لطفاً مجدداً تلاش فرمایید.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ==========================================
+  // Private Room Subscription Handlers
+  // ==========================================
+  const handleDirectRequest = async () => {
+    try {
+      const price = roomDetails?.metadatas?.price;
+      if (price && Number(price) > 0) {
+        navigate(`/rooms/${Mid}/sub/request`);
+        return;
+      }
+      toast?.success?.('در حال ثبت درخواست...');
+      const response = await DirectRoomSubscribedRegistration({ RoomId: Mid });
+      if (response && response.status === 200) {
+        toast?.success?.('درخواست عضویت شما با موفقیت ثبت شد.');
+        setTimeout(() => window.location.reload(), 1500);
+      } else {
+        toast?.error?.(response?.message || 'خطا در ثبت درخواست');
+      }
+    } catch (error) {
+      console.error('Error direct request:', error);
+      toast?.error?.('خطا در برقراری ارتباط با سرور');
+    }
+  };
+
+  const handleSendSubOTP = async () => {
+    const rawCode = toEnglishDigits(subNationalCode).trim();
+    if (!rawCode || rawCode.length !== 10 || !/^\d{10}$/.test(rawCode)) {
+      setSubVerifyError('لطفاً کد ملی ۱۰ رقمی معتبر وارد نمایید');
+      return;
+    }
+    setSubOtpLoading(true);
+    setSubVerifyError('');
+    try {
+      const response = await SendOTPRoomSubscribedUser({ nationalCode: rawCode });
+      if (response.status === 200 && response.guid) {
+        setSubOtpGuid(response.guid);
+        setIsSubOtpSent(true);
+        setSubMaskedPhone(response.maskedPhone || response.phone || '');
+        setSubVerifyError('');
+        toast?.success?.('کد تایید پیامکی با موفقیت ارسال شد');
+      } else {
+        setSubVerifyError(response.message || 'خطا در ارسال کد تایید');
+      }
+    } catch (error) {
+      console.error('Error sending Sub OTP:', error);
+      setSubVerifyError('خطا در ارسال کد تایید. لطفاً مجدداً تلاش نمایید.');
+    } finally {
+      setSubOtpLoading(false);
+    }
+  };
+
+  const handleConfirmSubOTP = async () => {
+    const cleanOtp = toEnglishDigits(subOtpCode).trim();
+    if (!cleanOtp || cleanOtp.length < 4) {
+      setSubVerifyError('لطفاً کد تایید ۴ رقمی پیامک‌شده را وارد کنید');
+      return;
+    }
+    setSubVerificationLoading(true);
+    setSubVerifyError('');
+    try {
+      const response = await ConfirmOTPRoomSubscribedUser({ guid: subOtpGuid, code: cleanOtp });
+      if (response.status === 200 && response.token) {
+        setCookieWithConfig('vc2AuthNorm', response.token, 365 * 10);
+        syncUserTokens();
+        setIsSubOtpSent(false);
+        setSubVerifyError('');
+        toast?.success?.('احراز هویت با موفقیت انجام شد');
+        window.location.reload();
+      } else {
+        setSubVerifyError(response.message || 'کد تایید وارد شده نادرست است');
+      }
+    } catch (error) {
+      console.error('Error confirming Sub OTP:', error);
+      setSubVerifyError('خطا در تایید کد. لطفاً دوباره تلاش کنید.');
+    } finally {
+      setSubVerificationLoading(false);
+    }
+  };
+
+  // ==========================================
+  // Reservation Handler
+  // ==========================================
   const handleCreateReservation = async () => {
     if (!reservationName.trim()) {
       alert('لطفاً نام و نام خانوادگی خود را وارد کنید');
@@ -512,272 +694,6 @@ function JoinForm() {
     }
   };
 
-  // --- Certificate Info OTP Verification Handlers (for non-member attendees) ---
-  const handleRequestCertVerification = async () => {
-    const cleanPhone = toEnglishDigits(certPhone).trim();
-    const cleanNationalCode = toEnglishDigits(certNationalCode).trim();
-
-    if (!cleanPhone && !cleanNationalCode) {
-      setCertVerifyError('لطفاً شماره همراه یا کد ملی خود را وارد نمایید');
-      return;
-    }
-
-    if (cleanPhone && !/^(\+98|0|0098)?9\d{9}$/.test(cleanPhone)) {
-      setCertVerifyError('لطفاً شماره همراه معتبر وارد کنید (مثال: 09123456789)');
-      return;
-    }
-
-    if (cleanNationalCode && (cleanNationalCode.length !== 10 || !/^\d{10}$/.test(cleanNationalCode))) {
-      setCertVerifyError('کد ملی باید دقیقاً ۱۰ رقم عددی باشد');
-      return;
-    }
-
-    if (!cleanPhone) {
-      setCertVerifyError('جهت ارسال پیامک تایید، وارد کردن شماره همراه الزامی است');
-      return;
-    }
-
-    setCertOtpLoading(true);
-    setCertVerifyError('');
-
-    try {
-      const response = await VerifyCertificateUser({
-        phone: cleanPhone,
-        nationalCode: cleanNationalCode,
-        name: displayName.trim(),
-        uuid: getEffectiveUserToken()
-      });
-
-      if (response.status === 200 && response.guid) {
-        setCertOtpGuid(response.guid);
-        setIsCertOtpSent(true);
-        setCertOtpTimer(120); // 2 minutes countdown
-        setCertMaskedPhone(response.maskedPhone || cleanPhone);
-        if (response.phone) {
-          setCertPhone(response.phone);
-        }
-        setCertVerifyError('');
-        toast?.success?.('کد تایید پیامکی اطلاعات گواهی ارسال شد');
-      } else {
-        setCertVerifyError(response.message || 'خطا در بررسی اطلاعات گواهی');
-      }
-    } catch (error) {
-      console.error('Error requesting cert verification:', error);
-      setCertVerifyError('خطا در برقراری ارتباط با سرور. لطفاً مجدداً تلاش نمایید.');
-    } finally {
-      setCertOtpLoading(false);
-    }
-  };
-
-  const handleConfirmCertOTP = async () => {
-    const cleanOtp = toEnglishDigits(certOtpCode).trim();
-
-    if (!cleanOtp || cleanOtp.length < 4) {
-      setCertVerifyError('لطفاً کد تایید ۴ رقمی پیامک‌شده را وارد نمایید');
-      return;
-    }
-
-    const cleanPhone = toEnglishDigits(certPhone).trim();
-    const cleanNationalCode = toEnglishDigits(certNationalCode).trim();
-
-    setCertVerificationLoading(true);
-    setCertVerifyError('');
-
-    try {
-      const response = await ConfirmCertVerification({
-        guid: certOtpGuid,
-        code: cleanOtp,
-        phone: cleanPhone,
-        nationalCode: cleanNationalCode,
-        name: displayName.trim()
-      });
-
-      if (response.status === 200 && response.token) {
-        // Save vc2AuthNorm cookie so user is now officially authenticated & signed up
-        setCookieWithConfig('vc2AuthNorm', response.token, 365 * 10);
-        syncUserTokens();
-
-        const savedPhone = response.phone || cleanPhone;
-        const savedNatCode = response.nationalCode || cleanNationalCode;
-        const verifiedName = response.fullname || displayName.trim();
-
-        if (verifiedName && !displayName) {
-          setDisplayName(verifiedName);
-        }
-
-        setCertPhone(savedPhone);
-        setCertNationalCode(savedNatCode);
-        setCookie('wantCertificate', 'true', 30);
-        setCookie('certPhone', savedPhone, 30);
-        setCookie('certNationalCode', savedNatCode, 30);
-
-        setCertInfoSaved(true);
-        setIsCertOtpSent(false);
-        setCertOtpCode('');
-        setCertVerifyError('');
-        setShowCertForm(false);
-        toast?.success?.('اطلاعات گواهی شما با موفقیت تایید و ثبت گردید');
-      } else {
-        setCertVerifyError(response.message || 'کد تایید وارد شده نادرست یا منقضی شده است');
-      }
-    } catch (error) {
-      console.error('Error confirming cert OTP:', error);
-      setCertVerifyError('خطا در تایید کد. لطفاً دوباره تلاش فرمایید.');
-    } finally {
-      setCertVerificationLoading(false);
-    }
-  };
-
-  const handleResendCertOTP = () => {
-    if (certOtpTimer === 0) {
-      setCertOtpCode('');
-      handleRequestCertVerification();
-    }
-  };
-
-  // --- Join Meeting Execution ---
-  const handleJoinMeeting = async () => {
-    if (!displayName.trim()) {
-      alert('لطفاً نام نمایشی خود را وارد کنید.');
-      return;
-    }
-
-    if (wantCertificate && certInfoSaved) {
-      const checkName = validatePersianName(displayName);
-      if (!checkName.isValid) {
-        alert(checkName.message);
-        return;
-      }
-    }
-
-    setLoading(true);
-
-    try {
-      const livedata = await fetchRoomLivesPublicWithID(Mid);
-      setRoomLive(livedata || []);
-      console.log(livedata, Mid)
-      const liveStatus = (livedata || []).some((room) => room.roomID === Mid);
-
-      if (!liveStatus) {
-        setLoading(false);
-        alert('جلسه هنوز آغاز نشده است. لطفاً پس از شروع جلسه مجدداً تلاش نمایید.');
-        return;
-      }
-
-      setCookie('joinName', displayName.trim(), 30);
-
-      let nationalCodeParam = isOtpVerified ? memberNationalCode : null;
-      let phoneParam = null;
-
-      if (wantCertificate && certInfoSaved) {
-        nationalCodeParam = certNationalCode;
-        phoneParam = certPhone;
-      }
-
-      const res = await joinMeeting(
-        Mid,
-        displayName.trim(),
-        isAdmin,
-        '123',
-        nationalCodeParam,
-        phoneParam
-      );
-
-      if (res.status !== 200) {
-        if (res.status === 500) {
-          window.location.reload(true);
-        } else {
-          toast?.error?.(res.message || 'خطا در ورود به جلسه');
-        }
-      } else if (res.link) {
-        window.open(res.link, '_blank');
-      }
-    } catch (error) {
-      console.error('Error joining meeting:', error);
-      alert('خطا در ورود به جلسه. لطفاً مجدداً تلاش فرمایید.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // --- Subscribed Room OTP Verification Handlers ---
-  const handleDirectRequest = async () => {
-    try {
-      const price = roomDetails?.metadatas?.price;
-      if (price && Number(price) > 0) {
-        navigate(`/rooms/${Mid}/sub/request`);
-        return;
-      }
-      toast?.success?.('در حال ثبت درخواست...');
-      const response = await DirectRoomSubscribedRegistration({ RoomId: Mid });
-      if (response && response.status === 200) {
-        toast?.success?.('درخواست عضویت شما با موفقیت ثبت شد.');
-        setTimeout(() => {
-          window.location.reload();
-        }, 1500);
-      } else {
-        toast?.error?.(response?.message || 'خطا در ثبت درخواست');
-      }
-    } catch (error) {
-      console.error('Error direct request:', error);
-      toast?.error?.('خطا در برقراری ارتباط با سرور');
-    }
-  };
-  const handleSendSubOTP = async () => {
-    const rawCode = toEnglishDigits(subNationalCode).trim();
-    if (!rawCode || rawCode.length !== 10 || !/^\d{10}$/.test(rawCode)) {
-      setSubVerifyError('لطفاً کد ملی ۱۰ رقمی معتبر وارد نمایید');
-      return;
-    }
-    setSubOtpLoading(true);
-    setSubVerifyError('');
-    try {
-      const response = await SendOTPRoomSubscribedUser({ nationalCode: rawCode });
-      if (response.status === 200 && response.guid) {
-        setSubOtpGuid(response.guid);
-        setIsSubOtpSent(true);
-        setSubMaskedPhone(response.maskedPhone || response.phone || '');
-        setSubVerifyError('');
-        toast?.success?.('کد تایید پیامکی با موفقیت ارسال شد');
-      } else {
-        setSubVerifyError(response.message || 'خطا در ارسال کد تایید');
-      }
-    } catch (error) {
-      console.error('Error sending OTP:', error);
-      setSubVerifyError('خطا در ارسال کد تایید. لطفاً مجدداً تلاش نمایید.');
-    } finally {
-      setSubOtpLoading(false);
-    }
-  };
-
-  const handleConfirmSubOTP = async () => {
-    const cleanOtp = toEnglishDigits(subOtpCode).trim();
-    if (!cleanOtp || cleanOtp.length < 4) {
-      setSubVerifyError('لطفاً کد تایید ۴ رقمی پیامک‌شده را وارد کنید');
-      return;
-    }
-    setSubVerificationLoading(true);
-    setSubVerifyError('');
-    try {
-      const response = await ConfirmOTPRoomSubscribedUser({ guid: subOtpGuid, code: cleanOtp });
-      if (response.status === 200 && response.token) {
-        setCookieWithConfig('vc2AuthNorm', response.token, 365 * 10);
-        syncUserTokens();
-        setIsSubOtpSent(false);
-        setSubVerifyError('');
-        toast?.success?.('احراز هویت با موفقیت انجام شد');
-        window.location.reload();
-      } else {
-        setSubVerifyError(response.message || 'کد تایید وارد شده نادرست است');
-      }
-    } catch (error) {
-      console.error('Error confirming OTP:', error);
-      setSubVerifyError('خطا در تایید کد. لطفاً دوباره تلاش کنید.');
-    } finally {
-      setSubVerificationLoading(false);
-    }
-  };
-
   if (loadingAuth) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
@@ -791,17 +707,17 @@ function JoinForm() {
     ? { backgroundImage: `url(${bgImage})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }
     : {};
 
+  const isUserVIP = Boolean(user && (user.isVIPMember || user.isMemberVIP));
+
   return (
     <div
       className={`min-h-screen flex items-center justify-center px-4 py-8 sm:py-12 relative overflow-hidden ${!bgImage ? 'bg-gradient-to-br from-[#06241c] via-[#093529] to-[#0f4d3d]' : ''}`}
       style={bgStyle}
       dir="rtl"
     >
-
-      {/* Overlay if there's a background image to ensure readability */}
+      {/* Background Overlay */}
       {bgImage && <div className="absolute inset-0 bg-black/60 z-0"></div>}
 
-      {/* عناصر تزئینی و هندسه اسلامی در پس‌زمینه */}
       {!bgImage && (
         <>
           <div className="absolute -top-32 -right-32 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
@@ -812,7 +728,7 @@ function JoinForm() {
 
       <div className="w-full max-w-lg mx-auto bg-white/98 backdrop-blur-xl rounded-3xl shadow-2xl shadow-black/40 border border-white/20 p-6 sm:p-8 relative z-10 transition-all duration-300">
 
-        {/* هدر صفحه و لوگوی مجمع */}
+        {/* Header and Logo */}
         <div className="text-center mb-6">
           <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-tr from-[#0b3f32] to-[#166534] rounded-2xl mb-3 shadow-lg shadow-emerald-950/20 border-2 border-emerald-400/30 transform transition-transform hover:scale-105 overflow-hidden">
             {roomDetails?.logo ? (
@@ -824,14 +740,12 @@ function JoinForm() {
           <h1 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">
             {meet?.title || 'مجمع عالی حکمت اسلامی'}
           </h1>
-          <p className="text-xs sm:text-sm text-gray-500 mt-1 font-medium"
-            onClick={() => {
-              // alert(JSON.stringify(meet?.isAdmin))
-            }}>
-            سامانه ورود به تالار جلسات و کلاس‌های تخصصی
+          <p className="text-xs sm:text-sm text-gray-500 mt-1 font-medium">
+            سامانه ورود به تالار نشست‌ها و کلاس‌های تخصصی
           </p>
         </div>
 
+        {/* Room Specific Check: Subscribed Room */}
         {meet?.isSubscribed && !meet?.isAdmin ? (
           user && roomDetails?.isSubscribedByUser ? (
             roomDetails?.subscriptionStatus === 100 ? (
@@ -841,30 +755,27 @@ function JoinForm() {
                 <div className="space-y-4 pt-2">
                   <input
                     type="text"
-                    value={user.fullname || displayName}
+                    value={user.fullname || userDisplayName}
                     disabled
                     className="w-full px-4 py-3.5 bg-gray-100 border-2 border-gray-200 rounded-xl text-center font-bold text-lg text-gray-500 cursor-not-allowed outline-none"
                   />
                   <div className="relative group w-full">
                     <button
-                      onClick={handleJoinMeeting}
+                      onClick={handleJoinAsAccount}
                       disabled={loading || !isMeetingLive}
                       className="w-full py-3.5 bg-emerald-700 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white font-black rounded-xl disabled:opacity-50 transition-all shadow-md flex items-center justify-center gap-2"
                     >
                       {loading ? 'در حال اتصال...' : 'ورود به کلاس 🚀'}
                     </button>
 
-                    {/* Tooltip فقط وقتی جلسه لایو نیست */}
                     {!isMeetingLive && !loading && (
                       <div
                         className="pointer-events-none absolute bottom-full right-1/2 translate-x-1/2 mb-2 
                  opacity-0 group-hover:opacity-100 transition-opacity duration-200
                  bg-gray-900 text-white text-xs font-bold px-3 py-2 rounded-lg shadow-lg whitespace-nowrap z-50"
                       >
-                        پخش زنده ای در حال اجرا نمیباشد
-                        {/* فلش پایین tooltip */}
-                        <span className="absolute top-full right-1/2 translate-x-1/2 -mt-1 
-                       border-4 border-transparent border-t-gray-900"></span>
+                        پخش زنده‌ای در حال اجرا نمی‌باشد
+                        <span className="absolute top-full right-1/2 translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></span>
                       </div>
                     )}
                   </div>
@@ -990,7 +901,7 @@ function JoinForm() {
           )
         ) : (
           <>
-            {/* کارت مشخصات اتاق/جلسه */}
+            {/* Room Information Card */}
             <div className="bg-gradient-to-l from-emerald-50/90 via-teal-50/60 to-white rounded-2xl p-4 mb-5 border border-emerald-200/80 shadow-sm relative overflow-hidden">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
@@ -1026,7 +937,7 @@ function JoinForm() {
               </div>
             </div>
 
-            {/* بنر وضعیت جلسه در صورت لایو بودن */}
+            {/* Live Banner or Next Session Card */}
             {isMeetingLive ? (
               <div className="bg-gradient-to-r from-emerald-600 to-teal-700 text-white p-4 rounded-2xl mb-5 shadow-lg shadow-emerald-900/20 flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center text-xl flex-shrink-0">
@@ -1040,13 +951,12 @@ function JoinForm() {
                     </p>
                   ) : (
                     <p className="text-xs text-emerald-100 mt-0.5 font-medium">
-                      برای حضور در تالار گفتگو، فرم زیر را تکمیل نمایید.
+                      جهت حضور در نشست، مشخصات خود را در کادر زیر وارد فرمایید.
                     </p>
                   )}
                 </div>
               </div>
             ) : (
-              /* بنر وضعیت عدم برگزاری جلسه و نمایش جلسه آینده */
               <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 mb-5 text-gray-700 space-y-2.5">
                 <div className="flex items-center gap-2 text-amber-700 font-bold text-xs sm:text-sm">
                   <span>⏳</span>
@@ -1063,7 +973,7 @@ function JoinForm() {
                   </div>
                 )}
 
-                {/* کارت رزرو جلسه بعدی */}
+                {/* Pre-registration / Reservation Card */}
                 {meet?.nextPlan && (
                   <div className="mt-3 pt-3 border-t border-gray-200">
                     {reservation ? (
@@ -1096,7 +1006,7 @@ function JoinForm() {
                           value={reservationPhone}
                           onChange={(e) => setReservationPhone(e.target.value)}
                           placeholder="شماره همراه (مثال: 09123456789)"
-                          className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 outline-none "
+                          className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 outline-none"
                           dir="ltr"
                         />
                         <input
@@ -1104,7 +1014,7 @@ function JoinForm() {
                           value={reservationNationalCode}
                           onChange={(e) => setReservationNationalCode(e.target.value)}
                           placeholder="کد ملی ۱۰ رقمی"
-                          className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 outline-none "
+                          className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 outline-none"
                           dir="ltr"
                           maxLength={10}
                         />
@@ -1130,479 +1040,455 @@ function JoinForm() {
               </div>
             )}
 
-            {/* فرم ورود به جلسه (تنها زمانی که جلسه آنلاین است) */}
+            {/* ONLY RENDER THE JOIN FORM SECTIONS IF MEETING IS LIVE */}
             {isMeetingLive && (
-              <div className="space-y-4">
+              <div className="space-y-5">
 
-                {/* بخش احراز هویت اعضای مجمع عالی حکمت (کد ملی + ارسال کد به موبایل) */}
-                <div className="bg-gradient-to-br from-amber-50/80 via-orange-50/40 to-emerald-50/60 rounded-2xl p-4 border border-amber-200/80 shadow-sm">
-                  <div className="flex items-center justify-between">
-                    <label htmlFor="isMemberCheckbox" className="flex items-center gap-2.5 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        id="isMemberCheckbox"
-                        checked={isMember}
-                        onChange={(e) => handleToggleMemberMode(e.target.checked)}
-                        disabled={isOtpVerified}
-                        className="w-5 h-5 rounded-lg border-2 border-amber-400 text-amber-600 focus:ring-amber-500 accent-amber-600 cursor-pointer"
-                      />
-                      <div>
-                        <span className="font-black text-sm text-gray-900 flex items-center gap-1.5">
-                          <span>⭐</span> من از اعضاء مجمع عالی حکمت اسلامی هستم
-                        </span>
-                        <span className="text-[11px] text-gray-500 block mt-0.5">
-                          احراز هویت سریع از طریق کد ملی و پیامک تایید
-                        </span>
-                      </div>
-                    </label>
+                {/* Segmented Tab Bar: 2 Simplified Sections */}
+                <div className="grid grid-cols-2 p-1.5 bg-gray-100/90 rounded-2xl border border-gray-200">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('guest')}
+                    className={`py-2.5 px-3 rounded-xl font-black text-xs sm:text-sm transition-all flex items-center justify-center gap-1.5 ${
+                      activeTab === 'guest'
+                        ? 'bg-white text-emerald-900 shadow-md border border-gray-200/80 scale-[1.02]'
+                        : 'text-gray-500 hover:text-gray-800'
+                    }`}
+                  >
+                    <span>👤</span>
+                    <span>ورود به عنوان مهمان</span>
+                  </button>
 
-                    {isOtpVerified && (
-                      <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-bold flex items-center gap-1">
-                        <span>✓</span> تایید شده
-                      </span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('account')}
+                    className={`py-2.5 px-3 rounded-xl font-black text-xs sm:text-sm transition-all flex items-center justify-center gap-1.5 ${
+                      activeTab === 'account'
+                        ? 'bg-white text-emerald-900 shadow-md border border-gray-200/80 scale-[1.02]'
+                        : 'text-gray-500 hover:text-gray-800'
+                    }`}
+                  >
+                    <span>🔐</span>
+                    <span>{user ? 'حساب کاربری من' : 'ورود / ثبت‌نام حساب'}</span>
+                    {user && (
+                      <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
                     )}
-                  </div>
+                  </button>
+                </div>
 
-                  {/* فرم ورود کد ملی و پیامک تایید */}
-                  {isMember && !isOtpVerified && (
-                    <div className="mt-3.5 pt-3 border-t border-amber-200/60 space-y-3 animate-in fade-in">
-                      {!isOtpSent ? (
-                        /* مرحله ۱: دریافت کد ملی */
+                {/* ======================================================== */}
+                {/* SECTION 1: ورود به عنوان مهمان (فقط نام + تیک گواهی)     */}
+                {/* ======================================================== */}
+                {activeTab === 'guest' && (
+                  <div className="space-y-4 animate-in fade-in duration-200">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                        نام و نام خانوادگی شما در جلسه: <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={guestName}
+                        onChange={(e) => {
+                          setGuestName(e.target.value);
+                          if (guestError) setGuestError('');
+                        }}
+                        placeholder="مثال: علی رضایی"
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-sm font-medium text-gray-900 focus:bg-white focus:ring-2 focus:ring-emerald-500 outline-none transition-all shadow-inner"
+                        autoFocus
+                      />
+                    </div>
+
+                    {/* Checkbox: مایل به دریافت گواهی هستم */}
+                    <div className="bg-gray-50/90 rounded-2xl border border-gray-200/90 p-4 transition-all">
+                      <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={guestWantCert}
+                          onChange={(e) => {
+                            setGuestWantCert(e.target.checked);
+                            if (guestError) setGuestError('');
+                          }}
+                          className="w-5 h-5 rounded-lg border-2 border-emerald-500 text-emerald-600 focus:ring-emerald-500 accent-emerald-600 cursor-pointer"
+                        />
                         <div>
-                          <label className="block text-xs font-bold text-gray-700 mb-1">
-                            کد ملی عضویت (۱۰ رقم):
-                          </label>
-                          <div className="flex gap-2">
+                          <span className="font-bold text-xs sm:text-sm text-gray-900 flex items-center gap-1.5">
+                            <span>📜</span> مایل به دریافت گواهی رسمی حضور در جلسه هستم
+                          </span>
+                          <span className="text-[11px] text-gray-500 block mt-0.5">
+                            ثبت کد ملی جهت صدور گواهی معتبر پس از پایان جلسه
+                          </span>
+                        </div>
+                      </label>
+
+                      {/* Expanded inputs for certificate */}
+                      {guestWantCert && (
+                        <div className="mt-3.5 pt-3 border-t border-gray-200 space-y-3 animate-in fade-in">
+                          <div>
+                            <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                              کد ملی ۱۰ رقمی (جهت درج در گواهی): <span className="text-red-500">*</span>
+                            </label>
                             <input
                               type="text"
-                              value={memberNationalCode}
-                              onChange={(e) => setMemberNationalCode(e.target.value)}
+                              value={guestNationalCode}
+                              onChange={(e) => {
+                                setGuestNationalCode(e.target.value);
+                                if (guestError) setGuestError('');
+                              }}
                               placeholder="مثال: 0012345678"
                               maxLength={10}
-                              disabled={otpLoading}
-                              className="flex-1 px-3.5 py-2.5 bg-white border border-amber-300 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 outline-none shadow-sm"
+                              className="w-full px-3.5 py-2.5 bg-white border border-gray-300 rounded-xl text-sm font-mono focus:ring-2 focus:ring-emerald-500 outline-none"
                               dir="ltr"
                             />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                              شماره همراه (اختیاری - جهت اطلاع‌رسانی پیامکی):
+                            </label>
+                            <input
+                              type="tel"
+                              value={guestPhone}
+                              onChange={(e) => {
+                                setGuestPhone(e.target.value);
+                                if (guestError) setGuestError('');
+                              }}
+                              placeholder="مثال: 09123456789"
+                              className="w-full px-3.5 py-2.5 bg-white border border-gray-300 rounded-xl text-sm font-mono focus:ring-2 focus:ring-emerald-500 outline-none"
+                              dir="ltr"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {guestError && (
+                      <div className="bg-red-50 text-red-600 p-2.5 rounded-xl border border-red-200 text-xs font-bold flex items-center gap-1.5">
+                        <span>⚠️</span>
+                        <span>{guestError}</span>
+                      </div>
+                    )}
+
+                    {/* Admin Checkbox if Applicable */}
+                    {meet?.isAdmin === true && (
+                      <div className="flex items-center gap-2 pt-1">
+                        <input
+                          type="checkbox"
+                          id="adminGuestCheckbox"
+                          checked={isAdmin}
+                          onChange={(e) => setIsAdmin(e.target.checked)}
+                          className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
+                        />
+                        <label htmlFor="adminGuestCheckbox" className="text-xs font-bold text-gray-700 cursor-pointer">
+                          ورود با دسترسی مدیر جلسه (ارائه‌دهنده)
+                        </label>
+                      </div>
+                    )}
+
+                    {/* One-Click Guest Join Button */}
+                    <button
+                      type="button"
+                      onClick={handleJoinAsGuest}
+                      disabled={loading || !guestName.trim()}
+                      className={`w-full py-3.5 rounded-2xl font-black text-sm md:text-base flex items-center justify-center gap-2 shadow-lg transition-all duration-300 transform hover:scale-[1.01] active:scale-98 ${
+                        loading || !guestName.trim()
+                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed shadow-none'
+                          : 'bg-emerald-700 bg-gradient-to-r from-emerald-700 via-teal-700 to-emerald-800 hover:from-emerald-800 hover:to-teal-800 text-white shadow-emerald-900/30'
+                      }`}
+                    >
+                      {loading ? (
+                        <>
+                          <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          </svg>
+                          در حال اتصال به جلسه...
+                        </>
+                      ) : (
+                        <>
+                          <span>🚀</span>
+                          <span>ورود به جلسه آنلاین</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+
+                {/* ======================================================== */}
+                {/* SECTION 2: ثبت‌نام یا ورود با حساب کاربری                */}
+                {/* ======================================================== */}
+                {activeTab === 'account' && (
+                  <div className="space-y-4 animate-in fade-in duration-200">
+
+                    {/* Case 2A: User is ALREADY Authenticated */}
+                    {user ? (
+                      <div className="bg-gradient-to-br from-emerald-50/90 via-teal-50/50 to-white rounded-2xl p-4 sm:p-5 border border-emerald-200 shadow-sm space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-700 text-white flex items-center justify-center font-black text-lg shadow-sm">
+                              {user.fullname ? user.fullname.trim()[0] : '👤'}
+                            </div>
+                            <div>
+                              <p className="font-black text-sm text-gray-900">
+                                {user.fullname || 'کاربر احراز هویت شده'}
+                              </p>
+                              <p className="text-[11px] text-gray-500 font-mono mt-0.5" dir="ltr">
+                                {user.phone || user.phoneNumber || accountPhone}
+                              </p>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={handleLogoutAccount}
+                            className="text-xs text-red-500 hover:text-red-700 font-bold underline px-2 py-1"
+                          >
+                            خروج از حساب
+                          </button>
+                        </div>
+
+                        {/* Badges: Member VIP & Certificate */}
+                        <div className="flex flex-wrap gap-2 pt-1 border-t border-emerald-100">
+                          {isUserVIP ? (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-100/90 text-amber-900 border border-amber-300 rounded-full text-xs font-black shadow-xs">
+                              <span>⭐</span> عضو رسمی مجمع عالی حکمت اسلامی
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-full text-xs font-bold">
+                              <span>✓</span> کاربر ثبت‌نام شده سامانه
+                            </span>
+                          )}
+
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-teal-50 text-teal-800 border border-teal-200 rounded-full text-[11px] font-bold">
+                            <span>📜</span> صدور خودکار گواهی به کد ملی {user.nationalCode || accountNationalCode || 'ثبت شده'}
+                          </span>
+                        </div>
+
+                        {/* Editable Display Name inside meeting */}
+                        <div className="pt-2">
+                          <label className="block text-xs font-bold text-gray-700 mb-1">
+                            نام نمایشی شما در جلسه:
+                          </label>
+                          <input
+                            type="text"
+                            value={userDisplayName}
+                            onChange={(e) => setUserDisplayName(e.target.value)}
+                            placeholder="نام و نام خانوادگی در جلسه"
+                            className="w-full px-3.5 py-2.5 bg-white border border-emerald-300 rounded-xl text-sm font-bold text-emerald-950 focus:ring-2 focus:ring-emerald-500 outline-none"
+                          />
+                        </div>
+
+                        {/* Admin Checkbox if Applicable */}
+                        {meet?.isAdmin === true && (
+                          <div className="flex items-center gap-2 pt-1">
+                            <input
+                              type="checkbox"
+                              id="adminAccountCheckbox"
+                              checked={isAdmin}
+                              onChange={(e) => setIsAdmin(e.target.checked)}
+                              className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
+                            />
+                            <label htmlFor="adminAccountCheckbox" className="text-xs font-bold text-gray-700 cursor-pointer">
+                              ورود با دسترسی مدیر جلسه (ارائه‌دهنده)
+                            </label>
+                          </div>
+                        )}
+
+                        {/* One-Click Join with Account */}
+                        <button
+                          type="button"
+                          onClick={handleJoinAsAccount}
+                          disabled={loading}
+                          className="w-full py-3.5 rounded-2xl font-black text-sm md:text-base flex items-center justify-center gap-2 shadow-lg transition-all duration-300 transform hover:scale-[1.01] active:scale-98 bg-emerald-700 bg-gradient-to-r from-emerald-700 via-teal-700 to-emerald-800 hover:from-emerald-800 hover:to-teal-800 text-white shadow-emerald-900/30"
+                        >
+                          {loading ? (
+                            <>
+                              <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                              </svg>
+                              در حال اتصال به جلسه...
+                            </>
+                          ) : (
+                            <>
+                              <span>🚀</span>
+                              <span>ورود به جلسه با این حساب کاربری</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    ) : (
+                      /* Case 2B: User is NOT Authenticated -> Phone + National Code Flow */
+                      <div className="bg-gray-50/90 rounded-2xl border border-gray-200 p-4 sm:p-5 space-y-3.5">
+                        <div className="text-xs text-gray-600 leading-relaxed font-medium">
+                          💡 با ثبت شماره همراه و کد ملی، حساب شما شناسایی و ایجاد خواهد شد و گواهی‌ها به صورت خودکار صادر می‌گردند.
+                        </div>
+
+                        {!isAccountOtpSent ? (
+                          /* STEP 1: Phone + National Code + Optional Name */
+                          <div className="space-y-3 pt-1">
+                            <div>
+                              <label className="block text-xs font-bold text-gray-700 mb-1">
+                                شماره همراه: <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="tel"
+                                value={accountPhone}
+                                onChange={(e) => {
+                                  setAccountPhone(e.target.value);
+                                  if (accountError) setAccountError('');
+                                }}
+                                placeholder="مثلاً: 09123456789"
+                                className="w-full px-3.5 py-2.5 bg-white border border-gray-300 rounded-xl text-sm font-mono focus:ring-2 focus:ring-emerald-500 outline-none"
+                                dir="ltr"
+                                autoFocus
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-bold text-gray-700 mb-1">
+                                کد ملی (۱۰ رقم): <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                value={accountNationalCode}
+                                onChange={(e) => {
+                                  setAccountNationalCode(e.target.value);
+                                  if (accountError) setAccountError('');
+                                }}
+                                placeholder="مثلاً: 0012345678"
+                                maxLength={10}
+                                className="w-full px-3.5 py-2.5 bg-white border border-gray-300 rounded-xl text-sm font-mono focus:ring-2 focus:ring-emerald-500 outline-none"
+                                dir="ltr"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-bold text-gray-700 mb-1">
+                                نام و نام خانوادگی (جهت ثبت حساب جدید):
+                              </label>
+                              <input
+                                type="text"
+                                value={accountName}
+                                onChange={(e) => {
+                                  setAccountName(e.target.value);
+                                  if (accountError) setAccountError('');
+                                }}
+                                placeholder="مثلاً: دکتر علی حسینی"
+                                className="w-full px-3.5 py-2.5 bg-white border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
+                              />
+                            </div>
+
+                            {accountError && (
+                              <div className="bg-red-50 text-red-600 p-2.5 rounded-xl border border-red-200 text-xs font-bold flex items-center gap-1.5">
+                                <span>⚠️</span>
+                                <span>{accountError}</span>
+                              </div>
+                            )}
+
                             <button
                               type="button"
-                              onClick={handleSendOTP}
-                              disabled={otpLoading || !memberNationalCode.trim()}
-                              className="px-4 py-2.5 bg-amber-600 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white rounded-xl text-xs font-black shadow-md transition-all disabled:opacity-50 whitespace-nowrap flex items-center gap-1.5"
+                              onClick={handleSendAccountOTP}
+                              disabled={accountOtpLoading || !accountPhone.trim() || !accountNationalCode.trim()}
+                              className="w-full py-3 bg-emerald-700 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-xl text-xs sm:text-sm font-black shadow-md transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                             >
-                              {otpLoading ? (
+                              {accountOtpLoading ? (
                                 <>
                                   <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24">
                                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                                   </svg>
-                                  در حال بررسی...
+                                  در حال ارسال کد تایید...
                                 </>
                               ) : (
-                                'ارسال کد تایید ✉️'
+                                'دریافت کد تایید پیامکی ✉️'
                               )}
                             </button>
                           </div>
-                          <p className="text-[11px] text-gray-500 mt-1.5">
-                            کد تایید به شماره همراه ثبت‌شده برای این کد ملی در مجمع ارسال خواهد شد.
-                          </p>
-                        </div>
-                      ) : (
-                        /* مرحله ۲: دریافت کد تایید با نمایش شماره موبایل ماسک شده */
-                        <div className="space-y-3 bg-white p-3.5 rounded-xl border border-amber-200">
-                          <div className="bg-amber-50 p-2.5 rounded-lg border border-amber-200 text-xs text-amber-900 flex items-center justify-between">
-                            <div className="flex items-center gap-1.5">
-                              <span>📱</span>
-                              <span>کد به شماره <strong className=" text-sm font-black text-amber-950">{maskedPhone || 'همراه شما'}</strong> ارسال شد</span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setIsOtpSent(false);
-                                setOtpCode('');
-                                setMemberVerifyError('');
-                              }}
-                              className="text-[11px] text-amber-700 hover:text-amber-900 underline"
-                            >
-                              تغییر کد ملی
-                            </button>
-                          </div>
-
-                          <div>
-                            <label className="block text-xs font-bold text-gray-700 mb-1">
-                              کد تایید ۴ رقمی:
-                            </label>
-                            <input
-                              type="text"
-                              value={otpCode}
-                              onChange={(e) => setOtpCode(e.target.value)}
-                              placeholder="کد ۴ رقمی پیامک شده"
-                              maxLength={6}
-                              className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-center text-lg font-mono font-bold tracking-widest focus:ring-2 focus:ring-emerald-500 outline-none"
-                              dir="ltr"
-                              autoFocus
-                            />
-                          </div>
-
-                          <div className="flex items-center justify-between pt-1">
-                            <div className="text-xs text-gray-600">
-                              {otpTimer > 0 ? (
-                                <span>
-                                  زمان باقیمانده: <strong className="font-mono text-amber-700 font-bold">{Math.floor(otpTimer / 60)}:{String(otpTimer % 60).padStart(2, '0')}</strong>
-                                </span>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={handleResendOTP}
-                                  className="text-xs text-emerald-700 font-bold hover:underline"
-                                >
-                                  🔄 ارسال مجدد کد تایید
-                                </button>
-                              )}
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={handleConfirmOTP}
-                              disabled={memberVerificationLoading || !otpCode.trim()}
-                              className="px-5 py-2 bg-emerald-700 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-xl text-xs font-black shadow-md transition-all disabled:opacity-50"
-                            >
-                              {memberVerificationLoading ? 'در حال بررسی...' : '✓ تایید و ثبت ورود'}
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
-                      {memberVerifyError && (
-                        <div className="bg-red-50 text-red-600 p-2.5 rounded-xl border border-red-200 text-xs font-bold flex items-center gap-1.5">
-                          <span>⚠️</span>
-                          <span>{memberVerifyError}</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* وضعیت عضو تایید شده */}
-                  {isOtpVerified && (
-                    <div className="mt-3 pt-3 border-t border-amber-200/60 flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2 text-emerald-800 font-bold">
-                        <span>🛡️</span>
-                        <span>هویت شما به عنوان عضو رسمی مجمع با موفقیت احراز شد.</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (window.confirm('آیا مایل به خروج از حساب عضویت مجمع هستید؟')) {
-                            handleToggleMemberMode(false);
-                          }
-                        }}
-                        className="text-red-500 hover:text-red-700 font-medium underline"
-                      >
-                        خروج از عضویت
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* فیلد نام نمایشی شرکت‌کننده */}
-                <div>
-                  <label htmlFor="displayNameInput" className="block text-xs font-bold text-gray-700 mb-1.5">
-                    نام و نام خانوادگی شما در جلسه: <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      id="displayNameInput"
-                      value={displayName}
-                      onChange={(e) => {
-                        setDisplayName(e.target.value);
-                        validateDisplayName(e.target.value);
-                      }}
-                      disabled={isOtpVerified}
-                      placeholder={isOtpVerified ? 'نام شما از طریق عضویت مجمع ثبت شده است' : 'مثلاً: دکتر علی رضایی'}
-                      className={`w-full px-4 py-3 rounded-2xl border text-sm font-medium outline-none transition-all ${isOtpVerified
-                          ? 'bg-emerald-50/70 border-emerald-300 text-emerald-950 font-bold cursor-not-allowed'
-                          : 'bg-gray-50 border-gray-200 text-gray-900 focus:bg-white focus:ring-2 focus:ring-emerald-500 shadow-inner'
-                        }`}
-                      required
-                    />
-                    {isOtpVerified && (
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-600 text-sm font-bold">
-                        🔒 ثبت شده
-                      </span>
-                    )}
-                  </div>
-                  {nameError && <p className="text-xs text-red-500 font-bold mt-1">⚠️ {nameError}</p>}
-                </div>
-
-                {/* بخش دریافت گواهی حضور */}
-                <div className="bg-gray-50/80 rounded-2xl border border-gray-200 overflow-hidden">
-                  {!certInfoSaved ? (
-                    <div>
-                      <button
-                        type="button"
-                        onClick={() => setShowCertForm((prev) => !prev)}
-                        className="w-full px-4 py-3 flex items-center justify-between text-xs font-bold text-gray-700 hover:bg-gray-100 transition-all"
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="text-base">📜</span>
-                          <span>مایل به دریافت گواهی رسمی حضور در جلسه هستم</span>
-                        </div>
-                        <span className="text-gray-400 font-mono text-sm">{showCertForm ? '▲' : '▼'}</span>
-                      </button>
-
-                      {showCertForm && (
-                        <div className="p-4 pt-1 border-t border-gray-200 space-y-3 animate-in fade-in">
-                          <div className="flex items-center justify-between">
-                            <label className={`flex items-center gap-2 text-xs font-bold text-gray-800 ${isOtpVerified ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'}`}>
-                              <input
-                                type="checkbox"
-                                checked={wantCertificate}
-                                onChange={(e) => {
-                                  if (!isOtpVerified) {
-                                    setWantCertificate(e.target.checked);
-                                    if (!e.target.checked) {
-                                      setIsCertOtpSent(false);
-                                      setCertOtpCode('');
-                                      setCertVerifyError('');
-                                    }
-                                  }
+                        ) : (
+                          /* STEP 2: Enter 4-Digit OTP Code */
+                          <div className="space-y-3 bg-white p-3.5 rounded-xl border border-emerald-200 animate-in fade-in">
+                            <div className="bg-emerald-50 p-2.5 rounded-lg border border-emerald-200 text-xs text-emerald-950 flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                <span>📱</span>
+                                <span>کد به شماره <strong className="font-mono text-sm font-black" dir="ltr">{accountMaskedPhone || accountPhone}</strong> ارسال شد</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIsAccountOtpSent(false);
+                                  setAccountOtpCode('');
+                                  setAccountError('');
                                 }}
-                                disabled={isOtpVerified}
-                                className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 disabled:opacity-75"
+                                className="text-[11px] text-emerald-700 hover:text-emerald-900 underline font-bold"
+                              >
+                                ویرایش مشخصات
+                              </button>
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-bold text-gray-700 mb-1">
+                                کد تایید ۴ رقمی:
+                              </label>
+                              <input
+                                type="text"
+                                value={accountOtpCode}
+                                onChange={(e) => {
+                                  setAccountOtpCode(e.target.value);
+                                  if (accountError) setAccountError('');
+                                }}
+                                placeholder="کد ۴ رقمی"
+                                maxLength={6}
+                                className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-center text-xl font-mono font-bold tracking-widest focus:ring-2 focus:ring-emerald-500 outline-none"
+                                dir="ltr"
+                                autoFocus
                               />
-                              <span>اطلاعات گواهی حضور را تکمیل می‌نمایم</span>
-                            </label>
-                            {isOtpVerified && (
-                              <span className="text-[11px] text-emerald-700 font-bold flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                                <span>🔒</span> قفل شده با عضویت مجمع
-                              </span>
+                            </div>
+
+                            {accountError && (
+                              <div className="bg-red-50 text-red-600 p-2 rounded-lg border border-red-200 text-xs font-bold flex items-center gap-1">
+                                <span>⚠️</span>
+                                <span>{accountError}</span>
+                              </div>
                             )}
-                          </div>
 
-                          {wantCertificate && !isOtpVerified && (
-                            <div className="space-y-2.5 pt-2 border-t border-gray-100">
-                              {!isCertOtpSent ? (
-                                /* مرحله ۱: دریافت شماره همراه و کد ملی */
-                                <>
-                                  <div>
-                                    <label className="block text-[11px] font-bold text-gray-600 mb-1">
-                                      شماره همراه جهت ارسال پیامک احراز: <span className="text-red-500">*</span>
-                                    </label>
-                                    <input
-                                      type="tel"
-                                      value={certPhone}
-                                      onChange={(e) => setCertPhone(e.target.value)}
-                                      placeholder="مثلاً: 09123456789"
-                                      className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-mono outline-none focus:ring-2 focus:ring-emerald-500"
-                                      dir="ltr"
-                                      disabled={certOtpLoading}
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="block text-[11px] font-bold text-gray-600 mb-1">
-                                      کد ملی ۱۰ رقمی جهت درج در گواهی رسمی:
-                                    </label>
-                                    <input
-                                      type="text"
-                                      value={certNationalCode}
-                                      onChange={(e) => setCertNationalCode(e.target.value)}
-                                      placeholder="مثلاً: 0012345678"
-                                      maxLength={10}
-                                      className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-mono outline-none focus:ring-2 focus:ring-emerald-500"
-                                      dir="ltr"
-                                      disabled={certOtpLoading}
-                                    />
-                                  </div>
-
-                                  {certVerifyError && (
-                                    <div className="bg-red-50 text-red-600 p-2.5 rounded-xl border border-red-200 text-xs font-bold flex items-center gap-1.5">
-                                      <span>⚠️</span>
-                                      <span>{certVerifyError}</span>
-                                    </div>
-                                  )}
-
+                            <div className="flex items-center justify-between pt-1">
+                              <div className="text-xs text-gray-600">
+                                {accountOtpTimer > 0 ? (
+                                  <span>
+                                    زمان باقیمانده: <strong className="font-mono text-emerald-700 font-bold">{Math.floor(accountOtpTimer / 60)}:{String(accountOtpTimer % 60).padStart(2, '0')}</strong>
+                                  </span>
+                                ) : (
                                   <button
                                     type="button"
-                                    onClick={handleRequestCertVerification}
-                                    disabled={certOtpLoading || !certPhone.trim()}
-                                    className="w-full py-2.5 bg-emerald-700 text-white rounded-xl text-xs font-bold hover:bg-emerald-800 shadow-sm transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                                    onClick={handleResendAccountOTP}
+                                    className="text-xs text-emerald-700 font-bold hover:underline"
                                   >
-                                    {certOtpLoading ? (
-                                      <>
-                                        <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24">
-                                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                                        </svg>
-                                        در حال ارسال پیامک تایید...
-                                      </>
-                                    ) : (
-                                      '✓ تایید اطلاعات گواهی'
-                                    )}
+                                    🔄 ارسال مجدد کد
                                   </button>
-                                </>
-                              ) : (
-                                /* مرحله ۲: ورود کد تایید پیامک‌شده برای گواهی */
-                                <div className="space-y-3 bg-white p-3 rounded-xl border border-emerald-200">
-                                  <div className="bg-emerald-50 p-2.5 rounded-lg border border-emerald-200 text-xs text-emerald-900 flex items-center justify-between">
-                                    <div className="flex items-center gap-1.5">
-                                      <span>📱</span>
-                                      <span>کد به شماره <strong className="font-mono text-sm font-bold text-emerald-950">{certMaskedPhone || certPhone}</strong> ارسال شد</span>
-                                    </div>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setIsCertOtpSent(false);
-                                        setCertOtpCode('');
-                                        setCertVerifyError('');
-                                      }}
-                                      className="text-[11px] text-emerald-700 hover:text-emerald-900 underline"
-                                    >
-                                      تغییر شماره
-                                    </button>
-                                  </div>
+                                )}
+                              </div>
 
-                                  <div>
-                                    <label className="block text-xs font-bold text-gray-700 mb-1">
-                                      کد تایید ۴ رقمی پیامک شده:
-                                    </label>
-                                    <input
-                                      type="text"
-                                      value={certOtpCode}
-                                      onChange={(e) => setCertOtpCode(e.target.value)}
-                                      placeholder="کد ۴ رقمی"
-                                      maxLength={6}
-                                      className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl text-center text-lg font-mono font-bold tracking-widest focus:ring-2 focus:ring-emerald-500 outline-none"
-                                      dir="ltr"
-                                      autoFocus
-                                    />
-                                  </div>
-
-                                  {certVerifyError && (
-                                    <div className="bg-red-50 text-red-600 p-2 rounded-lg border border-red-200 text-xs font-bold flex items-center gap-1">
-                                      <span>⚠️</span>
-                                      <span>{certVerifyError}</span>
-                                    </div>
-                                  )}
-
-                                  <div className="flex items-center justify-between pt-1">
-                                    <div className="text-xs text-gray-600">
-                                      {certOtpTimer > 0 ? (
-                                        <span>
-                                          زمان: <strong className="font-mono text-emerald-700 font-bold">{Math.floor(certOtpTimer / 60)}:{String(certOtpTimer % 60).padStart(2, '0')}</strong>
-                                        </span>
-                                      ) : (
-                                        <button
-                                          type="button"
-                                          onClick={handleResendCertOTP}
-                                          className="text-xs text-emerald-700 font-bold hover:underline"
-                                        >
-                                          🔄 ارسال مجدد کد
-                                        </button>
-                                      )}
-                                    </div>
-
-                                    <button
-                                      type="button"
-                                      onClick={handleConfirmCertOTP}
-                                      disabled={certVerificationLoading || !certOtpCode.trim()}
-                                      className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-md transition-all disabled:opacity-50"
-                                    >
-                                      {certVerificationLoading ? 'در حال تایید...' : '✓ ثبت نهایی گواهی'}
-                                    </button>
-                                  </div>
-                                </div>
-                              )}
+                              <button
+                                type="button"
+                                onClick={handleConfirmAccountOTP}
+                                disabled={accountVerifyLoading || !accountOtpCode.trim()}
+                                className="px-5 py-2.5 bg-emerald-700 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-xl text-xs sm:text-sm font-black shadow-md transition-all disabled:opacity-50"
+                              >
+                                {accountVerifyLoading ? 'در حال تایید...' : '✓ تایید و ورود'}
+                              </button>
                             </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    /* وضعیت تایید شده گواهی */
-                    <div className="p-3.5 bg-emerald-50 flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2 text-emerald-900 font-bold">
-                        <span>📜</span>
-                        <span>
-                          گواهی پس از اتمام جلسه برای {certNationalCode ? `کد ملی «${certNationalCode}»` : ''} {certPhone ? `و شماره همراه «${certPhone}»` : ''} صادر می‌گردد.
-                        </span>
+                          </div>
+                        )}
                       </div>
-                      {isOtpVerified ? (
-                        <span className="text-[11px] text-emerald-800 font-bold flex items-center gap-1 bg-emerald-100/80 px-2.5 py-1 rounded-lg border border-emerald-300">
-                          <span>🔒</span> قفل شده با عضویت مجمع
-                        </span>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setWantCertificate(false);
-                            setCertInfoSaved(false);
-                            setIsCertOtpSent(false);
-                            setCertOtpCode('');
-                            setCertVerifyError('');
-                            setCookie('wantCertificate', 'false', 30);
-                          }}
-                          className="text-xs text-red-500 hover:text-red-700 underline"
-                        >
-                          ویرایش
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* حالت ورود به عنوان مدیر جلسه */}
-                {meet?.isAdmin === true && (
-                  <div className="flex items-center gap-2 pt-1">
-                    <input
-                      type="checkbox"
-                      id="adminLoginCheckbox"
-                      checked={isAdmin}
-                      onChange={(e) => setIsAdmin(e.target.checked)}
-                      className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
-                    />
-                    <label htmlFor="adminLoginCheckbox" className="text-xs font-bold text-gray-700 cursor-pointer">
-                      ورود با سطح دسترسی مدیر جلسه (ارائه‌دهنده)
-                    </label>
+                    )}
                   </div>
-                )}
-
-                {/* دکمه پیوستن به تالار جلسه */}
-                <button
-                  type="button"
-                  onClick={handleJoinMeeting}
-                  disabled={loading || (isMember && !isOtpVerified)}
-                  className={`w-full py-3.5 rounded-2xl font-black text-sm md:text-base flex items-center justify-center gap-2 shadow-lg transition-all duration-300 transform hover:scale-[1.01] active:scale-98 ${loading || (isMember && !isOtpVerified)
-                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed shadow-none'
-                      : 'bg-emerald-700 bg-gradient-to-r from-emerald-700 via-teal-700 to-emerald-800 hover:from-emerald-800 hover:to-teal-800 text-white shadow-emerald-900/30'
-                    }`}
-                >
-                  {loading ? (
-                    <>
-                      <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                      در حال اتصال به جلسه...
-                    </>
-                  ) : (
-                    <>
-                      <span>🚀</span>
-                      <span>ورود به جلسه آنلاین</span>
-                    </>
-                  )}
-                </button>
-
-                {isMember && !isOtpVerified && (
-                  <p className="text-center text-xs text-amber-700 font-bold">
-                    ⚠️ لطفاً ابتدا کد تایید ارسالی به همراه خود را تایید نمایید.
-                  </p>
                 )}
               </div>
             )}
           </>
         )}
 
-        {/* فوتر صفحه */}
+        {/* Footer */}
         <div className="mt-6 pt-4 border-t border-gray-100 text-center">
           <p className="text-[11px] text-gray-400 font-medium">
             مجمع عالی حکمت اسلامی — کلیه حقوق محفوظ است.
