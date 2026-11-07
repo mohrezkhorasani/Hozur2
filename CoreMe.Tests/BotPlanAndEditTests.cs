@@ -1,3 +1,4 @@
+using Application.General;
 using Application.DTO;
 using Application.DTO.Generals;
 using Application.Interface.IUsecase;
@@ -221,5 +222,64 @@ namespace CoreMe.Tests
             Assert.Equal("عنوان ویرایش شده جدید", updatedPlan.Title);
             Assert.Contains("دکتر جدید", updatedPlan.Teachers);
         }
+
+        [Fact]
+        public async Task BotNewPlanRoom_17Aban_1830_StoresUtc_AndGetsTehranTime()
+        {
+            using var db = CreateInMemoryContext();
+            var config = CreateConfiguration();
+            var mediator = new MockMediator();
+            var fakeBbb = new FakeBBBGetMeetings();
+
+            var room = new RoomTBL
+            {
+                ID = 20,
+                FriendlyID = "test-room-17aban",
+                Title = "اتاق تست آبان",
+                Status = MainEntity_Status.Enabled,
+                IsPublicRoom = true
+            };
+            db.RoomTBLs.Add(room);
+            await db.SaveChangesAsync();
+
+            var usecase = new BotNewPlanRoomUseCase(db, config, fakeBbb, mediator);
+            var output = new MockOutputPort<GenericResponse<BotNewPlanRoomResponse>>();
+
+            var request = new BotNewPlanRoomRequest
+            {
+                FriendlyID = "test-room-17aban",
+                Title = "نشست ۱۷ آبان",
+                Date = "1405/08/17",
+                Time = "18:30",
+                Secret = "xXxxXxXXxXXxXxTokenSecret@1239988mfaMgfo"
+            };
+
+            await usecase.handleAsync(request, output);
+
+            Assert.NotNull(output.Result);
+            Assert.Equal(200, output.Result.data.Status);
+
+            var plan = await db.RoomTBLPlanTBLs.FirstAsync(p => p.IDRoomTBL == room.ID);
+            // Server must store UTC:
+            // 1405/08/17 in Persian calendar is 2026-11-08 Gregorian.
+            // 18:30 Tehran time (UTC+03:30) is 15:00 UTC.
+            Assert.True(plan.StartDate.HasValue);
+            Assert.Equal(2026, plan.StartDate.Value.Year);
+            Assert.Equal(11, plan.StartDate.Value.Month);
+            Assert.Equal(8, plan.StartDate.Value.Day);
+            Assert.Equal(15, plan.StartDate.Value.Hour);
+            Assert.Equal(0, plan.StartDate.Value.Minute);
+
+            // Moment of GET: must be Tehran time and date
+            var mapped = PlanTimeHelper.MapToMiniPlanJSON(plan);
+            Assert.Equal("1405/08/17", mapped.Date);
+            Assert.Equal("18:30", mapped.Time);
+            Assert.Equal("1405/08/17 18:30", mapped.StartAtTehran);
+            Assert.NotNull(mapped.StartAt);
+            Assert.Equal(18, mapped.StartAt.Value.Hour);
+            Assert.Equal(30, mapped.StartAt.Value.Minute);
+            Assert.Equal(15, mapped.StartAtUtc.Value.Hour);
+        }
+
     }
 }

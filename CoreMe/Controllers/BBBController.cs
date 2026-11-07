@@ -1009,6 +1009,29 @@ namespace CoreMe.Controllers
             await _IGetPlanRoomUseCase.handleAsync(req, _GetPlanRoomResponse);
             return _GetPlanRoomResponse.jsonContentResult;
         }
+
+        [HttpGet("/api/bot/GetPlanRoom")]
+        public async Task<IActionResult> BotGetPlanRoom([FromQuery] string friendlyID = "", [FromQuery] string secret = "")
+        {
+            var head = HttpContext.GetGeneralHeaders();
+            string secretFromHeader = head?.JWTMeetingToken ?? "";
+            const string expectedBotSecret = "xXxxXxXXxXXxXxTokenSecret@1239988mfaMgfo";
+            bool isSecretValid = (!string.IsNullOrWhiteSpace(secret) && secret.Trim() == expectedBotSecret)
+                || (!string.IsNullOrWhiteSpace(secretFromHeader) && secretFromHeader.Trim() == expectedBotSecret);
+
+            if (!isSecretValid && head?.UserTBL == null)
+            {
+                return Unauthorized(new { message = "دسترسی غیرمجاز. کلید احراز هویت ربات نامعتبر است", status = 401 });
+            }
+
+            GetPlanRoomRequest req = new GetPlanRoomRequest
+            {
+                FriendlyID = friendlyID,
+                GeneralHeaders = head
+            };
+            await _IGetPlanRoomUseCase.handleAsync(req, _GetPlanRoomResponse);
+            return _GetPlanRoomResponse.jsonContentResult;
+        }
         [HttpGet("/user/GetPlanRoomPublic")]
         public async Task<IActionResult> GetPlanRoomPublic()
         {

@@ -280,29 +280,12 @@ namespace Application.Services
         private async Task ReCachePlanRoomPublic()
         {
             var list = await _db.RoomTBLPlanTBLs
-                .Where(e => e.StartDate.HasValue && e.StartDate.Value > DateTime.Now && e.RoomTBL.IsPublicRoom
+                .Where(e => e.StartDate.HasValue && e.StartDate.Value > DateTime.UtcNow && e.RoomTBL.IsPublicRoom
                     && (e.Status == MainEntity_Status.Enabled || e.Status == MainEntity_Status.MEETING_STARTED_LATER))
                 .Include(e => e.RoomTBL).ThenInclude(e => e.OwnerTBL)
                 .ToListAsync();
 
-            var cachedData = list.OrderBy(e => e.StartDate).Select(e => new MiniPlanJSON
-            {
-                Id = e.ID,
-                StartAt = e.StartDate,
-                Teacher = e.Teachers,
-                Title = e.Title,
-                RoomJSON = new MiniRoomJSON
-                {
-                    RoomID = e.RoomTBL.FriendlyID,
-                    IsSubscribed = e.RoomTBL.IsSubscribed,
-                    Title = e.RoomTBL.Title,
-                    Owner = new MiniUserJSON
-                    {
-                        Fullname = e.RoomTBL.OwnerTBL?.GetName() ?? "",
-                        Username = e.RoomTBL.OwnerTBL?.Username ?? ""
-                    }
-                }
-            }).ToList();
+            var cachedData = list.OrderBy(e => e.StartDate).Select(e => PlanTimeHelper.MapToMiniPlanJSON(e)).ToList();
 
             var cacheOptions = new MemoryCacheEntryOptions()
                 .SetSlidingExpiration(TimeSpan.FromMinutes(5))
@@ -316,7 +299,7 @@ namespace Application.Services
         {
             var list = await _db.RoomTBLPlanTBLs
                 .Where(e => e.StartDate.HasValue && !string.IsNullOrEmpty(e.Title) && !string.IsNullOrEmpty(e.Teachers)
-                    && e.StartDate.Value <= DateTime.Now && e.RoomTBL.IsPublicRoom)
+                    && e.StartDate.Value <= DateTime.UtcNow && e.RoomTBL.IsPublicRoom)
                 .Include(e => e.RoomTBL).ThenInclude(e => e.OwnerTBL)
                 .ToListAsync();
 

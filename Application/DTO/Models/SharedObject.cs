@@ -131,6 +131,12 @@ namespace Application.DTO.Models
         public string Teacher { get; set; }
         public string Dabir { get; set; }
         public DateTime? StartAt { get; set; }
+        public DateTime? StartAtUtc { get; set; }
+        public string? Date { get; set; }
+        public string? Time { get; set; }
+        public string? StartDateJalali { get; set; }
+        public string? StartTimeTehran { get; set; }
+        public string? StartAtTehran { get; set; }
         public MiniRoomJSON RoomJSON { get; set; }
     }
     public class RevokedTokenJSON
