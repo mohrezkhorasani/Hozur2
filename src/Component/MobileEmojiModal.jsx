@@ -8,6 +8,41 @@ import { BaseURLFiles } from '../api/apiNeed';
 // Cache for loaded emojis
 const emojiCache = {};
 
+// Helper to resize image client-side to icon dimensions (max 256px) and return data URL
+const resizeImageToDataUrl = (file, maxDimension = 256) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = Math.round((height * maxDimension) / width);
+            width = maxDimension;
+          } else {
+            width = Math.round((width * maxDimension) / height);
+            height = maxDimension;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        const isPng = file.type === 'image/png' || file.type === 'image/svg+xml';
+        const dataUrl = canvas.toDataURL(isPng ? 'image/png' : 'image/jpeg', 0.88);
+        resolve(dataUrl);
+      };
+      img.onerror = () => reject(new Error('خطا در پردازش تصویر'));
+      img.src = e.target.result;
+    };
+    reader.onerror = () => reject(new Error('خطا در خواندن فایل'));
+    reader.readAsDataURL(file);
+  });
+};
+
 const MobileEmojiModal = ({ isOpen, onClose, onSelectEmoji, roomid }) => {
   const [activeTab, setActiveTab] = useState('HTC');
   const [emojiList, setEmojiList] = useState([]);
@@ -145,15 +180,18 @@ const MobileEmojiModal = ({ isOpen, onClose, onSelectEmoji, roomid }) => {
     setUploadError('');
 
     try {
-      const formData = new FormData();
-      formData.append('roomID', roomid);
-      formData.append('avatarFile', customFile);
+      // 1. Resize image client-side to optimal icon dimensions (max 256px) and get Data URL
+      const dataUrl = await resizeImageToDataUrl(customFile, 256);
 
-      const res = await ChangeAvatarOfRoom(formData);
+      // 2. Send via JSON to avoid 415 Unsupported Media Type across all servers/proxies
+      const res = await ChangeAvatarOfRoom({
+        roomID: roomid,
+        avatarPath: dataUrl
+      });
 
       if (res && res.status === 200) {
         if (onSelectEmoji) {
-          onSelectEmoji(res.avatarPath, 'custom', roomid);
+          onSelectEmoji(res.avatarPath || dataUrl, 'custom', roomid);
         }
         onClose();
       } else {
@@ -161,7 +199,7 @@ const MobileEmojiModal = ({ isOpen, onClose, onSelectEmoji, roomid }) => {
       }
     } catch (err) {
       console.error('Error uploading custom room avatar:', err);
-      setUploadError('خطا در برقراری ارتباط با سرور هنگام آپلود تصویر.');
+      setUploadError(err?.message || 'خطا در برقراری ارتباط با سرور هنگام آپلود تصویر.');
     } finally {
       setUploadLoading(false);
     }
