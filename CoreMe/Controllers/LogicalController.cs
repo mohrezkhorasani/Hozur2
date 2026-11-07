@@ -287,104 +287,103 @@ namespace CoreMe.Controllers
         [HttpGet("/room/getDetails")]
         public async Task<IActionResult> GetDetails([FromQuery] string fid)
         {
-            var head = HttpContext.GetGeneralHeaders();
-            if (!_db.RoomTBLs.Any(e => e.FriendlyID == fid))
-            {
-                return Ok(new
-                {
-                    message = "not found",
-                    status = 404
-                });
-            }
-
-            // --- گرفتن اطلاعات کاربر از هدرها ---
-            long userId = 0;
-            string uuid = "";
             try
             {
-                var userIdHeader = head.UserTBL?.ID;
-                var uuidHeader = head.UserTBL?.UUID;
-                userId = userIdHeader.Value ;
-
-                uuid = uuidHeader ?? "";
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e.Message);
-            }
-            Console.WriteLine(uuid);
-
-            var room = await _db.RoomTBLs
-                .Include(e => e.OwnerTBL)
-                .Include(e => e.RoomTBLToUserTBLs)
-                .Include(e => e.RoomMetaTBLs)
-                .FirstOrDefaultAsync(e => e.FriendlyID == fid);
-
-            if (room == null)
-                return Ok(new { message = "not found", status = 404 });
-
-            // --- پیدا کردن اشتراک کاربر ---
-            var userSub = userId > 0
-                ? room.RoomTBLToUserTBLs.FirstOrDefault(r => r.UUIDParticipatorTBL == uuid && r.Status == MainEntity_Status.Enabled)
-                : null;
-
-            // --- محاسبه isAdmin ---
-            var isAdmin = userId > 0 && (
-                room.IDOwnerTBL == userId ||
-                room.RoomTBLToUserTBLs.Any(r =>
-                    r.UUIDParticipatorTBL == uuid &&
-                    r.Type == MainEntity_Types.ROOMTOUSER_ADMIN)
-            );
-
-            var now = DateTime.UtcNow;
-            var upcomingPlans = await _db.RoomTBLPlanTBLs
-                .Where(p => p.IDRoomTBL == room.ID
-                         && (p.Status == MainEntity_Status.Enabled || p.Status == MainEntity_Status.MEETING_STARTED_LATER)
-                         && p.StartDate.HasValue
-                         && p.StartDate.Value >= now.AddMinutes(-30))
-                .OrderBy(p => p.StartDate)
-                .Select(p => new
+                var head = HttpContext.GetGeneralHeaders();
+                if (!_db.RoomTBLs.Any(e => e.FriendlyID == fid))
                 {
-                    id = p.ID,
-                    title = p.Title,
-                    teachers = p.Teachers,
-                    dabir = p.Dabir,
-                    startDate = p.StartDate,
-                    explain = p.Explain,
-                    requiredToEnterName = p.RequiredToEnterName,
-                    presentationFileURL = p.PresentationFileURL
-                })
-                .ToListAsync();
+                    return Ok(new
+                    {
+                        message = "not found",
+                        status = 404
+                    });
+                }
 
-            var response = new
-            {
-                title = room.Title,
-                host = new
+                // --- گرفتن اطلاعات کاربر از هدرها ---
+                long userId = head?.UserTBL?.ID ?? 0;
+                string uuid = head?.UserTBL?.UUID ?? "";
+
+                var room = await _db.RoomTBLs
+                    .Include(e => e.OwnerTBL)
+                    .Include(e => e.RoomTBLToUserTBLs)
+                    .Include(e => e.RoomMetaTBLs)
+                    .FirstOrDefaultAsync(e => e.FriendlyID == fid);
+
+                if (room == null)
+                    return Ok(new { message = "not found", status = 404 });
+
+                // --- پیدا کردن اشتراک کاربر ---
+                var userSub = userId > 0
+                    ? room.RoomTBLToUserTBLs.FirstOrDefault(r => r.UUIDParticipatorTBL == uuid && r.Status == MainEntity_Status.Enabled)
+                    : null;
+
+                // --- محاسبه isAdmin ---
+                var isAdmin = userId > 0 && (
+                    room.IDOwnerTBL == userId ||
+                    room.RoomTBLToUserTBLs.Any(r =>
+                        r.UUIDParticipatorTBL == uuid &&
+                        r.Type == MainEntity_Types.ROOMTOUSER_ADMIN)
+                );
+
+                var now = DateTime.UtcNow;
+                var upcomingPlans = await _db.RoomTBLPlanTBLs
+                    .Where(p => p.IDRoomTBL == room.ID
+                             && (p.Status == MainEntity_Status.Enabled || p.Status == MainEntity_Status.MEETING_STARTED_LATER)
+                             && p.StartDate.HasValue
+                             && p.StartDate.Value >= now.AddMinutes(-30))
+                    .OrderBy(p => p.StartDate)
+                    .Select(p => new
+                    {
+                        id = p.ID,
+                        title = p.Title,
+                        teachers = p.Teachers,
+                        dabir = p.Dabir,
+                        startDate = p.StartDate,
+                        explain = p.Explain,
+                        requiredToEnterName = p.RequiredToEnterName,
+                        presentationFileURL = p.PresentationFileURL
+                    })
+                    .ToListAsync();
+
+                var response = new
                 {
-                    id = room.OwnerTBL != null ? room.OwnerTBL.ID : 0,
-                    name = room.OwnerTBL != null ? room.OwnerTBL.GetName() : ""
-                },
-                bio = room.Bio,
-                friendlyID = fid,
-                logo = room.Logo,
-                najmID = room.NajmID,
-                isSubscribedByUser = userSub != null,
-                subscriptionStatus = userSub != null ? (int?)userSub.Status : null,
-                isAdmin = isAdmin,
-                IsSubscribed = room.IsSubscribed,
-                IsPrivateRoom = room.IsPrivateRoom,
-                coverImage = room.RoomMetaTBLs.FirstOrDefault(e => e.Key == MetaConfigKeys.ImageCover).Value,
-                description = room.Bio,
-                najmIDBoss = room.NajmIDBoss,
-                upcomingPlans = upcomingPlans
-            };
+                    title = room.Title,
+                    host = new
+                    {
+                        id = room.OwnerTBL != null ? room.OwnerTBL.ID : 0,
+                        name = room.OwnerTBL != null ? room.OwnerTBL.GetName() : ""
+                    },
+                    bio = room.Bio,
+                    friendlyID = fid,
+                    logo = room.Logo,
+                    najmID = room.NajmID,
+                    isSubscribedByUser = userSub != null,
+                    subscriptionStatus = userSub != null ? (int?)userSub.Status : null,
+                    isAdmin = isAdmin,
+                    IsSubscribed = room.IsSubscribed,
+                    IsPrivateRoom = room.IsPrivateRoom,
+                    coverImage = room.RoomMetaTBLs?.FirstOrDefault(e => e.Key == MetaConfigKeys.ImageCover)?.Value ?? "",
+                    description = room.Bio,
+                    najmIDBoss = room.NajmIDBoss,
+                    upcomingPlans = upcomingPlans
+                };
 
-            return Ok(new
+                return Ok(new
+                {
+                    message = "ok",
+                    status = 200,
+                    data = response,
+                });
+            }
+            catch (Exception ex)
             {
-                message = "ok" + JsonConvert.SerializeObject(head),
-                status = 200,
-                data = response,
-            });
+                Statics.Log("GetDetails", ex);
+                return StatusCode(500, new
+                {
+                    message = "Internal server error: " + ex.Message,
+                    status = 500
+                });
+            }
         }
 
         #region Najm Boss Integration
