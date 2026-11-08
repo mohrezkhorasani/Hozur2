@@ -58,7 +58,7 @@ namespace Presistence.Entities
             {
                 var optionsBuilder = new DbContextOptionsBuilder<DBContext>();
 
-                optionsBuilder.UseSqlServer(@"Data Source=192.168.0.158;Initial Catalog=eitherir_maj;User ID=hekmatbbbremote;Password=fety124FIG93tHI;TrustServerCertificate=True", builder =>
+                optionsBuilder.UseSqlServer(@"Data Source=192.168.0.158,32800;Initial Catalog=eitherir_maj;User ID=hekmatbbbremote;Password=fety124FIG93tHI;TrustServerCertificate=True", builder =>
                 {
                     builder.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null);
                     builder.CommandTimeout(300); // اضافه کردن CommandTimeout
