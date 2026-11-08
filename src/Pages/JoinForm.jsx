@@ -24,8 +24,13 @@ import {
   syncUserTokens,
   removeAuthToken,
   removeRegisteredUserToken,
-  getEffectiveUserToken
+  getEffectiveUserToken,
+  BaseURL,
+  BaseURLFiles
 } from '../api/apiNeed';
+import EmojiIcon from '../Component/EmojiIcon';
+import { combinePath } from '../Tools/tools';
+import { GetRoomMetadata } from '../api/AdminAPI';
 
 // Helper to read a cookie by name
 function getCookie(name) {
@@ -61,6 +66,7 @@ function JoinForm() {
   const [roomLive, setRoomLive] = useState([]);
   const [isMeetingLive, setIsMeetingLive] = useState(false);
   const [isCheckingLive, setIsCheckingLive] = useState(true);
+  const [roomCover, setRoomCover] = useState('');
   const [nextSessionInfo, setNextSessionInfo] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
 
@@ -187,6 +193,16 @@ function JoinForm() {
             isSubscribedByUser: data.isSubscribedByUser,
           });
         }
+      }
+
+      // Fetch image_cover metadata if available
+      try {
+        const metaRes = await GetRoomMetadata(Mid, 'image_cover');
+        if (metaRes && (metaRes.value || metaRes.data)) {
+          setRoomCover(metaRes.value || metaRes.data);
+        }
+      } catch (metaErr) {
+        // Non-blocking fallback
       }
     } catch (error) {
       console.error('Error fetching meeting info:', error);
@@ -715,23 +731,62 @@ function JoinForm() {
     );
   }
 
-  const bgImage = roomDetails?.metadatas?.image_cover;
-  const bgStyle = bgImage
-    ? { backgroundImage: `url(${bgImage})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }
+  // Helper to safely resolve relative or absolute image URLs
+  const resolveImageUrl = (img) => {
+    if (!img || typeof img !== 'string' || img.trim() === '') return '';
+    const clean = img.trim();
+    if (
+      clean.startsWith('http://') ||
+      clean.startsWith('https://') ||
+      clean.startsWith('data:') ||
+      clean.startsWith('blob:')
+    ) {
+      return clean;
+    }
+    if (clean.startsWith('/uploads/') || clean.startsWith('/img/') || clean.startsWith('/custom/')) {
+      return combinePath(BaseURLFiles, clean);
+    }
+    return combinePath(BaseURL, clean);
+  };
+
+  // Determine background image from metadata or cover
+  const rawBgImage =
+    roomCover ||
+    roomDetails?.metadatas?.image_cover ||
+    roomDetails?.metadatas?.['image_cover'] ||
+    roomDetails?.coverImage ||
+    meet?.coverImage;
+
+  const bgImageUrl = resolveImageUrl(rawBgImage);
+  const bgStyle = bgImageUrl
+    ? {
+        backgroundImage: `url(${bgImageUrl})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+      }
     : {};
+
+  // Determine dynamic room logo or avatar
+  const roomLogo = roomDetails?.logo || meet?.logo;
+  const roomAvatar = roomDetails?.avatar || meet?.avatar;
 
   const isUserVIP = Boolean(user && (user.isVIPMember || user.isMemberVIP));
 
   return (
     <div
-      className={`min-h-screen flex items-center justify-center px-4 py-8 sm:py-12 relative overflow-hidden ${!bgImage ? 'bg-gradient-to-br from-[#06241c] via-[#093529] to-[#0f4d3d]' : ''}`}
+      className={`min-h-screen flex items-center justify-center px-4 py-8 sm:py-12 relative overflow-hidden ${
+        !bgImageUrl ? 'bg-gradient-to-br from-[#06241c] via-[#093529] to-[#0f4d3d]' : 'bg-[#06241c]'
+      }`}
       style={bgStyle}
       dir="rtl"
     >
       {/* Background Overlay */}
-      {bgImage && <div className="absolute inset-0 bg-black/60 z-0"></div>}
+      {bgImageUrl && (
+        <div className="absolute inset-0 bg-gradient-to-br from-black/80 via-[#06241c]/75 to-black/85 backdrop-blur-[2px] z-0 pointer-events-none"></div>
+      )}
 
-      {!bgImage && (
+      {!bgImageUrl && (
         <>
           <div className="absolute -top-32 -right-32 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
           <div className="absolute -bottom-32 -left-32 w-96 h-96 bg-teal-500/10 rounded-full blur-3xl pointer-events-none"></div>
@@ -744,10 +799,29 @@ function JoinForm() {
         {/* Header and Logo */}
         <div className="text-center mb-6">
           <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-tr from-[#0b3f32] to-[#166534] rounded-2xl mb-3 shadow-lg shadow-emerald-950/20 border-2 border-emerald-400/30 transform transition-transform hover:scale-105 overflow-hidden">
-            {roomDetails?.logo ? (
-              <img src={roomDetails.logo} alt="logo" className="w-16 h-16 object-contain" />
+            {roomLogo ? (
+              <img
+                src={resolveImageUrl(roomLogo)}
+                alt={meet?.title || 'لوگوی جلسه'}
+                className="w-full h-full object-contain p-2"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  if (e.currentTarget.nextSibling) {
+                    e.currentTarget.nextSibling.style.display = 'flex';
+                  }
+                }}
+              />
+            ) : roomAvatar ? (
+              <EmojiIcon
+                name={roomAvatar}
+                className="w-14 h-14 object-contain"
+                style={{ width: '3.5rem', height: '3.5rem' }}
+              />
             ) : (
               <span className="text-3xl">🏛️</span>
+            )}
+            {roomLogo && (
+              <span className="text-3xl hidden items-center justify-center w-full h-full">🏛️</span>
             )}
           </div>
           <h1 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">
