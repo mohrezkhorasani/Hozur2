@@ -1943,7 +1943,7 @@ namespace Application.Usecase
                 }
             }
             catch (Exception e) { }
-            var roomQuery = _db.RoomTBLs.Where(e => e.FriendlyID == message.Query).Include(e=>e.RoomTBLToUserTBLs).Include(e => e.OwnerTBL).Include(e => e.RoomTBLPlanTBLs.OrderBy(e => e.StartDate));
+            var roomQuery = _db.RoomTBLs.Where(e => e.FriendlyID == message.Query).Include(e=>e.RoomTBLToUserTBLs).Include(e => e.OwnerTBL).Include(e => e.RoomTBLPlanTBLs.OrderBy(e => e.StartDate)).Include(e => e.RoomMetaTBLs);
             var userSub = id > 0 ? roomQuery.SelectMany(r => r.RoomTBLToUserTBLs).FirstOrDefault(r => r.UUIDParticipatorTBL == uuid) : null;
             outputPort.Handle(new GenericResponse<GetRoomByFriendlyIDResponse>(new GetRoomByFriendlyIDResponse
             {
@@ -1961,6 +1961,8 @@ namespace Application.Usecase
                     NextMeet = e.RoomTBLPlanTBLs.Any(e => e.StartDate > DateTime.Now) ? e.RoomTBLPlanTBLs.Where(e => e.StartDate > DateTime.Now).First().StartDate : DateTime.MaxValue,
                     LatestTitle = e.RoomTBLPlanTBLs.Any(e => e.StartDate > DateTime.Now) ? e.RoomTBLPlanTBLs.Where(e => e.StartDate > DateTime.Now).First().Title : "",
                     Avatar = e.Avatar,
+                    Logo = e.Logo,
+                    CoverImage = e.RoomMetaTBLs.Where(m => m.Key == "image_cover" && m.Status == MainEntity_Status.Enabled).Select(m => m.Value).FirstOrDefault(),
                     NextPlan = e.RoomTBLPlanTBLs.Any(e => e.StartDate > DateTime.Now) ? e.RoomTBLPlanTBLs.Where(e => e.StartDate > DateTime.Now).Select(e => new MiniPlanJSON
                     {
                         Dabir = e.Dabir,

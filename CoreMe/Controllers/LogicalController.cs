@@ -362,10 +362,14 @@ namespace CoreMe.Controllers
                     isAdmin = isAdmin,
                     IsSubscribed = room.IsSubscribed,
                     IsPrivateRoom = room.IsPrivateRoom,
-                    coverImage = room.RoomMetaTBLs?.FirstOrDefault(e => e.Key == MetaConfigKeys.ImageCover)?.Value ?? "",
+                    avatar = room.Avatar,
+                    coverImage = room.RoomMetaTBLs?.FirstOrDefault(e => e.Key == MetaConfigKeys.ImageCover && e.Status == MainEntity_Status.Enabled)?.Value ?? "",
                     description = room.Bio,
                     najmIDBoss = room.NajmIDBoss,
-                    upcomingPlans = upcomingPlans
+                    upcomingPlans = upcomingPlans,
+                    metadatas = room.RoomMetaTBLs?
+                        .Where(m => m.Status == MainEntity_Status.Enabled)
+                        .ToDictionary(m => m.Key, m => m.Value) ?? new Dictionary<string, string?>()
                 };
 
                 return Ok(new

@@ -174,6 +174,8 @@ namespace Application.DTO.Models
         public string BBB_MeetID { get; set; }
         public string LatestTitle { get; set; }
         public string? Avatar { get; set; }
+        public string? Logo { get; set; }
+        public string? CoverImage { get; set; }
         public MiniUserJSON Owner { get; set; }
         public DateTime Created { get; set; }
         public DateTime LastMeet { get; set; }
