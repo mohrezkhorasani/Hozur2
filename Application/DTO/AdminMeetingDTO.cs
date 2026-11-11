@@ -42,6 +42,7 @@ namespace Application.DTO
         public string? RoomFriendlyID { get; set; }
         public string? RoomTitle { get; set; }
         public AdminMeetingOwnerDTO? Owner { get; set; }
+        public AdminMeetingOwnerDTO? Creator { get; set; }
         public AdminMeetingTeacherDTO? Teacher { get; set; }
         public int ParticipantsCount { get; set; }
 

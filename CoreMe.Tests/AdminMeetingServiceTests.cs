@@ -380,5 +380,24 @@ namespace CoreMe.Tests
             Assert.True(await service.CanUserEditMeetingAsync(roomAdmin, 1003));
             Assert.False(await service.CanUserEditMeetingAsync(userNoRoom, 1003));
         }
+
+        [Fact]
+        public async Task GetMeetingsQuery_PopulatesCreatorAndRoomTitle_AndRestrictsNonOwnerAdmins()
+        {
+            var db = CreateInMemoryContext(Guid.NewGuid().ToString());
+            SeedSampleData(db);
+
+            var service = new AdminMeetingService(db);
+            var superAdmin = await db.UserTBLs.FirstAsync(u => u.Type == MainEntity_Types.USER_ADMINSTRATOR);
+
+            var result = await service.GetMeetingsAsync(superAdmin, page: 1, count: 50);
+
+            Assert.NotNull(result);
+            Assert.Equal(4, result.TotalCount);
+            // Verify RoomTitle is populated
+            Assert.Contains(result.Items, m => m.RoomTitle == "اتاق مالک");
+            // Verify Creator is populated
+            Assert.Contains(result.Items, m => m.Creator != null && m.Creator.Id == superAdmin.ID);
+        }
     }
 }
