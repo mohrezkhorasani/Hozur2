@@ -1,6 +1,7 @@
 import Cookies from 'js-cookie';
 import { BaseURL, NormalHeaderAPI } from './apiNeed';
-import { combinePath } from '../Tools/tools';
+import { combinePath, persianAndArabicToEnglishNumbers } from '../Tools/tools';
+import { isFailedToFetchError } from '../Tools/telegramLogger';
 
 
 
@@ -80,24 +81,69 @@ export async function joinMeeting(roomID, name, modir = false, pass = "123", nat
 
 export async function Login(uname, pass) {
     const url = combinePath(BaseURL, `/user/LoginUserPanel`);
+    const cleanUname = persianAndArabicToEnglishNumbers(uname ? String(uname).trim() : '');
+    const cleanPass = persianAndArabicToEnglishNumbers(pass ? String(pass) : '');
 
-    const res = await fetch(url, {
-        method: "POST",
-        headers: {
-            "accept": "*/*",
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            username: uname,
-            password: pass
-        })
-    });
-    //console.log(res)
-    if (!res.ok) throw new Error("Failed to login");
-    let json = await res.json()
-    if (json.status != 200)
-        throw new Error(json.message)
-    return json;
+    const makeRequest = async (signal) => {
+        return await fetch(url, {
+            method: "POST",
+            headers: {
+                "accept": "*/*",
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                username: cleanUname,
+                password: cleanPass
+            }),
+            signal
+        });
+    };
+
+    let res;
+    let lastError;
+
+    // Retry once automatically on transient network failure / Failed to fetch
+    for (let attempt = 1; attempt <= 2; attempt++) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 25000);
+        try {
+            res = await makeRequest(controller.signal);
+            clearTimeout(timeoutId);
+            break;
+        } catch (err) {
+            clearTimeout(timeoutId);
+            lastError = err;
+            if (attempt < 2 && isFailedToFetchError(err)) {
+                await new Promise(r => setTimeout(r, 1200));
+                continue;
+            }
+            throw err;
+        }
+    }
+
+    if (!res) {
+        throw lastError || new Error("Failed to fetch");
+    }
+
+    let json = null;
+    try {
+        json = await res.json();
+    } catch {
+        // Response was not JSON
+    }
+
+    if (json) {
+        if (json.status !== 200 && json.status !== '200') {
+            throw new Error(json.message || "اطلاعات کاربری یا رمز عبور نامعتبر است");
+        }
+        return json;
+    }
+
+    if (!res.ok) {
+        throw new Error(`خطای سرور (${res.status}): Failed to login`);
+    }
+
+    throw new Error("پاسخ دریافتی از سرور نامعتبر است");
 }
 
 export async function SignUp(nick, uname, pass, mail, role) {
