@@ -19,10 +19,10 @@ import { useAuth } from '../../Tools/AuthProvider';
 
 // Types mapping
 const MEETING_TYPES = [
-    { value: 100, label: 'نشست گرین‌لایت (100)', badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-300' },
-    { value: 101, label: 'وبینار API (101)', badgeClass: 'bg-purple-100 text-purple-800 border-purple-300' },
-    { value: 1, label: 'عادی (1)', badgeClass: 'bg-blue-100 text-blue-800 border-blue-300' },
-    { value: -99, label: 'نادیده‌گرفته‌شده (-99)', badgeClass: 'bg-gray-100 text-gray-700 border-gray-300' },
+    { value: 100, label: 'نشست گرین‌لایت (100)', badgeClass: 'bg-[#ecfdf5] text-[#065f46] border-[#6ee7b7]' },
+    { value: 101, label: 'وبینار API (101)', badgeClass: 'bg-[#faf5ff] text-[#6b21a8] border-[#d8b4fe]' },
+    { value: 1, label: 'عادی (1)', badgeClass: 'bg-[#eff6ff] text-[#1e40af] border-[#93c5fd]' },
+    { value: -99, label: 'جلسه تستی (-99)', badgeClass: 'bg-[#fef2f2] text-[#991b1b] border-[#fca5a5]' },
 ];
 
 const LOG_TYPES = {
@@ -1358,14 +1358,27 @@ const MeetingManagement = () => {
                                                         <button
                                                             type="button"
                                                             onClick={() => handleFilterByOwner(item.owner.id, item.owner.fullname || item.owner.name)}
-                                                            className="flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-2 py-0.5 rounded-lg transition"
+                                                            className="flex items-center gap-1 text-[11px] font-bold text-[#92400e] bg-[#fef3c7] hover:bg-[#fde68a] border border-[#fcd34d] px-2 py-0.5 rounded-lg transition"
                                                             title={`کلیک برای فیلتر جلسات بر اساس مالک (${item.owner.fullname || item.owner.name || item.owner.id})`}
                                                         >
-                                                            <FaUser size={10} className="text-amber-600 shrink-0" />
+                                                            <FaUser size={10} className="text-[#d97706] shrink-0" />
                                                             <span className="truncate max-w-[110px]">
                                                                 {item.owner.fullname || item.owner.name || `مالک #${item.owner.id}`}
                                                             </span>
                                                         </button>
+                                                    )}
+
+                                                    {/* عنوان شروع کننده */}
+                                                    {item.creator && (item.creator.name || item.creator.fullname || item.creator.username) && (
+                                                        <div
+                                                            className="flex items-center gap-1 text-[11px] font-bold text-[#065f46] bg-[#d1fae5] border border-[#a7f3d0] px-2 py-0.5 rounded-lg transition"
+                                                            title={`شروع‌کننده: ${item.creator.name || item.creator.fullname || item.creator.username}`}
+                                                        >
+                                                            <FaUserCheck size={10} className="text-[#059669] shrink-0" />
+                                                            <span className="truncate max-w-[110px]">
+                                                                {item.creator.name || item.creator.fullname || item.creator.username}
+                                                            </span>
+                                                        </div>
                                                     )}
                                                 </div>
                                             </td>
@@ -1373,14 +1386,14 @@ const MeetingManagement = () => {
                                             {/* عنوان جلسه و استاد */}
                                             <td className="px-4 py-4">
                                                 <div className="flex flex-col gap-1 max-w-xs">
-                                                    <span className="font-bold text-gray-900 leading-snug">
+                                                    <span className="font-bold text-[#111827] leading-snug">
                                                         {item.title || 'بدون عنوان'}
                                                     </span>
                                                     {item.teacher && (item.teacher.name || item.teacher.fullname) && (
                                                         <button
                                                             type="button"
                                                             onClick={() => handleFilterByTeacher(item.teacher.id, item.teacher.name || item.teacher.fullname)}
-                                                            className="flex items-center gap-1.5 text-xs text-purple-700 hover:text-purple-900 font-medium bg-purple-50 hover:bg-purple-100 border border-purple-200 px-2 py-0.5 rounded-lg w-max transition text-right"
+                                                            className="flex items-center gap-1.5 text-xs text-[#7e22ce] hover:text-[#581c87] font-medium bg-[#faf5ff] hover:bg-[#f3e8ff] border border-[#e9d5ff] px-2 py-0.5 rounded-lg w-max transition text-right"
                                                             title={`کلیک برای فیلتر جلسات بر اساس استاد (${item.teacher.name || item.teacher.fullname})`}
                                                         >
                                                             <FaChalkboardTeacher size={12} className="shrink-0" />
@@ -1393,10 +1406,12 @@ const MeetingManagement = () => {
                                             {/* اتاق */}
                                             <td className="px-4 py-4">
                                                 <div className="flex flex-col">
-                                                    <span className="font-bold text-gray-800 text-xs">{item.room?.title || '-'}</span>
-                                                    {item.room?.friendlyID && (
-                                                        <span className="text-[11px] font-mono text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded w-max mt-0.5">
-                                                            {item.room.friendlyID}
+                                                    <span className="font-bold text-[#1f2937] text-xs" title="عنوان روم">
+                                                        {item.roomTitle || item.room?.title || 'بدون عنوان اتاق'}
+                                                    </span>
+                                                    {(item.roomFriendlyID || item.room?.friendlyID) && (
+                                                        <span className="text-[11px] font-mono text-[#c2410c] bg-[#ffedd5] border border-[#fed7aa] px-1.5 py-0.5 rounded w-max mt-0.5">
+                                                            {item.roomFriendlyID || item.room?.friendlyID}
                                                         </span>
                                                     )}
                                                 </div>
@@ -1404,32 +1419,49 @@ const MeetingManagement = () => {
 
                                             {/* نوع جلسه با دراپ‌داون قابل ویرایش */}
                                             <td className="px-4 py-4 text-center">
-                                                <div className="inline-flex items-center gap-1.5 relative">
-                                                    <select
-                                                        value={item.type ?? 1}
+                                                <div className="flex flex-col items-center gap-1.5">
+                                                    <div className="inline-flex items-center gap-1.5 relative">
+                                                        <select
+                                                            value={item.type ?? 1}
+                                                            disabled={isUpdatingThisType}
+                                                            onChange={(e) => handleTypeChange(item.id, e.target.value)}
+                                                            className={`text-xs font-black px-2.5 py-1.5 rounded-xl border appearance-none pr-7 pl-3 focus:outline-none focus:ring-2 focus:ring-[#fb923c] cursor-pointer transition shadow-sm ${
+                                                                item.type === 100
+                                                                    ? 'bg-[#ecfdf5] text-[#065f46] border-[#6ee7b7]'
+                                                                    : item.type === 101
+                                                                    ? 'bg-[#faf5ff] text-[#6b21a8] border-[#d8b4fe]'
+                                                                    : item.type === 1
+                                                                    ? 'bg-[#eff6ff] text-[#1e40af] border-[#93c5fd]'
+                                                                    : 'bg-[#fef2f2] text-[#991b1b] border-[#fca5a5]'
+                                                            }`}
+                                                        >
+                                                            {MEETING_TYPES.map(opt => (
+                                                                <option key={opt.value} value={opt.value}>
+                                                                    {opt.label}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                        {isUpdatingThisType ? (
+                                                            <FaSpinner className="animate-spin text-[#f97316] absolute right-2 pointer-events-none text-xs" />
+                                                        ) : (
+                                                            <FaExchangeAlt className="text-[#9ca3af] absolute right-2 pointer-events-none text-[10px]" />
+                                                        )}
+                                                    </div>
+
+                                                    {/* زیر وبینار: دکمه جلسه تستی */}
+                                                    <button
+                                                        type="button"
                                                         disabled={isUpdatingThisType}
-                                                        onChange={(e) => handleTypeChange(item.id, e.target.value)}
-                                                        className={`text-xs font-black px-2.5 py-1.5 rounded-xl border appearance-none pr-7 pl-3 focus:outline-none focus:ring-2 focus:ring-orange-400 cursor-pointer transition shadow-sm ${
-                                                            item.type === 100
-                                                                ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                                                                : item.type === 101
-                                                                ? 'bg-purple-50 text-purple-800 border-purple-300'
-                                                                : item.type === 1
-                                                                ? 'bg-blue-50 text-blue-800 border-blue-300'
-                                                                : 'bg-gray-100 text-gray-700 border-gray-300'
+                                                        onClick={() => handleTypeChange(item.id, item.type === -99 ? 101 : -99)}
+                                                        className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border transition flex items-center gap-1 shadow-xs ${
+                                                            item.type === -99
+                                                                ? 'bg-[#fef2f2] text-[#991b1b] border-[#fca5a5] hover:bg-[#fee2e2]'
+                                                                : 'bg-[#fffbeb] text-[#b45309] border-[#fcd34d] hover:bg-[#fef3c7]'
                                                         }`}
+                                                        title={item.type === -99 ? "خروج از حالت تستی (تبدیل به وبینار)" : "تغییر سریع به جلسه تستی"}
                                                     >
-                                                        {MEETING_TYPES.map(opt => (
-                                                            <option key={opt.value} value={opt.value}>
-                                                                {opt.label}
-                                                            </option>
-                                                        ))}
-                                                    </select>
-                                                    {isUpdatingThisType ? (
-                                                        <FaSpinner className="animate-spin text-orange-500 absolute right-2 pointer-events-none text-xs" />
-                                                    ) : (
-                                                        <FaExchangeAlt className="text-gray-400 absolute right-2 pointer-events-none text-[10px]" />
-                                                    )}
+                                                        🧪 {item.type === -99 ? "تستی (فعال)" : "جلسه تستی"}
+                                                    </button>
                                                 </div>
                                             </td>
 
@@ -1622,7 +1654,7 @@ const MeetingManagement = () => {
 
                                                     {item.room?.friendlyID && (
                                                         <button
-                                                            onClick={() => navigate(`/rooms/${item.room.friendlyID}`)}
+                                                            onClick={() => navigate(`/rooms/${item.roomFriendlyID || item.room?.friendlyID}`)}
                                                             className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-xl transition"
                                                             title="مشاهده صفحه اتاق"
                                                         >
@@ -1693,13 +1725,13 @@ const MeetingManagement = () => {
 
                                     {/* Type Dropdown */}
                                     <div className="mb-4">
-                                        <label className="text-xs font-bold text-gray-500 block mb-1">نوع جلسه:</label>
+                                        <label className="text-xs font-bold text-[#6b7280] block mb-1">نوع جلسه:</label>
                                         <div className="relative">
                                             <select
                                                 value={item.type ?? 1}
                                                 disabled={isUpdatingThisType}
                                                 onChange={(e) => handleTypeChange(item.id, e.target.value)}
-                                                className="w-full text-xs font-bold p-2 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-orange-400 focus:outline-none cursor-pointer"
+                                                className="w-full text-xs font-bold p-2 rounded-xl border border-[#e5e7eb] bg-[#f9fafb] focus:bg-[#ffffff] focus:ring-2 focus:ring-[#fb923c] focus:outline-none cursor-pointer"
                                             >
                                                 {MEETING_TYPES.map(opt => (
                                                     <option key={opt.value} value={opt.value}>
@@ -1708,24 +1740,40 @@ const MeetingManagement = () => {
                                                 ))}
                                             </select>
                                             {isUpdatingThisType && (
-                                                <FaSpinner className="animate-spin text-orange-500 absolute left-3 top-3 text-xs" />
+                                                <FaSpinner className="animate-spin text-[#f97316] absolute left-3 top-3 text-xs" />
                                             )}
+                                        </div>
+                                        {/* دکمه جلسه تستی */}
+                                        <div className="mt-1.5 flex justify-end">
+                                            <button
+                                                type="button"
+                                                disabled={isUpdatingThisType}
+                                                onClick={() => handleTypeChange(item.id, item.type === -99 ? 101 : -99)}
+                                                className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition flex items-center gap-1 ${
+                                                    item.type === -99
+                                                        ? 'bg-[#fef2f2] text-[#991b1b] border-[#fca5a5] hover:bg-[#fee2e2]'
+                                                        : 'bg-[#fffbeb] text-[#b45309] border-[#fcd34d] hover:bg-[#fef3c7]'
+                                                }`}
+                                                title={item.type === -99 ? "خروج از حالت تستی (تبدیل به وبینار)" : "تغییر سریع به جلسه تستی"}
+                                            >
+                                                🧪 {item.type === -99 ? "تستی (فعال)" : "جلسه تستی"}
+                                            </button>
                                         </div>
                                     </div>
 
                                     {/* Info Box */}
-                                    <div className="space-y-2 text-xs text-gray-600 mb-4 bg-gray-50 p-3 rounded-xl border border-gray-100">
+                                    <div className="space-y-2 text-xs text-[#4b5563] mb-4 bg-[#f9fafb] p-3 rounded-xl border border-[#f3f4f6]">
                                         <div className="flex items-center justify-between">
-                                            <span className="text-gray-400">اتاق:</span>
-                                            <span className="font-bold text-gray-800">{item.room?.title} ({item.room?.friendlyID})</span>
+                                            <span className="text-[#9ca3af]">عنوان روم:</span>
+                                            <span className="font-bold text-[#1f2937]">{item.roomTitle || item.room?.title || '-'} ({(item.roomFriendlyID || item.room?.friendlyID || '-')})</span>
                                         </div>
                                         {item.owner && (item.owner.name || item.owner.fullname || item.owner.id) && (
                                             <div className="flex items-center justify-between">
-                                                <span className="text-gray-400">مالک:</span>
+                                                <span className="text-[#9ca3af]">مالک:</span>
                                                 <button
                                                     type="button"
                                                     onClick={() => handleFilterByOwner(item.owner.id, item.owner.fullname || item.owner.name)}
-                                                    className="font-bold text-amber-700 hover:underline flex items-center gap-1"
+                                                    className="font-bold text-[#b45309] hover:underline flex items-center gap-1"
                                                     title={`کلیک برای فیلتر بر اساس مالک (${item.owner.fullname || item.owner.name})`}
                                                 >
                                                     <FaUser size={10} />
@@ -1733,13 +1781,22 @@ const MeetingManagement = () => {
                                                 </button>
                                             </div>
                                         )}
+                                        {item.creator && (item.creator.name || item.creator.fullname || item.creator.username) && (
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[#9ca3af]">شروع‌کننده:</span>
+                                                <span className="font-bold text-[#065f46] flex items-center gap-1">
+                                                    <FaUserCheck size={10} className="text-[#059669]" />
+                                                    <span>{item.creator.name || item.creator.fullname || item.creator.username}</span>
+                                                </span>
+                                            </div>
+                                        )}
                                         {item.teacher && (
                                             <div className="flex items-center justify-between">
-                                                <span className="text-gray-400">استاد:</span>
+                                                <span className="text-[#9ca3af]">استاد:</span>
                                                 <button
                                                     type="button"
                                                     onClick={() => handleFilterByTeacher(item.teacher.id, item.teacher.name || item.teacher.fullname)}
-                                                    className="font-bold text-purple-700 hover:underline flex items-center gap-1"
+                                                    className="font-bold text-[#7e22ce] hover:underline flex items-center gap-1"
                                                     title={`کلیک برای فیلتر بر اساس استاد (${item.teacher.name || item.teacher.fullname})`}
                                                 >
                                                     <FaChalkboardTeacher size={11} />
@@ -1748,8 +1805,8 @@ const MeetingManagement = () => {
                                             </div>
                                         )}
                                         <div className="flex items-center justify-between">
-                                            <span className="text-gray-400">تاریخ:</span>
-                                            <span className="font-semibold text-gray-800">{item.jalaliDate || '-'}</span>
+                                            <span className="text-[#9ca3af]">تاریخ:</span>
+                                            <span className="font-semibold text-[#1f2937]">{item.jalaliDate || '-'}</span>
                                         </div>
                                     </div>
 
@@ -2180,16 +2237,22 @@ const MeetingManagement = () => {
                                 </div>
                             </div>
 
-                            <div className="bg-gray-50 p-3 rounded-2xl border border-gray-100 space-y-2">
-                                <p className="font-bold text-gray-500 mb-1">اطلاعات اتاق</p>
+                            <div className="bg-[#f9fafb] p-3 rounded-2xl border border-[#f3f4f6] space-y-2">
+                                <p className="font-bold text-[#6b7280] mb-1">اطلاعات اتاق و شروع‌کننده</p>
                                 <div className="flex justify-between">
-                                    <span className="text-gray-400">عنوان اتاق:</span>
-                                    <span className="font-bold text-gray-800">{selectedMeeting.room?.title || '-'}</span>
+                                    <span className="text-[#9ca3af]">عنوان اتاق:</span>
+                                    <span className="font-bold text-[#1f2937]">{selectedMeeting.roomTitle || selectedMeeting.room?.title || '-'}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="text-gray-400">شناسه اختصاصی:</span>
-                                    <span className="font-mono text-orange-600 bg-orange-50 px-1 rounded">{selectedMeeting.room?.friendlyID || '-'}</span>
+                                    <span className="text-[#9ca3af]">شناسه اختصاصی:</span>
+                                    <span className="font-mono text-[#ea580c] bg-[#fff7ed] px-1 rounded">{selectedMeeting.roomFriendlyID || selectedMeeting.room?.friendlyID || '-'}</span>
                                 </div>
+                                {selectedMeeting.creator && (
+                                    <div className="flex justify-between">
+                                        <span className="text-[#9ca3af]">عنوان شروع‌کننده:</span>
+                                        <span className="font-bold text-[#065f46]">{selectedMeeting.creator.name || selectedMeeting.creator.fullname || selectedMeeting.creator.username || '-'}</span>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Media Status */}
@@ -2218,7 +2281,7 @@ const MeetingManagement = () => {
 
                         <div className="mt-6 flex items-center justify-end gap-2 border-t border-gray-100 pt-4">
                             <button
-                                onClick={() => copyJoinLink(selectedMeeting.room?.friendlyID)}
+                                onClick={() => copyJoinLink(selectedMeeting.roomFriendlyID || selectedMeeting.room?.friendlyID)}
                                 className="px-4 py-2 bg-orange-50 hover:bg-orange-100 text-orange-700 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
                             >
                                 <FaCopy size={13} /> کپی لینک ورود
@@ -2258,7 +2321,7 @@ const MeetingManagement = () => {
                         <div className="space-y-4 text-xs">
                             <div className="bg-blue-50/60 p-3 rounded-2xl border border-blue-100">
                                 <p className="font-extrabold text-blue-900 text-sm mb-1">{selectedSoundMeeting.title || 'بدون عنوان'}</p>
-                                <p className="text-blue-700 text-xs">اتاق: {selectedSoundMeeting.room?.title || '-'} ({selectedSoundMeeting.room?.friendlyID || '-'})</p>
+                                <p className="text-blue-700 text-xs">اتاق: {selectedSoundMeeting.roomTitle || selectedSoundMeeting.room?.title || '-'} ({selectedSoundMeeting.roomFriendlyID || selectedSoundMeeting.room?.friendlyID || '-'})</p>
                             </div>
 
                             {/* آپلود فایل صوتی */}
@@ -2426,7 +2489,7 @@ const MeetingManagement = () => {
                         <div className="space-y-4 text-xs">
                             <div className="bg-emerald-50/60 p-3 rounded-2xl border border-emerald-100">
                                 <p className="font-extrabold text-emerald-900 text-sm mb-1">{selectedVideoMeeting.title || 'بدون عنوان'}</p>
-                                <p className="text-emerald-700 text-xs">اتاق: {selectedVideoMeeting.room?.title || '-'} ({selectedVideoMeeting.room?.friendlyID || '-'})</p>
+                                <p className="text-emerald-700 text-xs">اتاق: {selectedVideoMeeting.roomTitle || selectedVideoMeeting.room?.title || '-'} ({selectedVideoMeeting.roomFriendlyID || selectedVideoMeeting.room?.friendlyID || '-'})</p>
                             </div>
 
                             {/* آپلود فایل ویدیویی */}
@@ -2594,7 +2657,7 @@ const MeetingManagement = () => {
                         <div className="space-y-4 text-xs">
                             <div className="bg-amber-50/60 p-3 rounded-2xl border border-amber-100">
                                 <p className="font-extrabold text-amber-900 text-sm mb-1">{selectedReportMeeting.title || 'بدون عنوان'}</p>
-                                <p className="text-amber-700 text-xs">اتاق: {selectedReportMeeting.room?.title || '-'} ({selectedReportMeeting.room?.friendlyID || '-'})</p>
+                                <p className="text-amber-700 text-xs">اتاق: {selectedReportMeeting.roomTitle || selectedReportMeeting.room?.title || '-'} ({selectedReportMeeting.roomFriendlyID || selectedReportMeeting.room?.friendlyID || '-'})</p>
                             </div>
 
                             {/* آدرس گزارش */}
@@ -3010,7 +3073,7 @@ const MeetingManagement = () => {
                                         </span>
                                     </h3>
                                     <p className="text-xs text-gray-500 mt-0.5">
-                                        {selectedAttendeesMeeting.title || 'بدون عنوان'} — اتاق: {selectedAttendeesMeeting.room?.title || '-'} ({selectedAttendeesMeeting.room?.friendlyID || '-'})
+                                        {selectedAttendeesMeeting.title || 'بدون عنوان'} — اتاق: {selectedAttendeesMeeting.roomTitle || selectedAttendeesMeeting.room?.title || '-'} ({selectedAttendeesMeeting.roomFriendlyID || selectedAttendeesMeeting.room?.friendlyID || '-'})
                                     </p>
                                 </div>
                             </div>
