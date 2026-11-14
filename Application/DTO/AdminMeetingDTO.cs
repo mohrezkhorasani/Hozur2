@@ -67,6 +67,43 @@ namespace Application.DTO
         public string? RecordingViewPermission { get; set; }
         public bool? RecordingDownloadable { get; set; }
         public bool? RecordingPublished { get; set; }
+        public int? DurationMinutes { get; set; }
+        public bool HasRecording { get; set; }
+    }
+
+    public class AdminMeetingRoomOptionDTO
+    {
+        public long Id { get; set; }
+        public string FriendlyId { get; set; } = string.Empty;
+        public string Title { get; set; } = string.Empty;
+        public int SpentMinutes { get; set; }
+    }
+
+    public class AdminMeetingFilterOptionsDTO
+    {
+        public List<AdminMeetingTeacherDTO> Teachers { get; set; } = new List<AdminMeetingTeacherDTO>();
+        public List<AdminMeetingRoomOptionDTO> Rooms { get; set; } = new List<AdminMeetingRoomOptionDTO>();
+    }
+
+    public class BatchUpdateMeetingTypeRequestDTO
+    {
+        public List<long> MeetingIds { get; set; } = new List<long>();
+        public int NewType { get; set; }
+    }
+
+    public class UpcomingPlanItemDTO
+    {
+        public long PlanId { get; set; }
+        public long RoomId { get; set; }
+        public string RoomFriendlyId { get; set; } = string.Empty;
+        public string RoomTitle { get; set; } = string.Empty;
+        public string Title { get; set; } = string.Empty;
+        public string? Teachers { get; set; }
+        public string? Dabir { get; set; }
+        public DateTime? StartDate { get; set; }
+        public string? JalaliDate { get; set; }
+        public string? Time { get; set; }
+        public int Type { get; set; }
     }
 
     public class AdminMeetingsResultDTO

@@ -1643,74 +1643,46 @@ namespace Application.Usecase
 
                             e.Avatar,
                             WaitingMembersCount = e.RoomTBLToUserTBLs.Count(r => r.Status == MainEntity_Status.IsWaiting),
-                            //Meetings = e.MeetingTBLs.Select(m => new
-                            //{
-                            //    m.ID,
-                            //    m.DateInsert,
-                            //    Participants = m.UserTBLToMeetingTBLs.Select(um => new
-                            //    {
-                            //        um.UserNickName,
-                            //        um.UserTBL.UUID,
-                            //        um.UserTBL.Email,
-                            //        um.UserTBL.NationalCode,
-                            //        um.UserTBL.PhoneNumber,
-                            //        um.UserTBL.Type
-                            //    })
-                            //})
+                            LastMeet = e.MeetingTBLs.OrderByDescending(m => m.DateInsert).Select(m => (DateTime?)m.DateInsert).FirstOrDefault(),
+                            SpentMinutesStr = e.RoomMetaTBLs.Where(m => m.Key == "spent_minutes").Select(m => m.Value).FirstOrDefault(),
                         })
                         .ToListAsync();
 
                     // Compute in memory
-                    result = rooms.Select(room => new DTO.Models.MiniRoomJSON
-                    {
-                        RoomID = room.FriendlyID,
-                        IsSubscribed = room.IsSubscribed,
-                        Title = room.Title,
-                        Created = room.DateInsert,
-                        Owner = new MiniUserJSON
+                    result = rooms.Select(room => {
+                        int parsedSpent = 0;
+                        if (!string.IsNullOrEmpty(room.SpentMinutesStr) && int.TryParse(room.SpentMinutesStr, out var sm))
                         {
-                            UID = room.OwnerTBL.UUID,
-                            Username = room.OwnerTBL.Username,
-                            Fullname = room.OwnerTBL.Firstname
-                        },
-                        //LastMeet = room.Meetings
-                        //    .OrderByDescending(m => m.DateInsert)
-                        //    .FirstOrDefault()?.DateInsert ?? room.DateInsert,
-                        //Count = room.Meetings.Count(m => m.Participants
-                        //    .Count(p => p.Type != MainEntity_Types.USER_TEACHER) > 1),
-                        NextMeet = room.plan.Any(e => e.StartDate > DateTime.Now) ? room.plan.Where(e => e.StartDate > DateTime.Now).First().StartDate : null,
-                        //CountTeacher = room.Meetings
-                        //    .SelectMany(m => m.Participants)
-                        //    .Where(p => p.Type == MainEntity_Types.USER_TEACHER)
-                        //    .Select(p => p.UUID ?? p.Email ?? p.NationalCode ?? p.PhoneNumber ?? p.UserNickName)
-                        //    .Where(k => !string.IsNullOrWhiteSpace(k))
-                        //    .Distinct()
-                        //    .Count(),
-                        Avatar = room.Avatar,
-                        IsAdmin = room.isAdmin,
-                        WaitingMembersCount = room.WaitingMembersCount,
-                        PlanJSONs = room.plan.Any() ? room.plan.Select(r => new MiniPlanJSON
+                            parsedSpent = sm;
+                        }
+
+                        return new DTO.Models.MiniRoomJSON
                         {
-                            Id = r.ID,
-                            StartAt = r.StartDate,
-                            Teacher = r.Teachers,
-                            Dabir = r.Dabir,
-                            Title = r.Title
-                        }).ToList() : [],
-                        //CountPartis = room.Meetings
-                        //    .SelectMany(m => m.Participants)
-                        //    .Where(p => p.Type != MainEntity_Types.USER_TEACHER)
-                        //    .SelectMany(p => new[]
-                        //    {
-                        //    p.UUID?.Trim().ToLower(),
-                        //    p.UserNickName?.Trim().ToLower(),
-                        //    p.Email?.Trim().ToLower(),
-                        //    p.NationalCode?.Trim(),
-                        //    p.PhoneNumber?.Trim()
-                        //    })
-                        //    .Where(k => !string.IsNullOrWhiteSpace(k))
-                        //    .Distinct()
-                        //    .Count()
+                            RoomID = room.FriendlyID,
+                            IsSubscribed = room.IsSubscribed,
+                            Title = room.Title,
+                            Created = room.DateInsert,
+                            Owner = new MiniUserJSON
+                            {
+                                UID = room.OwnerTBL.UUID,
+                                Username = room.OwnerTBL.Username,
+                                Fullname = room.OwnerTBL.Firstname
+                            },
+                            LastMeet = room.LastMeet,
+                            SpentMinutes = parsedSpent,
+                            NextMeet = room.plan.Any(e => e.StartDate > DateTime.Now) ? room.plan.Where(e => e.StartDate > DateTime.Now).First().StartDate : null,
+                            Avatar = room.Avatar,
+                            IsAdmin = room.isAdmin,
+                            WaitingMembersCount = room.WaitingMembersCount,
+                            PlanJSONs = room.plan.Any() ? room.plan.Select(r => new MiniPlanJSON
+                            {
+                                Id = r.ID,
+                                StartAt = r.StartDate,
+                                Teacher = r.Teachers,
+                                Dabir = r.Dabir,
+                                Title = r.Title
+                            }).ToList() : [],
+                        };
                     }).OrderByDescending(e => e.NextMeet).ThenBy(e => e.LastMeet).ToList();
                     // Store in cache (with error protection)
                     if (message.UseCache)
@@ -4879,7 +4851,7 @@ namespace Application.Usecase
                     IDRoomTBL = room.ID,
                     StartDate = message.StartDate,
                     Status = MainEntity_Status.Enabled,
-                    Type = MainEntity_Types.PLAN_NORMAL,
+                    Type = MainEntity_Types.PLAN_WITH_CERT,
                     Teachers = message.Teacher,
                     Dabir = message.Dabir,
                     Title = message.Title,
@@ -5101,7 +5073,7 @@ namespace Application.Usecase
                     IDRoomTBL = room.ID,
                     StartDate = utcDateTime,
                     Status = MainEntity_Status.Enabled,
-                    Type = MainEntity_Types.PLAN_NORMAL,
+                    Type = MainEntity_Types.PLAN_WITH_CERT,
                     Teachers = teachersSummary,
                     Dabir = dabirClean,
                     Title = message.Title.Trim(),
@@ -5409,37 +5381,43 @@ namespace Application.Usecase
                 //Statics.Log("GetPlanRoomUseCase", JsonConvert.SerializeObject(message.GeneralHeaders));
 
                 string cacheKey = @$"HekmatShobeList{message.FriendlyID}";
+                List<MiniPlanJSON> cachedData = null;
 
-                // Try to get data from cache
-                if (!_memoryCache.TryGetValue(cacheKey, out List<MiniPlanJSON> cachedData))
+                // Try to get data from cache only if requested
+                if (message.UseCache && _memoryCache.TryGetValue(cacheKey, out List<MiniPlanJSON> memoryData))
                 {
-                    // Data not in cache, retrieve from database
-                    Statics.Log("GetPlanRoomUseCase", "Cache miss - retrieving from database");
-
-                    var room = _db.RoomTBLs.Where(e => e.FriendlyID == message.FriendlyID).First();
-
-                    var list = _db.RoomTBLPlanTBLs.Where(e => e.IDRoomTBL == room.ID
-                                && (e.Status == MainEntity_Status.Enabled || e.Status == MainEntity_Status.MEETING_STARTED_LATER)
-                    ).Include(e => e.RoomTBL)
-                        .ToList();
-
-                    cachedData = list.OrderByDescending(e => e.StartDate).Select(e => PlanTimeHelper.MapToMiniPlanJSON(e)).ToList();
-
-                    // Configure cache options
-                    var cacheOptions = new MemoryCacheEntryOptions()
-                        .SetSlidingExpiration(TimeSpan.FromMinutes(5))  // Reset expiration if accessed
-                        .SetAbsoluteExpiration(TimeSpan.FromHours(1))     // Absolute expiration time
-                        .SetPriority(CacheItemPriority.Normal)            // Cache priority
-                        .SetSize(1);                                      // Size for memory pressure management
-
-                    // Add data to cache
-                    _memoryCache.Set(cacheKey, cachedData, cacheOptions);
-
-                    Statics.Log("GetPlanRoomUseCase", $"Data cached with {cachedData.Count} items");
+                    cachedData = memoryData;
+                    Statics.Log("GetPlanRoomUseCase", $"Cache hit - returning {cachedData.Count} items from cache");
                 }
                 else
                 {
-                    Statics.Log("GetPlanRoomUseCase", $"Cache hit - returning {cachedData.Count} items from cache");
+                    // Data not in cache or direct fetch requested, retrieve from database
+                    Statics.Log("GetPlanRoomUseCase", "Direct database query for plans");
+
+                    var room = _db.RoomTBLs.FirstOrDefault(e => e.FriendlyID == message.FriendlyID);
+                    if (room != null)
+                    {
+                        var list = _db.RoomTBLPlanTBLs.Where(e => e.IDRoomTBL == room.ID
+                                    && (e.Status == MainEntity_Status.Enabled || e.Status == MainEntity_Status.MEETING_STARTED_LATER)
+                        ).Include(e => e.RoomTBL)
+                            .ToList();
+
+                        cachedData = list.OrderByDescending(e => e.StartDate).Select(e => PlanTimeHelper.MapToMiniPlanJSON(e)).ToList();
+
+                        if (message.UseCache)
+                        {
+                            var cacheOptions = new MemoryCacheEntryOptions()
+                                .SetSlidingExpiration(TimeSpan.FromMinutes(5))
+                                .SetAbsoluteExpiration(TimeSpan.FromHours(1))
+                                .SetPriority(CacheItemPriority.Normal)
+                                .SetSize(1);
+                            _memoryCache.Set(cacheKey, cachedData, cacheOptions);
+                        }
+                    }
+                    else
+                    {
+                        cachedData = new List<MiniPlanJSON>();
+                    }
                 }
 
                 outputPort.Handle(new GenericResponse<GetPlanRoomResponse>(new GetPlanRoomResponse

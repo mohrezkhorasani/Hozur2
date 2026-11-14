@@ -1013,7 +1013,14 @@ namespace CoreMe.Controllers
             [FromQuery] string q = "",
             [FromQuery] int? type = null,
             [FromQuery] long? ownerId = null,
-            [FromQuery] long? teacherId = null)
+            [FromQuery] long? teacherId = null,
+            [FromQuery] string? roomFriendlyId = null,
+            [FromQuery] int? minAttendees = null,
+            [FromQuery] int? maxAttendees = null,
+            [FromQuery] string? attendeeTypes = null,
+            [FromQuery] int? minDurationMinutes = null,
+            [FromQuery] int? maxDurationMinutes = null,
+            [FromQuery] bool includeIgnored = false)
         {
             var user = await GetAuthenticatedUserAsync();
             if (user == null)
@@ -1022,7 +1029,9 @@ namespace CoreMe.Controllers
             }
 
             var service = new AdminMeetingService(_db, bbb);
-            var result = await service.GetMeetingsAsync(user, page, count, type, q, ownerId, teacherId);
+            var result = await service.GetMeetingsAsync(
+                user, page, count, type, q, ownerId, teacherId, roomFriendlyId,
+                minAttendees, maxAttendees, attendeeTypes, minDurationMinutes, maxDurationMinutes, includeIgnored);
 
             return Ok(new
             {
@@ -1037,7 +1046,14 @@ namespace CoreMe.Controllers
             [FromQuery] int? type = null,
             [FromQuery] string q = "",
             [FromQuery] long? ownerId = null,
-            [FromQuery] long? teacherId = null)
+            [FromQuery] long? teacherId = null,
+            [FromQuery] string? roomFriendlyId = null,
+            [FromQuery] int? minAttendees = null,
+            [FromQuery] int? maxAttendees = null,
+            [FromQuery] string? attendeeTypes = null,
+            [FromQuery] int? minDurationMinutes = null,
+            [FromQuery] int? maxDurationMinutes = null,
+            [FromQuery] bool includeIgnored = false)
         {
             var user = await GetAuthenticatedUserAsync();
             if (user == null)
@@ -1046,13 +1062,106 @@ namespace CoreMe.Controllers
             }
 
             var service = new AdminMeetingService(_db, bbb);
-            var stats = await service.GetMeetingStatsAsync(user, type, q, ownerId, teacherId);
+            var stats = await service.GetMeetingStatsAsync(
+                user, type, q, ownerId, teacherId, roomFriendlyId,
+                minAttendees, maxAttendees, attendeeTypes, minDurationMinutes, maxDurationMinutes, includeIgnored);
 
             return Ok(new
             {
                 message = "ok",
                 status = 200,
                 data = stats
+            });
+        }
+
+        [HttpGet("/admin/GetMeetingFilterOptions")]
+        public async Task<IActionResult> GetMeetingFilterOptions()
+        {
+            var user = await GetAuthenticatedUserAsync();
+            if (user == null)
+            {
+                return Ok(new { message = "کاربر احراز هویت نشده است", status = 401 });
+            }
+
+            var service = new AdminMeetingService(_db, bbb);
+            var result = await service.GetFilterOptionsAsync(user);
+
+            return Ok(new
+            {
+                message = "ok",
+                status = 200,
+                data = result
+            });
+        }
+
+        [HttpPost("/admin/BatchUpdateMeetingType")]
+        public async Task<IActionResult> BatchUpdateMeetingType([FromBody] BatchUpdateMeetingTypeRequestDTO model)
+        {
+            var user = await GetAuthenticatedUserAsync();
+            if (user == null)
+            {
+                return Ok(new { message = "کاربر احراز هویت نشده است", status = 401 });
+            }
+
+            if (model == null || model.MeetingIds == null || model.MeetingIds.Count == 0)
+            {
+                return Ok(new { message = "لیست جلسات خالی است", status = 400 });
+            }
+
+            var service = new AdminMeetingService(_db, bbb);
+            bool success = await service.BatchUpdateMeetingTypeAsync(user, model.MeetingIds, model.NewType);
+
+            return Ok(new
+            {
+                message = success ? "نوع جلسات با موفقیت تغییر یافت" : "خطا در تغییر نوع جلسات",
+                status = success ? 200 : 400
+            });
+        }
+
+        [HttpPost("/admin/rooms/{roomId}/refresh-spent-minutes")]
+        public async Task<IActionResult> RefreshRoomSpentMinutes([FromRoute] string roomId)
+        {
+            var user = await GetAuthenticatedUserAsync();
+            if (user == null)
+            {
+                return Ok(new { message = "کاربر احراز هویت نشده است", status = 401 });
+            }
+
+            var service = new AdminMeetingService(_db, bbb);
+            string friendlyId = roomId;
+            if (long.TryParse(roomId, out var numId))
+            {
+                var r = await _db.RoomTBLs.FirstOrDefaultAsync(x => x.ID == numId);
+                if (r != null) friendlyId = r.FriendlyID;
+            }
+
+            int totalMinutes = await service.RecalculateRoomSpentMinutesAsync(friendlyId);
+
+            return Ok(new
+            {
+                message = "مجموع دقایق مصرفی با موفقیت بروزرسانی شد",
+                status = 200,
+                data = new { spentMinutes = totalMinutes }
+            });
+        }
+
+        [HttpGet("/user/GetMyUpcomingPlans")]
+        public async Task<IActionResult> GetMyUpcomingPlans()
+        {
+            var user = await GetAuthenticatedUserAsync();
+            if (user == null)
+            {
+                return Ok(new { message = "کاربر احراز هویت نشده است", status = 401 });
+            }
+
+            var service = new AdminMeetingService(_db, bbb);
+            var plans = await service.GetUpcomingPlansAsync(user);
+
+            return Ok(new
+            {
+                message = "ok",
+                status = 200,
+                data = plans
             });
         }
 
@@ -1395,6 +1504,15 @@ namespace CoreMe.Controllers
             }
 
             await _db.SaveChangesAsync();
+
+            if (model.Type.HasValue && !string.IsNullOrWhiteSpace(meeting.RoomFriendlyID))
+            {
+                try
+                {
+                    await service.RecalculateRoomSpentMinutesAsync(meeting.RoomFriendlyID);
+                }
+                catch { }
+            }
 
             return Ok(new
             {

@@ -178,8 +178,9 @@ namespace Application.DTO.Models
         public string? CoverImage { get; set; }
         public MiniUserJSON Owner { get; set; }
         public DateTime Created { get; set; }
-        public DateTime LastMeet { get; set; }
+        public DateTime? LastMeet { get; set; }
         public DateTime? NextMeet { get; set; }
+        public int SpentMinutes { get; set; }
         public MiniPlanJSON? NextPlan { get; set; }
         public List<string> NextMeetTeacher { get; set; } = [];
         public int Count { get; set; }

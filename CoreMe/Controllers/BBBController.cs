@@ -997,13 +997,14 @@ namespace CoreMe.Controllers
     
         [HttpGet("/user/GetPlanRoom")]
         [Authorize(AuthenticationSchemes = "vc2AuthNorm")]
-        public async Task<IActionResult> GetPlanRoom([FromQuery] string friendlyID = "")
+        public async Task<IActionResult> GetPlanRoom([FromQuery] string friendlyID = "", [FromQuery] bool useCache = false)
         {
             Statics.Log("GetPlanRoom", string.Join("\n", Request.Headers));
             Statics.Log("GetPlanRoom", string.Join("\n", Request.Headers.Select(e => e.Key).ToList()));
             GetPlanRoomRequest req = new GetPlanRoomRequest
             {
-                FriendlyID = friendlyID
+                FriendlyID = friendlyID,
+                UseCache = useCache
             };
             req.GeneralHeaders = HttpContext.GetGeneralHeaders();
             await _IGetPlanRoomUseCase.handleAsync(req, _GetPlanRoomResponse);

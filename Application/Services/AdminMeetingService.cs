@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Application.DTO;
+using Application.General;
 using Application.Interface.IInfrastructure;
 using Application.Interfaces;
 using Domain.Entity;
@@ -15,8 +16,40 @@ namespace Application.Services
         bool IsSuperAdmin(UserTBL user);
         Task<bool> CanUserAccessMeetingsPageAsync(UserTBL user);
         Task<bool> CanUserEditMeetingAsync(UserTBL user, long meetingId);
-        Task<AdminMeetingStatsDTO> GetMeetingStatsAsync(UserTBL user, int? type = null, string q = "", long? ownerId = null, long? teacherId = null);
-        Task<AdminMeetingsResultDTO> GetMeetingsAsync(UserTBL user, int page = 1, int count = 15, int? type = null, string q = "", long? ownerId = null, long? teacherId = null);
+        Task<AdminMeetingStatsDTO> GetMeetingStatsAsync(
+            UserTBL user,
+            int? type = null,
+            string q = "",
+            long? ownerId = null,
+            long? teacherId = null,
+            string? roomFriendlyId = null,
+            int? minAttendees = null,
+            int? maxAttendees = null,
+            string? attendeeTypes = null,
+            int? minDurationMinutes = null,
+            int? maxDurationMinutes = null,
+            bool includeIgnored = false);
+
+        Task<AdminMeetingsResultDTO> GetMeetingsAsync(
+            UserTBL user,
+            int page = 1,
+            int count = 15,
+            int? type = null,
+            string q = "",
+            long? ownerId = null,
+            long? teacherId = null,
+            string? roomFriendlyId = null,
+            int? minAttendees = null,
+            int? maxAttendees = null,
+            string? attendeeTypes = null,
+            int? minDurationMinutes = null,
+            int? maxDurationMinutes = null,
+            bool includeIgnored = false);
+
+        Task<AdminMeetingFilterOptionsDTO> GetFilterOptionsAsync(UserTBL user);
+        Task<bool> BatchUpdateMeetingTypeAsync(UserTBL user, List<long> meetingIds, int newType);
+        Task<int> RecalculateRoomSpentMinutesAsync(string roomFriendlyId);
+        Task<List<UpcomingPlanItemDTO>> GetUpcomingPlansAsync(UserTBL user);
         Task<MeetingRecordingsResponseDTO> GetMeetingRecordingsAsync(long meetingId, UserTBL user);
         Task<MeetingRecordingSettingsDTO> UpdateRecordingSettingsAsync(UpdateRecordingSettingsRequestDTO req, UserTBL user);
         Task<bool> PublishRecordingAsync(PublishRecordingRequestDTO req, UserTBL user);
@@ -79,7 +112,19 @@ namespace Application.Services
             return false;
         }
 
-        public IQueryable<MeetingTBL> BuildScopedQuery(UserTBL user, int? type = null, string q = "", long? ownerId = null, long? teacherId = null)
+        public IQueryable<MeetingTBL> BuildScopedQuery(
+            UserTBL user,
+            int? type = null,
+            string q = "",
+            long? ownerId = null,
+            long? teacherId = null,
+            string? roomFriendlyId = null,
+            int? minAttendees = null,
+            int? maxAttendees = null,
+            string? attendeeTypes = null,
+            int? minDurationMinutes = null,
+            int? maxDurationMinutes = null,
+            bool includeIgnored = false)
         {
             IQueryable<MeetingTBL> query = _db.MeetingTBLs
                 .Include(m => m.RoomTBL)
@@ -108,9 +153,20 @@ namespace Application.Services
             }
 
             // Filters
-            if (type.HasValue && type.Value > 0)
+            if (type.HasValue && type.Value != 0)
             {
                 query = query.Where(m => (int)m.Type == type.Value);
+            }
+            else if (!includeIgnored)
+            {
+                // نادیده گرفته شده‌ها کلاً نشان داده نشوند مگر اینکه در فیلترها تیک خورده باشد
+                query = query.Where(m => (int)m.Type != -99);
+            }
+
+            if (!string.IsNullOrWhiteSpace(roomFriendlyId))
+            {
+                var rfid = roomFriendlyId.Trim();
+                query = query.Where(m => m.RoomFriendlyID == rfid || (m.RoomTBL != null && m.RoomTBL.FriendlyID == rfid));
             }
 
             if (!string.IsNullOrWhiteSpace(q))
@@ -135,12 +191,80 @@ namespace Application.Services
                 query = query.Where(m => m.IDTeacher == teacherId.Value);
             }
 
+            // Duration filters (in minutes)
+            if (minDurationMinutes.HasValue && minDurationMinutes.Value > 0)
+            {
+                query = query.Where(m => m.EndDate != null && EF.Functions.DateDiffMinute(m.DateInsert, m.EndDate.Value) >= minDurationMinutes.Value);
+            }
+
+            if (maxDurationMinutes.HasValue && maxDurationMinutes.Value > 0)
+            {
+                query = query.Where(m => m.EndDate != null && EF.Functions.DateDiffMinute(m.DateInsert, m.EndDate.Value) <= maxDurationMinutes.Value);
+            }
+
+            // Attendees filters
+            List<int>? parsedAttendeeTypes = null;
+            if (!string.IsNullOrWhiteSpace(attendeeTypes))
+            {
+                parsedAttendeeTypes = attendeeTypes.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(s => int.TryParse(s.Trim(), out var val) ? (int?)val : null)
+                    .Where(v => v.HasValue)
+                    .Select(v => v.Value)
+                    .ToList();
+            }
+
+            if (minAttendees.HasValue && minAttendees.Value >= 0)
+            {
+                if (parsedAttendeeTypes != null && parsedAttendeeTypes.Count > 0)
+                {
+                    query = query.Where(m => m.UserTBLToMeetingTBLs.Count(u => !u.IsRemoved && parsedAttendeeTypes.Contains((int)u.Type)) >= minAttendees.Value);
+                }
+                else
+                {
+                    query = query.Where(m => m.UserTBLToMeetingTBLs.Count(u => !u.IsRemoved &&
+                        u.Type != MainEntity_Types.USER_TEACHER &&
+                        u.Type != MainEntity_Types.USER_DABIR &&
+                        u.Type != MainEntity_Types.USER_ADMINSTRATOR &&
+                        u.Type != MainEntity_Types.USER_MODERATOR) >= minAttendees.Value);
+                }
+            }
+
+            if (maxAttendees.HasValue && maxAttendees.Value >= 0)
+            {
+                if (parsedAttendeeTypes != null && parsedAttendeeTypes.Count > 0)
+                {
+                    query = query.Where(m => m.UserTBLToMeetingTBLs.Count(u => !u.IsRemoved && parsedAttendeeTypes.Contains((int)u.Type)) <= maxAttendees.Value);
+                }
+                else
+                {
+                    query = query.Where(m => m.UserTBLToMeetingTBLs.Count(u => !u.IsRemoved &&
+                        u.Type != MainEntity_Types.USER_TEACHER &&
+                        u.Type != MainEntity_Types.USER_DABIR &&
+                        u.Type != MainEntity_Types.USER_ADMINSTRATOR &&
+                        u.Type != MainEntity_Types.USER_MODERATOR) <= maxAttendees.Value);
+                }
+            }
+
             return query;
         }
 
-        public async Task<AdminMeetingStatsDTO> GetMeetingStatsAsync(UserTBL user, int? type = null, string q = "", long? ownerId = null, long? teacherId = null)
+        public async Task<AdminMeetingStatsDTO> GetMeetingStatsAsync(
+            UserTBL user,
+            int? type = null,
+            string q = "",
+            long? ownerId = null,
+            long? teacherId = null,
+            string? roomFriendlyId = null,
+            int? minAttendees = null,
+            int? maxAttendees = null,
+            string? attendeeTypes = null,
+            int? minDurationMinutes = null,
+            int? maxDurationMinutes = null,
+            bool includeIgnored = false)
         {
-            var query = BuildScopedQuery(user, type, q, ownerId, teacherId);
+            var query = BuildScopedQuery(
+                user, type, q, ownerId, teacherId, roomFriendlyId,
+                minAttendees, maxAttendees, attendeeTypes, minDurationMinutes, maxDurationMinutes, includeIgnored);
 
             var totalMeetings = await query.CountAsync();
 
@@ -168,15 +292,33 @@ namespace Application.Services
             };
         }
 
-        public async Task<AdminMeetingsResultDTO> GetMeetingsAsync(UserTBL user, int page = 1, int count = 15, int? type = null, string q = "", long? ownerId = null, long? teacherId = null)
+        public async Task<AdminMeetingsResultDTO> GetMeetingsAsync(
+            UserTBL user,
+            int page = 1,
+            int count = 15,
+            int? type = null,
+            string q = "",
+            long? ownerId = null,
+            long? teacherId = null,
+            string? roomFriendlyId = null,
+            int? minAttendees = null,
+            int? maxAttendees = null,
+            string? attendeeTypes = null,
+            int? minDurationMinutes = null,
+            int? maxDurationMinutes = null,
+            bool includeIgnored = false)
         {
             if (page < 1) page = 1;
             if (count < 1) count = 15;
             if (count > 100) count = 100;
 
-            var query = BuildScopedQuery(user, type, q, ownerId, teacherId);
+            var query = BuildScopedQuery(
+                user, type, q, ownerId, teacherId, roomFriendlyId,
+                minAttendees, maxAttendees, attendeeTypes, minDurationMinutes, maxDurationMinutes, includeIgnored);
 
-            var stats = await GetMeetingStatsAsync(user, type, q, ownerId, teacherId);
+            var stats = await GetMeetingStatsAsync(
+                user, type, q, ownerId, teacherId, roomFriendlyId,
+                minAttendees, maxAttendees, attendeeTypes, minDurationMinutes, maxDurationMinutes, includeIgnored);
             var totalCount = stats.TotalMeetings;
             var totalPages = (int)Math.Ceiling((double)totalCount / count);
 
@@ -308,7 +450,9 @@ namespace Application.Services
                     RecordingRecordId = recRecordId,
                     RecordingViewPermission = recViewPermission,
                     RecordingDownloadable = recDownloadable,
-                    RecordingPublished = recPublished
+                    RecordingPublished = recPublished,
+                    DurationMinutes = (m.endDate.HasValue && m.endDate.Value > m.dateInsert) ? (int?)(int)(m.endDate.Value - m.dateInsert).TotalMinutes : null,
+                    HasRecording = m.isRecorded || !string.IsNullOrWhiteSpace(recPlaybackUrl) || !string.IsNullOrWhiteSpace(recRecordId)
                 };
             }).ToList();
 
@@ -620,6 +764,202 @@ namespace Application.Services
                 return "<response><returncode>SUCCESS</returncode><tracks></tracks></response>";
 
             return await _bbb.GetRecordingTextTracksAsync(recordId);
+        }
+
+        public async Task<AdminMeetingFilterOptionsDTO> GetFilterOptionsAsync(UserTBL user)
+        {
+            var result = new AdminMeetingFilterOptionsDTO();
+            if (user == null) return result;
+
+            IQueryable<RoomTBL> roomsQuery = _db.RoomTBLs.Include(r => r.RoomMetaTBLs);
+            if (!IsSuperAdmin(user))
+            {
+                var accessibleRoomFids = _db.RoomTBLToUserTBLs
+                    .Where(r => (r.UUIDParticipatorTBL == user.UUID || (r.ParticipatorTBL != null && r.ParticipatorTBL.ID == user.ID)) &&
+                                r.Status != MainEntity_Status.Deactive &&
+                                r.Status != MainEntity_Status.Delete)
+                    .Select(r => r.FriendlyIDRoomTBL ?? r.FriendlyID)
+                    .Distinct();
+
+                roomsQuery = roomsQuery.Where(r => r.IDOwnerTBL == user.ID || accessibleRoomFids.Contains(r.FriendlyID));
+            }
+
+            var roomsList = await roomsQuery.OrderBy(r => r.Title).ToListAsync();
+            foreach (var r in roomsList)
+            {
+                int spentMin = 0;
+                var spentMeta = r.RoomMetaTBLs?.FirstOrDefault(m => m.Key == "spent_minutes");
+                if (spentMeta != null && int.TryParse(spentMeta.Value, out var sm))
+                {
+                    spentMin = sm;
+                }
+
+                result.Rooms.Add(new AdminMeetingRoomOptionDTO
+                {
+                    Id = r.ID,
+                    FriendlyId = r.FriendlyID,
+                    Title = !string.IsNullOrWhiteSpace(r.Title) ? r.Title : r.FriendlyID,
+                    SpentMinutes = spentMin
+                });
+            }
+
+            // Distinct teachers from meetings in accessible rooms
+            var accessibleFids = result.Rooms.Select(r => r.FriendlyId).ToList();
+            var teachersList = await _db.MeetingTBLs
+                .Where(m => accessibleFids.Contains(m.RoomFriendlyID) && m.IDTeacher != null && m.Teacher != null)
+                .Select(m => new AdminMeetingTeacherDTO
+                {
+                    Id = m.Teacher.ID,
+                    Name = m.Teacher.GetName(),
+                    Avatar = m.Teacher.AvatarPath
+                })
+                .Distinct()
+                .ToListAsync();
+
+            result.Teachers = teachersList
+                .GroupBy(t => t.Id)
+                .Select(g => g.First())
+                .OrderBy(t => t.Name)
+                .ToList();
+
+            return result;
+        }
+
+        public async Task<int> RecalculateRoomSpentMinutesAsync(string roomFriendlyId)
+        {
+            if (string.IsNullOrWhiteSpace(roomFriendlyId)) return 0;
+
+            var room = await _db.RoomTBLs
+                .Include(r => r.RoomMetaTBLs)
+                .FirstOrDefaultAsync(r => r.FriendlyID == roomFriendlyId);
+
+            if (room == null) return 0;
+
+            var meetings = await _db.MeetingTBLs
+                .Where(m => (m.RoomFriendlyID == room.FriendlyID || (m.RoomTBL != null && m.RoomTBL.FriendlyID == room.FriendlyID)) &&
+                            (int)m.Type != -99 &&
+                            m.EndDate != null &&
+                            m.EndDate > m.DateInsert)
+                .Select(m => new { m.DateInsert, EndDate = m.EndDate.Value })
+                .ToListAsync();
+
+            int totalMinutes = meetings.Sum(m => (int)(m.EndDate - m.DateInsert).TotalMinutes);
+
+            var existingMeta = room.RoomMetaTBLs?.FirstOrDefault(m => m.Key == "spent_minutes")
+                ?? await _db.RoomMetaTBLs.FirstOrDefaultAsync(m => m.IDRoomTBL == room.ID && m.Key == "spent_minutes");
+
+            if (existingMeta != null)
+            {
+                existingMeta.Value = totalMinutes.ToString();
+                existingMeta.UpdatedAt = DateTime.Now;
+            }
+            else
+            {
+                _db.RoomMetaTBLs.Add(new RoomMetaTBL
+                {
+                    IDRoomTBL = room.ID,
+                    FriendlyID = room.FriendlyID,
+                    Key = "spent_minutes",
+                    Value = totalMinutes.ToString(),
+                    DataType = MainEntity_Types.META_INT,
+                    DateInsert = DateTime.Now,
+                    UpdatedAt = DateTime.Now,
+                    Status = MainEntity_Status.Enabled
+                });
+            }
+
+            await _db.SaveChangesAsync();
+            return totalMinutes;
+        }
+
+        public async Task<bool> BatchUpdateMeetingTypeAsync(UserTBL user, List<long> meetingIds, int newType)
+        {
+            if (user == null || meetingIds == null || meetingIds.Count == 0) return false;
+
+            var meetings = await _db.MeetingTBLs
+                .Include(m => m.RoomTBL)
+                .Where(m => meetingIds.Contains(m.ID))
+                .ToListAsync();
+
+            var affectedRoomFids = new HashSet<string>();
+
+            foreach (var meeting in meetings)
+            {
+                if (await CanUserEditMeetingAsync(user, meeting.ID))
+                {
+                    meeting.Type = (MainEntity_Types)newType;
+                    if (!string.IsNullOrEmpty(meeting.RoomFriendlyID))
+                        affectedRoomFids.Add(meeting.RoomFriendlyID);
+                    else if (meeting.RoomTBL != null && !string.IsNullOrEmpty(meeting.RoomTBL.FriendlyID))
+                        affectedRoomFids.Add(meeting.RoomTBL.FriendlyID);
+                }
+            }
+
+            await _db.SaveChangesAsync();
+
+            // Recalculate spent minutes for each affected room
+            foreach (var rfid in affectedRoomFids)
+            {
+                try
+                {
+                    await RecalculateRoomSpentMinutesAsync(rfid);
+                }
+                catch { }
+            }
+
+            return true;
+        }
+
+        public async Task<List<UpcomingPlanItemDTO>> GetUpcomingPlansAsync(UserTBL user)
+        {
+            var list = new List<UpcomingPlanItemDTO>();
+            if (user == null) return list;
+
+            IQueryable<RoomTBLPlanTBL> query = _db.RoomTBLPlanTBLs
+                .Include(p => p.RoomTBL)
+                .Where(p => p.StartDate != null &&
+                            p.StartDate >= DateTime.UtcNow.AddHours(-2) &&
+                            !string.IsNullOrWhiteSpace(p.Title) &&
+                            p.Status == MainEntity_Status.Enabled);
+
+            if (!IsSuperAdmin(user))
+            {
+                var accessibleRoomFids = _db.RoomTBLToUserTBLs
+                    .Where(r => (r.UUIDParticipatorTBL == user.UUID || (r.ParticipatorTBL != null && r.ParticipatorTBL.ID == user.ID)) &&
+                                r.Status != MainEntity_Status.Deactive &&
+                                r.Status != MainEntity_Status.Delete)
+                    .Select(r => r.FriendlyIDRoomTBL ?? r.FriendlyID)
+                    .Distinct();
+
+                query = query.Where(p => p.RoomTBL != null &&
+                    (p.RoomTBL.IDOwnerTBL == user.ID || accessibleRoomFids.Contains(p.RoomTBL.FriendlyID)));
+            }
+
+            var plans = await query
+                .OrderBy(p => p.StartDate)
+                .Take(50)
+                .ToListAsync();
+
+            foreach (var p in plans)
+            {
+                var (tehranDate, tehranTime, _) = PlanTimeHelper.ToTehranJalaliStrings(p.StartDate.Value);
+                list.Add(new UpcomingPlanItemDTO
+                {
+                    PlanId = p.ID,
+                    RoomId = p.RoomTBL != null ? p.RoomTBL.ID : p.IDRoomTBL,
+                    RoomFriendlyId = p.RoomTBL != null ? p.RoomTBL.FriendlyID : "",
+                    RoomTitle = p.RoomTBL != null ? p.RoomTBL.Title : "اتاق",
+                    Title = p.Title,
+                    Teachers = p.Teachers,
+                    Dabir = p.Dabir,
+                    StartDate = p.StartDate,
+                    JalaliDate = tehranDate,
+                    Time = tehranTime,
+                    Type = (int)p.Type
+                });
+            }
+
+            return list;
         }
     }
 }
