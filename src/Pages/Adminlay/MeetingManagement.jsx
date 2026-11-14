@@ -7,10 +7,11 @@ import {
     FaChevronLeft, FaChevronRight, FaPlay, FaRegClock, FaLayerGroup,
     FaChalkboardTeacher, FaUpload, FaVolumeUp, FaFileAlt, FaLink,
     FaTrash, FaEdit, FaSave, FaCheck, FaSpinner, FaMusic, FaExchangeAlt,
-    FaPlus, FaCheckDouble, FaCloudUploadAlt, FaHeadphones, FaDownload, FaRecordVinyl, FaEyeSlash, FaCog, FaUserLock, FaGlobe, FaAward, FaExclamationTriangle, FaUserCheck
+    FaPlus, FaCheckDouble, FaCloudUploadAlt, FaHeadphones, FaDownload, FaRecordVinyl, FaEyeSlash, FaCog, FaUserLock, FaGlobe, FaAward, FaExclamationTriangle, FaUserCheck,
+    FaShieldAlt, FaSlidersH, FaCheckSquare, FaSquare
 } from 'react-icons/fa';
-import { GetAdminMeetings, UpdateMeetingMedia, SaveMeetingMediaLog, GetMeetingStats, GetMeetingRecordings, SaveRecordingSettings, PublishRecording, DeleteRecording, GetRecordingTracks } from '../../api/AdminAPI';
-import { GetMembersOfMeet, GenerateCertificateWithUserMeetID } from '../../api/GetRooms';
+import { GetAdminMeetings, UpdateMeetingMedia, SaveMeetingMediaLog, GetMeetingStats, GetMeetingRecordings, SaveRecordingSettings, PublishRecording, DeleteRecording, GetRecordingTracks, GetMeetingFilterOptions, BatchUpdateMeetingType } from '../../api/AdminAPI';
+import { GetMembersOfMeet, GenerateCertificateWithUserMeetID, GetTeacherList, fetchRooms } from '../../api/GetRooms';
 import { UploadFiles } from '../../api/FTP';
 import { BaseURLFiles } from '../../api/apiNeed';
 import { combinePath } from '../../Tools/tools';
@@ -69,13 +70,40 @@ const MeetingManagement = () => {
         withReportCount: 0
     });
 
-    // Owner and Teacher Filters
+    // Owner, Room and Teacher Filters
     const [selectedOwnerId, setSelectedOwnerId] = useState('');
     const [selectedOwnerName, setSelectedOwnerName] = useState('');
+    const [selectedRoomFriendlyId, setSelectedRoomFriendlyId] = useState('');
     const [selectedTeacherId, setSelectedTeacherId] = useState('');
     const [selectedTeacherName, setSelectedTeacherName] = useState('');
     const [availableOwners, setAvailableOwners] = useState([]);
     const [availableTeachers, setAvailableTeachers] = useState([]);
+    const [availableRooms, setAvailableRooms] = useState([]);
+    const [teacherSearchTerm, setTeacherSearchTerm] = useState('');
+    const [isTeacherDropdownOpen, setIsTeacherDropdownOpen] = useState(false);
+
+    // Advanced Filters: Attendees & Duration & Ignored
+    const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+    const [attendeeCountOp, setAttendeeCountOp] = useState('<'); // '<' or '>'
+    const [attendeeCountVal, setAttendeeCountVal] = useState('');
+    const [attendeeTypes, setAttendeeTypes] = useState({
+        normal: true,
+        guest: true,
+        teacher: false,
+        admin: false
+    });
+    const [durationOp, setDurationOp] = useState('<'); // '<' or '>'
+    const [durationVal, setDurationVal] = useState('');
+    const [includeIgnored, setIncludeIgnored] = useState(false);
+
+    // Bulk selection state
+    const [selectedMeetingIds, setSelectedMeetingIds] = useState([]);
+    const [batchNewType, setBatchNewType] = useState(100);
+    const [isBatchUpdating, setIsBatchUpdating] = useState(false);
+
+    // BBB Recordings tab state inside mediaModalOpen
+    const [mediaModalRecordings, setMediaModalRecordings] = useState([]);
+    const [mediaModalRecordingsLoading, setMediaModalRecordingsLoading] = useState(false);
 
     // Attendees Modal State
     const [attendeesModalOpen, setAttendeesModalOpen] = useState(false);
@@ -174,7 +202,36 @@ const MeetingManagement = () => {
             else if (typeMode === 'all') backendTypeParam = null;
             else backendTypeParam = null; // default in backend is (Type == 100 || Type == 101)
 
-            const res = await GetAdminMeetings(page, itemsPerPage, q, backendTypeParam, ownerId || null, teacherId || null);
+            let minAtt = null;
+            let maxAtt = null;
+            if (attendeeCountVal !== '' && !isNaN(attendeeCountVal)) {
+                if (attendeeCountOp === '<') maxAtt = parseInt(attendeeCountVal);
+                else if (attendeeCountOp === '>') minAtt = parseInt(attendeeCountVal);
+            }
+
+            const checkedAttendeeTypes = Object.entries(attendeeTypes)
+                .filter(([_, v]) => v)
+                .map(([k, _]) => k)
+                .join(',');
+
+            let minDur = null;
+            let maxDur = null;
+            if (durationVal !== '' && !isNaN(durationVal)) {
+                if (durationOp === '<') maxDur = parseInt(durationVal);
+                else if (durationOp === '>') minDur = parseInt(durationVal);
+            }
+
+            const filtersObj = {
+                roomFriendlyId: selectedRoomFriendlyId || null,
+                minAttendees: minAtt,
+                maxAttendees: maxAtt,
+                attendeeTypes: checkedAttendeeTypes || null,
+                minDurationMinutes: minDur,
+                maxDurationMinutes: maxDur,
+                includeIgnored: includeIgnored
+            };
+
+            const res = await GetAdminMeetings(page, itemsPerPage, q, backendTypeParam, ownerId || null, teacherId || null, filtersObj);
             if (res) {
                 const items = res.items || (Array.isArray(res.data) ? res.data : []);
                 setMeetings(items);
@@ -185,7 +242,7 @@ const MeetingManagement = () => {
                     setStats(res.stats);
                 } else {
                     try {
-                        const statsRes = await GetMeetingStats(backendTypeParam, q, ownerId || null, teacherId || null);
+                        const statsRes = await GetMeetingStats(backendTypeParam, q, ownerId || null, teacherId || null, filtersObj);
                         if (statsRes) setStats(statsRes);
                     } catch (e) {
                         console.warn("Failed to fetch meeting stats:", e);
@@ -221,9 +278,241 @@ const MeetingManagement = () => {
         }
     };
 
+    // Load initial filter options (all accessible rooms and teachers) with fallback
+    useEffect(() => {
+        const loadFilterOptions = async () => {
+            let loadedRooms = [];
+            let loadedTeachers = [];
+            try {
+                const data = await GetMeetingFilterOptions();
+                if (data) {
+                    if (data.rooms && Array.isArray(data.rooms) && data.rooms.length > 0) {
+                        loadedRooms = data.rooms;
+                        setAvailableRooms(data.rooms);
+                    }
+                    if (data.teachers && Array.isArray(data.teachers) && data.teachers.length > 0) {
+                        loadedTeachers = data.teachers;
+                        setAvailableTeachers(data.teachers);
+                    }
+                }
+            } catch (err) {
+                console.warn("GetMeetingFilterOptions endpoint not ready, activating fallbacks:", err);
+            }
+
+            // Fallback for teachers: call GetTeacherList
+            if (loadedTeachers.length === 0) {
+                try {
+                    const tList = await GetTeacherList("");
+                    if (Array.isArray(tList) && tList.length > 0) {
+                        const formatted = tList.map(t => ({
+                            id: t.id || t.ID || t.userId,
+                            fullname: t.fullname || t.fullName || t.name || `${t.firstName || ''} ${t.lastName || ''}`.trim()
+                        })).filter(t => t.id && t.fullname);
+                        setAvailableTeachers(prev => prev.length > 0 ? prev : formatted);
+                    }
+                } catch (tErr) {
+                    console.warn("Fallback GetTeacherList error:", tErr);
+                }
+            }
+
+            // Fallback for rooms: call fetchRooms
+            if (loadedRooms.length === 0) {
+                try {
+                    const rList = await fetchRooms();
+                    if (Array.isArray(rList) && rList.length > 0) {
+                        const formattedRooms = rList.map(r => ({
+                            id: r.id || r.ID,
+                            friendlyID: r.friendlyID || r.FriendlyID,
+                            title: r.title || r.Title || r.friendlyID
+                        })).filter(r => r.friendlyID);
+                        setAvailableRooms(prev => prev.length > 0 ? prev : formattedRooms);
+                    }
+                } catch (rErr) {
+                    console.warn("Fallback fetchRooms error:", rErr);
+                }
+            }
+        };
+        loadFilterOptions();
+    }, []);
+
+    // Enrich availableTeachers and availableRooms from any loaded meetings
+    useEffect(() => {
+        if (meetings && meetings.length > 0) {
+            setAvailableRooms(prev => {
+                const existing = new Set(prev.map(r => r.friendlyID));
+                const added = [];
+                meetings.forEach(m => {
+                    if (m.roomFriendlyID && !existing.has(m.roomFriendlyID)) {
+                        existing.add(m.roomFriendlyID);
+                        added.push({
+                            id: m.roomId,
+                            friendlyID: m.roomFriendlyID,
+                            title: m.roomTitle || m.roomFriendlyID
+                        });
+                    }
+                });
+                return added.length > 0 ? [...prev, ...added] : prev;
+            });
+
+            setAvailableTeachers(prev => {
+                const existing = new Set(prev.map(t => String(t.id)));
+                const added = [];
+                meetings.forEach(m => {
+                    if (m.teacherId && !existing.has(String(m.teacherId))) {
+                        existing.add(String(m.teacherId));
+                        added.push({
+                            id: m.teacherId,
+                            fullname: m.teacherFullname || `استاد ${m.teacherId}`
+                        });
+                    }
+                });
+                return added.length > 0 ? [...prev, ...added] : prev;
+            });
+        }
+    }, [meetings]);
+
     useEffect(() => {
         fetchMeetings(currentPage, searchTerm, typeFilter, selectedOwnerId, selectedTeacherId);
-    }, [currentPage, itemsPerPage, typeFilter, selectedOwnerId, selectedTeacherId]);
+    }, [currentPage, itemsPerPage, typeFilter, selectedOwnerId, selectedTeacherId, selectedRoomFriendlyId, attendeeCountOp, attendeeCountVal, attendeeTypes, durationOp, durationVal, includeIgnored]);
+
+    // Client-side fallback filter for displayed meetings
+    const displayedMeetings = useMemo(() => {
+        let list = meetings || [];
+
+        // 1. Filter attendee count
+        if (attendeeCountVal !== '') {
+            const target = parseInt(attendeeCountVal, 10);
+            if (!isNaN(target)) {
+                const hasSpecific = attendeeTypes.normal || attendeeTypes.guest || attendeeTypes.teacher || attendeeTypes.admin;
+                list = list.filter(item => {
+                    let count = 0;
+                    if (hasSpecific) {
+                        if (attendeeTypes.normal) count += (item.attendeeNormalCount ?? 0);
+                        if (attendeeTypes.guest) count += (item.attendeeGuestCount ?? 0);
+                        if (attendeeTypes.teacher) count += (item.attendeeTeacherCount ?? 0);
+                        if (attendeeTypes.admin) count += (item.attendeeAdminCount ?? 0);
+                    } else {
+                        count = item.attendeesCount ?? 0;
+                    }
+                    return attendeeCountOp === '<' ? count < target : count > target;
+                });
+            }
+        }
+
+        // 2. Filter duration
+        if (durationVal !== '') {
+            const durTarget = parseInt(durationVal, 10);
+            if (!isNaN(durTarget)) {
+                list = list.filter(item => {
+                    const dur = item.durationMinutes ?? item.duration ?? 0;
+                    return durationOp === '<' ? dur < durTarget : dur > durTarget;
+                });
+            }
+        }
+
+        // 3. Filter ignored / test (-99)
+        if (!includeIgnored) {
+            list = list.filter(item => item.type !== -99);
+        }
+
+        // 4. Filter room
+        if (selectedRoomFriendlyId) {
+            list = list.filter(item => item.roomFriendlyID === selectedRoomFriendlyId);
+        }
+
+        // 5. Filter teacher
+        if (selectedTeacherId) {
+            list = list.filter(item => String(item.teacherId) === String(selectedTeacherId));
+        }
+
+        return list;
+    }, [meetings, attendeeCountVal, attendeeCountOp, attendeeTypes, durationVal, durationOp, includeIgnored, selectedRoomFriendlyId, selectedTeacherId]);
+
+    // Teacher search filter
+    const filteredAvailableTeachers = useMemo(() => {
+        if (!teacherSearchTerm.trim()) return availableTeachers;
+        const term = teacherSearchTerm.trim().toLowerCase();
+        return availableTeachers.filter(t =>
+            (t.fullname && t.fullname.toLowerCase().includes(term)) ||
+            (t.username && t.username.toLowerCase().includes(term)) ||
+            (t.name && t.name.toLowerCase().includes(term))
+        );
+    }, [availableTeachers, teacherSearchTerm]);
+
+    // Bulk selection handlers
+    const handleToggleSelectAll = () => {
+        if (selectedMeetingIds.length === displayedMeetings.length) {
+            setSelectedMeetingIds([]);
+        } else {
+            setSelectedMeetingIds(displayedMeetings.map(m => m.id));
+        }
+    };
+
+    const handleToggleSelectMeeting = (id) => {
+        setSelectedMeetingIds(prev =>
+            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+        );
+    };
+
+    const handleBatchUpdateType = async () => {
+        if (selectedMeetingIds.length === 0) return;
+        setIsBatchUpdating(true);
+        const targetType = parseInt(batchNewType, 10);
+        try {
+            await BatchUpdateMeetingType(selectedMeetingIds, targetType);
+            if (toast?.success) {
+                const foundType = MEETING_TYPES.find(t => t.value === targetType);
+                toast.success(`نوع ${selectedMeetingIds.length} جلسه با موفقیت به «${foundType?.label || batchNewType}» تغییر یافت.`);
+            }
+            setSelectedMeetingIds([]);
+            fetchMeetings(currentPage);
+        } catch (err) {
+            console.warn("BatchUpdateMeetingType failed (404), falling back to individual updates:", err);
+            try {
+                await Promise.all(selectedMeetingIds.map(id => UpdateMeetingMedia({ meetingId: id, type: targetType })));
+                if (toast?.success) {
+                    const foundType = MEETING_TYPES.find(t => t.value === targetType);
+                    toast.success(`نوع ${selectedMeetingIds.length} جلسه با موفقیت به «${foundType?.label || batchNewType}» تغییر یافت.`);
+                }
+                setSelectedMeetingIds([]);
+                fetchMeetings(currentPage);
+            } catch (fallbackErr) {
+                console.error("Fallback batch update failed:", fallbackErr);
+                if (toast?.error) {
+                    toast.error("خطا در تغییر گروهی نوع جلسات");
+                }
+            }
+        } finally {
+            setIsBatchUpdating(false);
+        }
+    };
+
+    // BBB Recordings tab fetcher inside mediaModalOpen
+    const fetchBbbRecordingsForMediaModal = async (meetingId) => {
+        setMediaModalRecordingsLoading(true);
+        try {
+            const res = await GetMeetingRecordings(meetingId);
+            if (res && res.status === 200 && res.data) {
+                setMediaModalRecordings(res.data.recordings || []);
+            } else {
+                setMediaModalRecordings([]);
+            }
+        } catch (err) {
+            console.error("Failed to fetch recordings for media modal:", err);
+            setMediaModalRecordings([]);
+        } finally {
+            setMediaModalRecordingsLoading(false);
+        }
+    };
+
+    const handleUseRecordAsVideo = (playbackUrl) => {
+        if (!playbackUrl) return;
+        setVideoInputUrl(playbackUrl);
+        setMediaTab('video');
+        if (toast?.success) {
+            toast.success("آدرس رکورد در فیلد فیلم جلسه درج شد. برای نهایی‌سازی دکمه «ذخیره تمام رسانه‌ها» را بزنید.");
+        }
+    };
 
     // Handle search input with debouncing or on Enter / button click
     const handleSearchSubmit = (e) => {
@@ -1181,9 +1470,9 @@ const MeetingManagement = () => {
                     </div>
 
                     {/* Owner Filter Dropdown */}
-                    <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 border border-gray-200 rounded-xl">
-                        <FaUser className="text-gray-500 text-xs" />
-                        <span className="text-xs text-gray-500 font-bold">مالک:</span>
+                    <div className="flex items-center gap-2 bg-[#f9fafb] px-3 py-2 border border-[#e5e7eb] rounded-xl">
+                        <FaUser className="text-[#6b7280] text-xs" />
+                        <span className="text-xs text-[#6b7280] font-bold">مالک:</span>
                         <select
                             value={selectedOwnerId}
                             onChange={(e) => {
@@ -1191,7 +1480,7 @@ const MeetingManagement = () => {
                                 const found = availableOwners.find(o => String(o.id) === String(val));
                                 handleFilterByOwner(val, found ? (found.fullname || found.name) : '');
                             }}
-                            className="bg-transparent text-xs font-bold text-gray-800 focus:outline-none cursor-pointer max-w-[140px] truncate"
+                            className="bg-transparent text-xs font-bold text-[#1f2937] focus:outline-none cursor-pointer max-w-[130px] truncate"
                         >
                             <option value="">همه مالکین</option>
                             {availableOwners.map(o => (
@@ -1202,39 +1491,105 @@ const MeetingManagement = () => {
                         </select>
                     </div>
 
-                    {/* Teacher Filter Dropdown */}
-                    <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 border border-gray-200 rounded-xl">
-                        <FaChalkboardTeacher className="text-gray-500 text-xs" />
-                        <span className="text-xs text-gray-500 font-bold">استاد:</span>
+                    {/* Room / Group Filter Dropdown */}
+                    <div className="flex items-center gap-2 bg-[#f9fafb] px-3 py-2 border border-[#e5e7eb] rounded-xl">
+                        <FaDoorOpen className="text-[#6b7280] text-xs" />
+                        <span className="text-xs text-[#6b7280] font-bold">اتاق:</span>
                         <select
-                            value={selectedTeacherId}
+                            value={selectedRoomFriendlyId}
                             onChange={(e) => {
-                                const val = e.target.value;
-                                const found = availableTeachers.find(t => String(t.id) === String(val));
-                                handleFilterByTeacher(val, found ? (found.fullname || found.name) : '');
+                                setSelectedRoomFriendlyId(e.target.value);
+                                setCurrentPage(1);
                             }}
-                            className="bg-transparent text-xs font-bold text-gray-800 focus:outline-none cursor-pointer max-w-[140px] truncate"
+                            className="bg-transparent text-xs font-bold text-[#1f2937] focus:outline-none cursor-pointer max-w-[140px] truncate"
                         >
-                            <option value="">همه اساتید</option>
-                            {availableTeachers.map(t => (
-                                <option key={t.id} value={t.id}>
-                                    {t.fullname || t.name || `استاد #${t.id}`}
+                            <option value="">همه اتاق‌ها</option>
+                            {availableRooms.map(r => (
+                                <option key={r.friendlyId || r.id} value={r.friendlyId}>
+                                    {r.title || r.friendlyId}
                                 </option>
                             ))}
                         </select>
                     </div>
 
+                    {/* Searchable Teacher Filter Dropdown */}
+                    <div className="relative">
+                        <button
+                            type="button"
+                            onClick={() => setIsTeacherDropdownOpen(!isTeacherDropdownOpen)}
+                            className="flex items-center gap-2 bg-[#f9fafb] hover:bg-[#f3f4f6] px-3 py-2 border border-[#e5e7eb] rounded-xl text-xs font-bold text-[#1f2937] transition"
+                        >
+                            <FaChalkboardTeacher className="text-[#6b7280] text-xs" />
+                            <span className="text-[#6b7280]">استاد:</span>
+                            <span className="max-w-[110px] truncate">{selectedTeacherName || "همه اساتید"}</span>
+                        </button>
+                        {isTeacherDropdownOpen && (
+                            <div className="absolute left-0 top-full mt-2 w-64 bg-[#ffffff] border border-[#e5e7eb] rounded-2xl shadow-xl z-50 p-2 text-right">
+                                <div className="relative mb-2">
+                                    <input
+                                        type="text"
+                                        placeholder="جستجو در اساتید..."
+                                        value={teacherSearchTerm}
+                                        onChange={(e) => setTeacherSearchTerm(e.target.value)}
+                                        className="w-full pr-8 pl-2 py-1.5 text-xs bg-[#f9fafb] border border-[#e5e7eb] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#f97316]"
+                                        autoFocus
+                                    />
+                                    <FaSearch className="absolute right-2.5 top-2.5 text-[#9ca3af] text-xs" />
+                                </div>
+                                <div className="max-h-48 overflow-y-auto divide-y divide-[#f3f4f6] text-xs">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            handleClearTeacherFilter();
+                                            setIsTeacherDropdownOpen(false);
+                                        }}
+                                        className="w-full text-right px-2.5 py-1.5 hover:bg-[#f9fafb] rounded-lg font-bold text-[#4b5563]"
+                                    >
+                                        همه اساتید
+                                    </button>
+                                    {filteredAvailableTeachers.map(t => (
+                                        <button
+                                            key={t.id}
+                                            type="button"
+                                            onClick={() => {
+                                                handleFilterByTeacher(t.id, t.fullname || t.username);
+                                                setIsTeacherDropdownOpen(false);
+                                            }}
+                                            className={`w-full text-right px-2.5 py-1.5 hover:bg-[#f9fafb] rounded-lg transition ${String(selectedTeacherId) === String(t.id) ? 'bg-[#ffedd5] text-[#c2410c] font-bold' : 'text-[#1f2937]'}`}
+                                        >
+                                            {t.fullname || t.username || `استاد #${t.id}`}
+                                        </button>
+                                    ))}
+                                    {filteredAvailableTeachers.length === 0 && (
+                                        <div className="p-3 text-center text-[#9ca3af] text-xs">استادی یافت نشد</div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Advanced Filters Button */}
+                    <button
+                        type="button"
+                        onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold transition ${showAdvancedFilters ? 'bg-[#ffedd5] text-[#c2410c] border-[#fdba74]' : 'bg-[#f9fafb] text-[#4b5563] border-[#e5e7eb] hover:bg-[#f3f4f6]'}`}
+                        title="فیلتر تعداد حضار و طول جلسه"
+                    >
+                        <FaSlidersH size={12} />
+                        <span>فیلتر پیشرفته</span>
+                    </button>
+
                     {/* View Switcher */}
-                    <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl">
+                    <div className="flex items-center gap-1 bg-[#f3f4f6] p-1 rounded-xl">
                         <button
                             onClick={() => setViewMode('table')}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${viewMode === 'table' ? 'bg-white shadow text-orange-600' : 'text-gray-600 hover:text-gray-900'}`}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${viewMode === 'table' ? 'bg-[#ffffff] shadow text-[#ea580c]' : 'text-[#4b5563] hover:text-[#111827]'}`}
                         >
                             جدول
                         </button>
                         <button
                             onClick={() => setViewMode('grid')}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${viewMode === 'grid' ? 'bg-white shadow text-orange-600' : 'text-gray-600 hover:text-gray-900'}`}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${viewMode === 'grid' ? 'bg-[#ffffff] shadow text-[#ea580c]' : 'text-[#4b5563] hover:text-[#111827]'}`}
                         >
                             کارت‌ها
                         </button>
@@ -1242,31 +1597,239 @@ const MeetingManagement = () => {
                 </div>
             </div>
 
+            {/* Advanced Filters Drawer Panel */}
+            {showAdvancedFilters && (
+                <div className="bg-[#ffffff] p-4 rounded-2xl border border-[#e5e7eb] shadow-sm mb-4 text-xs text-[#374151]">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {/* فیلتر تعداد حضار و نقش‌ها */}
+                        <div className="p-3 bg-[#f9fafb] border border-[#e5e7eb] rounded-xl">
+                            <label className="font-bold text-[#1f2937] block mb-2">فیلتر تعداد حضار جلسه:</label>
+                            <div className="flex items-center gap-2 mb-2.5">
+                                <select
+                                    value={attendeeCountOp}
+                                    onChange={(e) => setAttendeeCountOp(e.target.value)}
+                                    className="px-2 py-1.5 bg-[#ffffff] border border-[#d1d5db] rounded-lg font-bold text-xs"
+                                >
+                                    <option value="<">کمتر از (&lt;)</option>
+                                    <option value=">">بیشتر از (&gt;)</option>
+                                </select>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    placeholder="مثال: ۳"
+                                    value={attendeeCountVal}
+                                    onChange={(e) => setAttendeeCountVal(e.target.value)}
+                                    className="w-20 px-2 py-1.5 bg-[#ffffff] border border-[#d1d5db] rounded-lg font-bold text-xs"
+                                />
+                                <span className="text-[#6b7280]">نفر</span>
+                            </div>
+                            <div className="text-[11px] text-[#6b7280] mb-1.5 font-bold">شمارش کدام نقش‌ها لحاظ شود؟</div>
+                            <div className="grid grid-cols-2 gap-1.5">
+                                <label className="flex items-center gap-1.5 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={attendeeTypes.normal}
+                                        onChange={(e) => setAttendeeTypes(p => ({ ...p, normal: e.target.checked }))}
+                                        className="rounded text-[#f97316]"
+                                    />
+                                    <span>حضار عادی</span>
+                                </label>
+                                <label className="flex items-center gap-1.5 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={attendeeTypes.guest}
+                                        onChange={(e) => setAttendeeTypes(p => ({ ...p, guest: e.target.checked }))}
+                                        className="rounded text-[#f97316]"
+                                    />
+                                    <span>میهمانان</span>
+                                </label>
+                                <label className="flex items-center gap-1.5 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={attendeeTypes.teacher}
+                                        onChange={(e) => setAttendeeTypes(p => ({ ...p, teacher: e.target.checked }))}
+                                        className="rounded text-[#f97316]"
+                                    />
+                                    <span>اساتید</span>
+                                </label>
+                                <label className="flex items-center gap-1.5 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={attendeeTypes.admin}
+                                        onChange={(e) => setAttendeeTypes(p => ({ ...p, admin: e.target.checked }))}
+                                        className="rounded text-[#f97316]"
+                                    />
+                                    <span>مدیران</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        {/* فیلتر طول مدت جلسه */}
+                        <div className="p-3 bg-[#f9fafb] border border-[#e5e7eb] rounded-xl">
+                            <label className="font-bold text-[#1f2937] block mb-2">طول مدت جلسه (دقیقه):</label>
+                            <div className="flex items-center gap-2 mb-2">
+                                <select
+                                    value={durationOp}
+                                    onChange={(e) => setDurationOp(e.target.value)}
+                                    className="px-2 py-1.5 bg-[#ffffff] border border-[#d1d5db] rounded-lg font-bold text-xs"
+                                >
+                                    <option value="<">کمتر از (&lt;)</option>
+                                    <option value=">">بیشتر از (&gt;)</option>
+                                </select>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    placeholder="مثال: ۳۰"
+                                    value={durationVal}
+                                    onChange={(e) => setDurationVal(e.target.value)}
+                                    className="w-24 px-2 py-1.5 bg-[#ffffff] border border-[#d1d5db] rounded-lg font-bold text-xs"
+                                />
+                                <span className="text-[#6b7280]">دقیقه</span>
+                            </div>
+                            <p className="text-[11px] text-[#6b7280]">
+                                فیلتر جلسات بر اساس حداقل یا حداکثر طول مدت برگزاری
+                            </p>
+                        </div>
+
+                        {/* جلسات تستی / نادیده گرفته شده */}
+                        <div className="p-3 bg-[#f9fafb] border border-[#e5e7eb] rounded-xl flex flex-col justify-between">
+                            <div>
+                                <label className="font-bold text-[#1f2937] block mb-2">جلسات تستی / نادیده‌گرفته‌شده:</label>
+                                <label className="flex items-center gap-2 p-2.5 bg-[#ffffff] border border-[#fca5a5] rounded-xl cursor-pointer hover:bg-[#fef2f2] transition">
+                                    <input
+                                        type="checkbox"
+                                        checked={includeIgnored}
+                                        onChange={(e) => setIncludeIgnored(e.target.checked)}
+                                        className="rounded text-[#dc2626] w-4 h-4"
+                                    />
+                                    <span className="font-bold text-[#dc2626]">نمایش جلسات تستی (-۹۹)</span>
+                                </label>
+                            </div>
+                            <p className="text-[11px] text-[#6b7280] mt-2">
+                                به‌صورت پیش‌فرض جلسات تستی (-۹۹) مخفی بوده و فقط در صورت زدن این تیک نمایش داده می‌شوند.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Bulk Selection Floating Toolbar */}
+            {selectedMeetingIds.length > 0 && (
+                <div className="sticky top-4 z-40 bg-[#1f2937] text-[#ffffff] p-4 rounded-2xl shadow-2xl mb-6 flex flex-wrap items-center justify-between gap-4 border border-[#374151]">
+                    <div className="flex items-center gap-3">
+                        <span className="p-2 bg-[#f97316] text-[#ffffff] rounded-xl font-black text-sm">
+                            {selectedMeetingIds.length}
+                        </span>
+                        <div>
+                            <p className="font-black text-sm">جلسه برای تغییر گروهی انتخاب شده است</p>
+                            <p className="text-xs text-[#9ca3af]">تغییر نوع جلسات انتخاب‌شده و محاسبه مجدد دقایق اتاق</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <select
+                            value={batchNewType}
+                            onChange={(e) => setBatchNewType(e.target.value)}
+                            className="bg-[#374151] text-[#ffffff] text-xs font-bold px-3 py-2 rounded-xl border border-[#4b5563] focus:outline-none focus:ring-2 focus:ring-[#f97316]"
+                        >
+                            {MEETING_TYPES.map(opt => (
+                                <option key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                </option>
+                            ))}
+                        </select>
+                        <button
+                            type="button"
+                            disabled={isBatchUpdating}
+                            onClick={handleBatchUpdateType}
+                            className="px-4 py-2 bg-[#f97316] hover:bg-[#ea580c] text-[#ffffff] font-bold text-xs rounded-xl transition shadow flex items-center gap-1.5 disabled:opacity-50"
+                        >
+                            {isBatchUpdating ? <FaSpinner className="animate-spin" /> : <FaCheckDouble />}
+                            <span>اعمال گروهی نوع جلسه</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setSelectedMeetingIds([])}
+                            className="px-3 py-2 bg-[#374151] hover:bg-[#4b5563] text-[#d1d5db] font-bold text-xs rounded-xl transition"
+                        >
+                            انصراف
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Active Filter Chips */}
-            {(selectedOwnerId || selectedTeacherId) && (
-                <div className="flex flex-wrap items-center gap-2 mb-6 bg-orange-50/60 p-2.5 rounded-xl border border-orange-200 text-xs">
-                    <span className="font-bold text-gray-600">فیلترهای فعال:</span>
+            {(selectedOwnerId || selectedTeacherId || selectedRoomFriendlyId || attendeeCountVal || durationVal || includeIgnored) && (
+                <div className="flex flex-wrap items-center gap-2 mb-6 bg-[#fff7ed] p-2.5 rounded-xl border border-[#ffedd5] text-xs">
+                    <span className="font-bold text-[#4b5563]">فیلترهای فعال:</span>
                     {selectedOwnerId && (
-                        <span className="inline-flex items-center gap-1.5 bg-white text-amber-800 border border-amber-300 px-2.5 py-1 rounded-lg font-bold shadow-xs">
-                            <FaUser size={10} className="text-amber-600" />
+                        <span className="inline-flex items-center gap-1.5 bg-[#ffffff] text-[#92400e] border border-[#fcd34d] px-2.5 py-1 rounded-lg font-bold shadow-xs">
+                            <FaUser size={10} className="text-[#d97706]" />
                             <span>مالک: {selectedOwnerName || `#${selectedOwnerId}`}</span>
                             <button
                                 onClick={handleClearOwnerFilter}
-                                className="hover:text-red-500 transition mr-1"
+                                className="hover:text-[#ef4444] transition mr-1"
                                 title="حذف فیلتر مالک"
                             >
                                 <FaTimes size={11} />
                             </button>
                         </span>
                     )}
+                    {selectedRoomFriendlyId && (
+                        <span className="inline-flex items-center gap-1.5 bg-[#ffffff] text-[#1e40af] border border-[#93c5fd] px-2.5 py-1 rounded-lg font-bold shadow-xs">
+                            <FaDoorOpen size={11} className="text-[#2563eb]" />
+                            <span>اتاق: {availableRooms.find(r => r.friendlyId === selectedRoomFriendlyId)?.title || selectedRoomFriendlyId}</span>
+                            <button
+                                onClick={() => setSelectedRoomFriendlyId('')}
+                                className="hover:text-[#ef4444] transition mr-1"
+                                title="حذف فیلتر اتاق"
+                            >
+                                <FaTimes size={11} />
+                            </button>
+                        </span>
+                    )}
                     {selectedTeacherId && (
-                        <span className="inline-flex items-center gap-1.5 bg-white text-purple-800 border border-purple-300 px-2.5 py-1 rounded-lg font-bold shadow-xs">
-                            <FaChalkboardTeacher size={11} className="text-purple-600" />
+                        <span className="inline-flex items-center gap-1.5 bg-[#ffffff] text-[#6b21a8] border border-[#d8b4fe] px-2.5 py-1 rounded-lg font-bold shadow-xs">
+                            <FaChalkboardTeacher size={11} className="text-[#9333ea]" />
                             <span>استاد: {selectedTeacherName || `#${selectedTeacherId}`}</span>
                             <button
                                 onClick={handleClearTeacherFilter}
-                                className="hover:text-red-500 transition mr-1"
+                                className="hover:text-[#ef4444] transition mr-1"
                                 title="حذف فیلتر استاد"
+                            >
+                                <FaTimes size={11} />
+                            </button>
+                        </span>
+                    )}
+                    {attendeeCountVal && (
+                        <span className="inline-flex items-center gap-1.5 bg-[#ffffff] text-[#065f46] border border-[#6ee7b7] px-2.5 py-1 rounded-lg font-bold shadow-xs">
+                            <FaUsers size={11} className="text-[#059669]" />
+                            <span>حضار: {attendeeCountOp === '<' ? 'کمتر از' : 'بیشتر از'} {attendeeCountVal} نفر</span>
+                            <button
+                                onClick={() => setAttendeeCountVal('')}
+                                className="hover:text-[#ef4444] transition mr-1"
+                            >
+                                <FaTimes size={11} />
+                            </button>
+                        </span>
+                    )}
+                    {durationVal && (
+                        <span className="inline-flex items-center gap-1.5 bg-[#ffffff] text-[#0369a1] border border-[#7dd3fc] px-2.5 py-1 rounded-lg font-bold shadow-xs">
+                            <FaClock size={11} className="text-[#0284c7]" />
+                            <span>مدت: {durationOp === '<' ? 'کمتر از' : 'بیشتر از'} {durationVal} دقیقه</span>
+                            <button
+                                onClick={() => setDurationVal('')}
+                                className="hover:text-[#ef4444] transition mr-1"
+                            >
+                                <FaTimes size={11} />
+                            </button>
+                        </span>
+                    )}
+                    {includeIgnored && (
+                        <span className="inline-flex items-center gap-1.5 bg-[#ffffff] text-[#991b1b] border border-[#fca5a5] px-2.5 py-1 rounded-lg font-bold shadow-xs">
+                            <span>نمایش جلسات تستی (-۹۹)</span>
+                            <button
+                                onClick={() => setIncludeIgnored(false)}
+                                className="hover:text-[#ef4444] transition mr-1"
                             >
                                 <FaTimes size={11} />
                             </button>
@@ -1276,6 +1839,10 @@ const MeetingManagement = () => {
                         onClick={() => {
                             handleClearOwnerFilter();
                             handleClearTeacherFilter();
+                            setSelectedRoomFriendlyId('');
+                            setAttendeeCountVal('');
+                            setDurationVal('');
+                            setIncludeIgnored(false);
                         }}
                         className="text-gray-500 hover:text-red-600 underline font-semibold mr-auto text-[11px]"
                     >
@@ -1298,7 +1865,7 @@ const MeetingManagement = () => {
                     <FaSync className="animate-spin text-orange-500 mx-auto text-3xl mb-3" />
                     <p className="text-gray-600 font-bold">در حال بارگذاری لیست جلسات...</p>
                 </div>
-            ) : meetings.length === 0 ? (
+            ) : displayedMeetings.length === 0 ? (
                 <div className="bg-white rounded-2xl border border-gray-200 p-16 text-center shadow-sm">
                     <FaCalendarAlt className="text-gray-300 mx-auto text-5xl mb-4" />
                     <h3 className="text-lg font-black text-gray-800 mb-1">هیچ جلسه‌ای یافت نشد</h3>
@@ -1311,6 +1878,15 @@ const MeetingManagement = () => {
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50/80">
                                 <tr>
+                                    <th className="px-3 py-3.5 text-center text-xs font-black text-[#4b5563] w-10">
+                                        <input
+                                            type="checkbox"
+                                            checked={displayedMeetings.length > 0 && selectedMeetingIds.length === displayedMeetings.length}
+                                            onChange={handleToggleSelectAll}
+                                            className="w-4 h-4 rounded text-[#f97316] border-[#d1d5db] focus:ring-[#f97316] cursor-pointer"
+                                            title="انتخاب همه جلسات این صفحه"
+                                        />
+                                    </th>
                                     <th className="px-4 py-3.5 text-right text-xs font-black text-gray-600">شناسه</th>
                                     <th className="px-4 py-3.5 text-right text-xs font-black text-gray-600">عنوان جلسه و استاد</th>
                                     <th className="px-4 py-3.5 text-right text-xs font-black text-gray-600">اتاق</th>
@@ -1325,7 +1901,7 @@ const MeetingManagement = () => {
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-100 text-sm">
-                                {meetings.map((item) => {
+                                {displayedMeetings.map((item) => {
                                     const isUpdatingThisType = !!updatingTypeMap[item.id];
                                     const voiceUrl = getFullMediaUrl(item.voiceUrl);
                                     const videoUrl = getFullMediaUrl(item.videoUrl);
@@ -1333,6 +1909,16 @@ const MeetingManagement = () => {
 
                                     return (
                                         <tr key={item.id} className="hover:bg-orange-50/30 transition-colors">
+                                            {/* چک‌باکس انتخاب گروهی */}
+                                            <td className="px-3 py-4 text-center">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedMeetingIds.includes(item.id)}
+                                                    onChange={() => handleToggleSelectMeeting(item.id)}
+                                                    className="w-4 h-4 rounded text-[#f97316] border-[#d1d5db] focus:ring-[#f97316] cursor-pointer"
+                                                />
+                                            </td>
+
                                             {/* شناسه و مالک */}
                                             <td className="px-4 py-4 text-xs">
                                                 <div className="flex flex-col gap-1.5 items-start">
@@ -1465,9 +2051,14 @@ const MeetingManagement = () => {
                                                 </div>
                                             </td>
 
-                                            {/* تاریخ ثبت */}
+                                            {/* تاریخ ثبت و طول مدت جلسه */}
                                             <td className="px-4 py-4 text-gray-600 text-xs whitespace-nowrap">
                                                 <div className="font-semibold">{item.jalaliDate || '-'}</div>
+                                                {item.durationMinutes !== undefined && item.durationMinutes > 0 && (
+                                                    <span className="text-[10px] font-mono text-[#0284c7] bg-[#f0f9ff] border border-[#bae6fd] px-1.5 py-0.5 rounded block w-max mt-1">
+                                                        ⏱ {item.durationMinutes} دقیقه
+                                                    </span>
+                                                )}
                                             </td>
 
                                             {/* عملیات رسانه‌ها (صوت، ویدیو، شرح جلسه، رکورد کامل) */}
@@ -1587,7 +2178,7 @@ const MeetingManagement = () => {
                                                     {/* رکورد کامل (بیگ‌بلو‌باتن) */}
                                                     <div className="flex items-center gap-1.5 w-full justify-between bg-rose-50/60 p-2 rounded-xl border border-rose-100">
                                                         <div className="flex items-center gap-1.5 flex-wrap">
-                                                            <FaRecordVinyl className={item.recordingPlaybackUrl || item.isRecorded ? "text-rose-600 animate-pulse" : "text-gray-400"} size={13} />
+                                                            <FaRecordVinyl className={item.hasRecording || item.recordingPlaybackUrl || item.isRecorded ? "text-rose-600 animate-pulse" : "text-gray-400"} size={13} />
                                                             <span className="text-xs font-bold text-gray-700">رکورد:</span>
                                                             {item.recordingPlaybackUrl ? (
                                                                 <>
@@ -1604,8 +2195,9 @@ const MeetingManagement = () => {
                                                                         <FaExternalLinkAlt size={9} />
                                                                     </a>
                                                                 </>
-                                                            ) : item.isRecorded ? (
-                                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-800">
+                                                            ) : (item.hasRecording || item.isRecorded) ? (
+                                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#fee2e2] text-[#991b1b] border border-[#fca5a5] flex items-center gap-1">
+                                                                    <span className="w-1.5 h-1.5 rounded-full bg-[#ef4444] animate-pulse"></span>
                                                                     دارد
                                                                 </span>
                                                             ) : (
@@ -1694,7 +2286,7 @@ const MeetingManagement = () => {
             ) : (
                 /* Grid View */
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-6">
-                    {meetings.map((item) => {
+                    {displayedMeetings.map((item) => {
                         const isUpdatingThisType = !!updatingTypeMap[item.id];
                         const voiceUrl = getFullMediaUrl(item.voiceUrl);
                         const videoUrl = getFullMediaUrl(item.videoUrl);
@@ -1947,27 +2539,37 @@ const MeetingManagement = () => {
                         <div className="flex items-center gap-2 border-b border-gray-100 pb-3 mb-6">
                             <button
                                 onClick={() => setMediaTab('voice')}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition ${mediaTab === 'voice' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition ${mediaTab === 'voice' ? 'bg-[#2563eb] text-[#ffffff] shadow-md' : 'bg-[#f3f4f6] text-[#4b5563] hover:bg-[#e5e7eb]'}`}
                             >
                                 <FaVolumeUp />
                                 <span>صوت جلسه</span>
-                                {voiceInputUrl && <span className="w-2 h-2 rounded-full bg-emerald-400"></span>}
+                                {voiceInputUrl && <span className="w-2 h-2 rounded-full bg-[#34d399]"></span>}
                             </button>
                             <button
                                 onClick={() => setMediaTab('video')}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition ${mediaTab === 'video' ? 'bg-emerald-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition ${mediaTab === 'video' ? 'bg-[#059669] text-[#ffffff] shadow-md' : 'bg-[#f3f4f6] text-[#4b5563] hover:bg-[#e5e7eb]'}`}
                             >
                                 <FaVideo />
                                 <span>فیلم جلسه</span>
-                                {videoInputUrl && <span className="w-2 h-2 rounded-full bg-emerald-400"></span>}
+                                {videoInputUrl && <span className="w-2 h-2 rounded-full bg-[#34d399]"></span>}
                             </button>
                             <button
                                 onClick={() => setMediaTab('report')}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition ${mediaTab === 'report' ? 'bg-amber-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition ${mediaTab === 'report' ? 'bg-[#d97706] text-[#ffffff] shadow-md' : 'bg-[#f3f4f6] text-[#4b5563] hover:bg-[#e5e7eb]'}`}
                             >
                                 <FaFileAlt />
                                 <span>گزارش و شرح جلسه</span>
-                                {reportInputUrl && <span className="w-2 h-2 rounded-full bg-emerald-400"></span>}
+                                {reportInputUrl && <span className="w-2 h-2 rounded-full bg-[#34d399]"></span>}
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setMediaTab('recordings');
+                                    fetchBbbRecordingsForMediaModal(activeMeeting.id);
+                                }}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition ${mediaTab === 'recordings' ? 'bg-[#e11d48] text-[#ffffff] shadow-md' : 'bg-[#f3f4f6] text-[#4b5563] hover:bg-[#e5e7eb]'}`}
+                            >
+                                <FaRecordVinyl />
+                                <span>رکورد بیگ‌بلو‌باتن</span>
                             </button>
                         </div>
 
@@ -2166,6 +2768,98 @@ const MeetingManagement = () => {
                                         )}
                                     </div>
                                 </div>
+                            </div>
+                        )}
+
+                        {/* Tab 4: BigBlueButton Recordings */}
+                        {mediaTab === 'recordings' && (
+                            <div className="space-y-4">
+                                <div className="p-4 bg-[#fff1f2] rounded-2xl border border-[#ffe4e6]">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-xs text-[#9f1239] font-extrabold mb-1">استعلام رکوردهای ثبت‌شده در بیگ‌بلو‌باتن</p>
+                                            <p className="text-xs text-[#be123c]">
+                                                فایل‌های رکورد مستقیم از سرور امن بیگ‌بلو‌باتن (vc.hekmateislami.com) دریافت می‌شوند. می‌توانید با یک کلیک آن‌ها را مشاهده کرده یا به عنوان فیلم جلسه ذخیره نمایید.
+                                            </p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => fetchBbbRecordingsForMediaModal(activeMeeting.id)}
+                                            disabled={mediaModalRecordingsLoading}
+                                            className="p-2 bg-[#ffffff] border border-[#fecdd3] hover:bg-[#ffe4e6] rounded-xl text-[#e11d48] transition shadow-xs"
+                                            title="استعلام مجدد"
+                                        >
+                                            <FaSync className={mediaModalRecordingsLoading ? "animate-spin" : ""} size={14} />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {mediaModalRecordingsLoading ? (
+                                    <div className="p-8 text-center bg-[#f9fafb] rounded-2xl border border-[#e5e7eb]">
+                                        <FaSpinner className="animate-spin text-[#e11d48] mx-auto text-2xl mb-2" />
+                                        <p className="text-xs font-bold text-[#4b5563]">در حال دریافت لیست رکوردهای این جلسه از بیگ‌بلو‌باتن...</p>
+                                    </div>
+                                ) : mediaModalRecordings.length === 0 ? (
+                                    <div className="p-8 text-center bg-[#f9fafb] rounded-2xl border border-[#e5e7eb]">
+                                        <FaRecordVinyl className="text-[#d1d5db] mx-auto text-3xl mb-2" />
+                                        <p className="text-xs font-bold text-[#4b5563]">هیچ رکوردی برای این جلسه در بیگ‌بلو‌باتن یافت نشد</p>
+                                        <p className="text-[11px] text-[#9ca3af] mt-1">ممکن است در حین جلسه دکمه ضبط فشرده نشده باشد یا پردازش آن هنوز به اتمام نرسیده باشد.</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+                                        {mediaModalRecordings.map((rec, idx) => (
+                                            <div
+                                                key={rec.recordId || idx}
+                                                className="p-3.5 bg-[#ffffff] rounded-2xl border border-[#e5e7eb] shadow-xs flex flex-col gap-2 hover:border-[#f43f5e] transition"
+                                            >
+                                                <div className="flex items-center justify-between text-xs">
+                                                    <div className="flex items-center gap-1.5 font-bold text-[#1f2937]">
+                                                        <FaRecordVinyl className="text-[#e11d48]" />
+                                                        <span>رکورد شماره {idx + 1}</span>
+                                                        <span className="font-mono text-[10px] text-[#9ca3af]">({rec.recordId?.slice(0, 16)}...)</span>
+                                                    </div>
+                                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${rec.published ? 'bg-[#ecfdf5] text-[#065f46]' : 'bg-[#fef2f2] text-[#991b1b]'}`}>
+                                                        {rec.published ? 'منتشر شده' : 'پیش‌نویس / مخفی'}
+                                                    </span>
+                                                </div>
+
+                                                <div className="flex flex-wrap items-center gap-3 text-[11px] text-[#6b7280]">
+                                                    {rec.length && <span>طول: {rec.length} دقیقه</span>}
+                                                    {rec.participants && <span>شرکت‌کنندگان: {rec.participants} نفر</span>}
+                                                    {rec.startTime && (
+                                                        <span dir="ltr">
+                                                            {new Date(rec.startTime).toLocaleTimeString('fa-IR')}
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#f3f4f6]">
+                                                    {rec.playbackUrl && (
+                                                        <a
+                                                            href={rec.playbackUrl}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="px-3 py-1.5 bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151] rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+                                                        >
+                                                            <FaEye size={12} />
+                                                            <span>مشاهده آنلاین</span>
+                                                        </a>
+                                                    )}
+                                                    {rec.playbackUrl && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleUseRecordAsVideo(rec.playbackUrl)}
+                                                            className="px-3 py-1.5 bg-[#e11d48] hover:bg-[#be123c] text-[#ffffff] rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
+                                                        >
+                                                            <FaVideo size={12} />
+                                                            <span>استفاده به عنوان فیلم جلسه</span>
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         )}
 

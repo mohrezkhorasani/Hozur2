@@ -166,63 +166,52 @@ function JoinForm() {
     return () => clearInterval(interval);
   }, [accountOtpTimer]);
 
-  // --- Fetch Room & Live status ---
-  const fetchMeetingInfo = async () => {
-    try {
-      const data = await fetchRoom(Mid);
-      if (data) {
-        setMeet(data);
-        if (data.title) {
-          document.title = `مجمع عالی حکمت اسلامی | ${data.title}`;
-        }
-      }
+  // Helper to robustly match a live meeting item against Mid and current room data
+  const isRoomMatchingLive = (room, targetMid, currentMeet) => {
+    if (!room) return false;
+    const target = String(targetMid ?? '').trim().toLowerCase();
+    const rId = String(room.roomID ?? room.RoomID ?? room.id ?? '').trim().toLowerCase();
+    const rFriendly = String(room.friendlyID ?? room.FriendlyID ?? '').trim().toLowerCase();
+    const rTitle = String(room.title ?? '').trim().toLowerCase();
 
-      try {
-        const details = await GetRoomDetails(Mid);
-        setRoomDetails({
-          ...details,
-          subscriptionStatus: data?.subscriptionStatus ?? details?.subscriptionStatus,
-          isSubscribedByUser: data?.isSubscribedByUser ?? details?.isSubscribedByUser,
-        });
-      } catch (detailErr) {
-        console.warn('Could not fetch extra room details:', detailErr);
-        if (data) {
-          setRoomDetails({
-            ...data,
-            subscriptionStatus: data.subscriptionStatus,
-            isSubscribedByUser: data.isSubscribedByUser,
-          });
-        }
-      }
-
-      // Fetch image_cover metadata if available
-      try {
-        const metaRes = await GetRoomMetadata(Mid, 'image_cover');
-        if (metaRes && (metaRes.value || metaRes.data)) {
-          setRoomCover(metaRes.value || metaRes.data);
-        }
-      } catch (metaErr) {
-        // Non-blocking fallback
-      }
-    } catch (error) {
-      console.error('Error fetching meeting info:', error);
-      setMeet(null);
-      setRoomDetails(null);
+    if (target) {
+      if (rId && rId === target) return true;
+      if (rFriendly && rFriendly === target) return true;
     }
+    if (currentMeet) {
+      const mId = String(currentMeet.id ?? currentMeet.RoomID ?? '').trim().toLowerCase();
+      const mFriendly = String(currentMeet.friendlyID ?? '').trim().toLowerCase();
+      if (mId && (rId === mId || rFriendly === mId)) return true;
+      if (mFriendly && (rId === mFriendly || rFriendly === mFriendly)) return true;
+      if (currentMeet.title && rTitle && rTitle === String(currentMeet.title).trim().toLowerCase()) return true;
+    }
+    return false;
   };
 
-  const checkLives = async (isInitial = false) => {
+  const checkLives = async (isInitial = false, currentMeet = meet) => {
     try {
-      let livedata = await fetchRoomLivesPublicWithID(Mid);
-      if (!Array.isArray(livedata) || livedata.length === 0) {
-        livedata = await fetchRoomLivesPublic();
+      let livedata = null;
+      try {
+        livedata = await fetchRoomLivesPublicWithID(Mid);
+      } catch (err) {
+        // Fallback
       }
-      const list = livedata || [];
+      if (!Array.isArray(livedata) || livedata.length === 0) {
+        try {
+          livedata = await fetchRoomLivesPublic();
+        } catch (err) {
+          livedata = [];
+        }
+      }
+      const list = Array.isArray(livedata) ? livedata : [];
       setRoomLive(list);
-      const liveStatus = list.some((room) => room.roomID === Mid || room.RoomID === Mid || room.friendlyID === Mid);
+      const liveStatus = list.some((room) => isRoomMatchingLive(room, Mid, currentMeet));
       setIsMeetingLive(liveStatus);
+      return liveStatus;
     } catch (error) {
       console.error('Error fetching live rooms:', error);
+      setIsMeetingLive(false);
+      return false;
     } finally {
       if (isInitial) {
         setIsCheckingLive(false);
@@ -231,22 +220,79 @@ function JoinForm() {
   };
 
   useEffect(() => {
+    let isCancelled = false;
     setIsCheckingLive(true);
-    // 1. Immediately check live status in parallel on mount so user doesn't wait
-    checkLives(true);
-    // 2. Fetch room details in parallel
-    fetchMeetingInfo();
 
-    const intervalId = setInterval(() => checkLives(false), 15000);
-    return () => clearInterval(intervalId);
+    const initLoad = async () => {
+      let roomData = null;
+      try {
+        roomData = await fetchRoom(Mid);
+        if (roomData && !isCancelled) {
+          setMeet(roomData);
+          if (roomData.title) {
+            document.title = `مجمع عالی حکمت اسلامی | ${roomData.title}`;
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching room info:', err);
+      }
+
+      // Check lives after roomData is fetched so matching works with numeric ID & friendly ID
+      if (!isCancelled) {
+        await checkLives(true, roomData);
+      }
+
+      // Fetch extra details & metadata in background
+      if (roomData && !isCancelled) {
+        try {
+          const details = await GetRoomDetails(Mid);
+          if (!isCancelled) {
+            setRoomDetails({
+              ...details,
+              subscriptionStatus: roomData?.subscriptionStatus ?? details?.subscriptionStatus,
+              isSubscribedByUser: roomData?.isSubscribedByUser ?? details?.isSubscribedByUser,
+            });
+          }
+        } catch (detailErr) {
+          console.warn('Could not fetch extra room details:', detailErr);
+          if (!isCancelled) {
+            setRoomDetails({
+              ...roomData,
+              subscriptionStatus: roomData.subscriptionStatus,
+              isSubscribedByUser: roomData.isSubscribedByUser,
+            });
+          }
+        }
+
+        try {
+          const metaRes = await GetRoomMetadata(Mid, 'image_cover');
+          if (metaRes && (metaRes.value || metaRes.data) && !isCancelled) {
+            setRoomCover(metaRes.value || metaRes.data);
+          }
+        } catch (metaErr) {
+          // Non-blocking fallback
+        }
+      }
+    };
+
+    initLoad();
+
+    const intervalId = setInterval(() => {
+      checkLives(false, meet);
+    }, 15000);
+
+    return () => {
+      isCancelled = true;
+      clearInterval(intervalId);
+    };
   }, [Mid]);
 
   useEffect(() => {
     if (roomLive && roomLive.length > 0) {
-      const liveStatus = roomLive.some((room) => room.roomID === Mid || room.RoomID === Mid || room.friendlyID === Mid);
+      const liveStatus = roomLive.some((room) => isRoomMatchingLive(room, Mid, meet));
       setIsMeetingLive(liveStatus);
     }
-  }, [roomLive, Mid]);
+  }, [roomLive, Mid, meet]);
 
   useEffect(() => {
     if (meet?.nextPlan) {
@@ -861,8 +907,8 @@ function JoinForm() {
                  opacity-0 group-hover:opacity-100 transition-opacity duration-200
                  bg-[#111827] text-[#ffffff] text-xs font-bold px-3 py-2 rounded-lg shadow-lg whitespace-nowrap z-50"
                       >
-                        پخش زنده‌ای در حال اجرا نمی‌باشد
-                        <span className="absolute top-full right-1/2 translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></span>
+                        {isCheckingLive ? 'در حال بررسی وضعیت زنده...' : 'پخش زنده‌ای در حال اجرا نمی‌باشد'}
+                        <span className="absolute top-full right-1/2 translate-x-1/2 -mt-1 border-4 border-transparent border-t-[#111827]"></span>
                       </div>
                     )}
                   </div>

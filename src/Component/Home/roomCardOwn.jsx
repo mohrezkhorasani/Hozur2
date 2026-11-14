@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { FaSignInAlt, FaCalendarPlus, FaPaintBrush, FaSpinner, FaEdit, FaUsers } from 'react-icons/fa';
+import { FaSignInAlt, FaCalendarPlus, FaPaintBrush, FaSpinner, FaEdit, FaUsers, FaSyncAlt } from 'react-icons/fa';
 import { GetRoomCalendarActivity } from '../../api/GetRooms';
+import { RefreshRoomSpentMinutes } from '../../api/AdminAPI';
 import RoomCardMiniCalander from './RoomCardMiniCalander';
 import { EndMeet } from '../../api/StartNewMeeting';
 import { findNextPlan } from '../../Tools/tools';
@@ -42,6 +43,29 @@ const RoomCardOwn = ({
     const abortControllerRef = useRef(null);
     const [currentCalendarMonth, setCurrentCalendarMonth] = useState(null);
     const [currentCalendarYear, setCurrentCalendarYear] = useState(null);
+    const [spentMinutes, setSpentMinutes] = useState(room.spentMinutes ?? room.SpentMinutes ?? 0);
+    const [isRefreshingMinutes, setIsRefreshingMinutes] = useState(false);
+
+    useEffect(() => {
+        setSpentMinutes(room.spentMinutes ?? room.SpentMinutes ?? 0);
+    }, [room.spentMinutes, room.SpentMinutes]);
+
+    const handleRefreshSpentMinutes = async (e) => {
+        e.stopPropagation();
+        if (isRefreshingMinutes) return;
+        setIsRefreshingMinutes(true);
+        try {
+            const res = await RefreshRoomSpentMinutes(room.roomID);
+            if (res && res.spentMinutes !== undefined) {
+                setSpentMinutes(res.spentMinutes);
+            }
+        } catch (err) {
+            console.error("Error refreshing room spent minutes:", err);
+        } finally {
+            setIsRefreshingMinutes(false);
+        }
+    };
+
     let nextPlan = findNextPlan(room.planJSONs);
     let hasNextPlan = !!nextPlan;
 
@@ -206,6 +230,27 @@ const RoomCardOwn = ({
                                         </svg>
                                         <span>{room.count} جلسه</span>
                                     </div>
+                                )}
+                            </div>
+
+                            {/* کارکرد کل جلسات اتاق */}
+                            <div className="flex items-center justify-center gap-2 mt-2.5 text-xs text-[#4b5563] bg-[#f9fafb] border border-[#e5e7eb] py-1 px-3 rounded-xl">
+                                <span className="font-medium text-[#6b7280]">کارکرد جلسات:</span>
+                                <span className="font-bold text-[#0284c7]">
+                                    {spentMinutes >= 60
+                                        ? `${Math.floor(spentMinutes / 60)} ساعت ${spentMinutes % 60 > 0 ? `و ${spentMinutes % 60} دقیقه` : ''}`
+                                        : `${spentMinutes} دقیقه`}
+                                </span>
+                                {room.isAdmin && (
+                                    <button
+                                        type="button"
+                                        onClick={handleRefreshSpentMinutes}
+                                        disabled={isRefreshingMinutes}
+                                        title="به‌روزرسانی و محاسبه مجدد دقایق جلسات"
+                                        className="p-1 hover:bg-[#e5e7eb] rounded-lg transition-colors text-[#6b7280] hover:text-[#0284c7] disabled:opacity-50"
+                                    >
+                                        <FaSyncAlt className={`w-3 h-3 ${isRefreshingMinutes ? 'animate-spin text-[#0284c7]' : ''}`} />
+                                    </button>
                                 )}
                             </div>
                         </div>

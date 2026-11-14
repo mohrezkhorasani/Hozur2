@@ -25,10 +25,17 @@ export const persianAndArabicToEnglishNumbers = (str) => {
 };
 
 export function timeAgo(inputDate) {
-  const now = new Date();
+  if (!inputDate) return "بدون جلسه";
   const date = new Date(inputDate);
+  if (isNaN(date.getTime()) || date.getFullYear() < 1970) {
+    return "بدون جلسه";
+  }
+  const now = new Date();
 
   const diffMs = now - date;
+  if (diffMs < 0) {
+    return "به تازگی";
+  }
   const diffSec = Math.floor(diffMs / 1000);
   const diffMin = Math.floor(diffSec / 60);
   const diffHour = Math.floor(diffMin / 60);
