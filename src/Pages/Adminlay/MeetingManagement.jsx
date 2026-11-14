@@ -87,11 +87,51 @@ const MeetingManagement = () => {
     const [attendeeCountOp, setAttendeeCountOp] = useState('<'); // '<' or '>'
     const [attendeeCountVal, setAttendeeCountVal] = useState('');
     const [attendeeTypes, setAttendeeTypes] = useState({
-        normal: true,
-        guest: true,
+        viewer: false,
+        guest: false,
         teacher: false,
-        admin: false
+        moderator: false,
+        admin: false,
+        administrator: false,
+        creator: false,
+        dabir: false
     });
+
+    const ALL_ROLES = [
+        { key: 'viewer', label: 'شرکت‌کننده عادی' },
+        { key: 'guest', label: 'مهمان' },
+        { key: 'teacher', label: 'استاد' },
+        { key: 'moderator', label: 'مدیر جلسه' },
+        { key: 'admin', label: 'کمک‌مدیر' },
+        { key: 'administrator', label: 'مدیر ارشد' },
+        { key: 'creator', label: 'سازنده' },
+        { key: 'dabir', label: 'دبیر جلسه' },
+    ];
+
+    const formatMeetingTimeRange = (item) => {
+        if (!item?.dateInsert) return '';
+        try {
+            const start = new Date(item.dateInsert);
+            if (isNaN(start.getTime())) return '';
+            const startTimeStr = start.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit', hour12: false });
+            let endTimeStr = '';
+            if (item.endDate) {
+                const end = new Date(item.endDate);
+                if (!isNaN(end.getTime())) {
+                    endTimeStr = end.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit', hour12: false });
+                }
+            } else if (item.durationMinutes && item.durationMinutes > 0) {
+                const end = new Date(start.getTime() + item.durationMinutes * 60000);
+                endTimeStr = end.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit', hour12: false });
+            }
+            if (endTimeStr && endTimeStr !== startTimeStr) {
+                return `از ${startTimeStr} تا ${endTimeStr}`;
+            }
+            return `ساعت ${startTimeStr}`;
+        } catch {
+            return '';
+        }
+    };
     const [durationOp, setDurationOp] = useState('<'); // '<' or '>'
     const [durationVal, setDurationVal] = useState('');
     const [includeIgnored, setIncludeIgnored] = useState(false);
@@ -300,42 +340,94 @@ const MeetingManagement = () => {
             }
 
             // Fallback for teachers: call GetTeacherList
-            if (loadedTeachers.length === 0) {
-                try {
-                    const tList = await GetTeacherList("");
-                    if (Array.isArray(tList) && tList.length > 0) {
-                        const formatted = tList.map(t => ({
-                            id: t.id || t.ID || t.userId,
-                            fullname: t.fullname || t.fullName || t.name || `${t.firstName || ''} ${t.lastName || ''}`.trim()
-                        })).filter(t => t.id && t.fullname);
-                        setAvailableTeachers(prev => prev.length > 0 ? prev : formatted);
-                    }
-                } catch (tErr) {
-                    console.warn("Fallback GetTeacherList error:", tErr);
+            try {
+                const tList = await GetTeacherList("");
+                if (Array.isArray(tList) && tList.length > 0) {
+                    const formatted = tList.map(t => ({
+                        id: t.id || t.ID || t.userId,
+                        fullname: (t.fullname || t.fullName || t.name || `${t.firstName || ''} ${t.lastName || ''}`).trim()
+                    })).filter(t => t.id && t.fullname);
+                    setAvailableTeachers(prev => {
+                        const map = new Map(prev.map(x => [String(x.id), x]));
+                        formatted.forEach(x => map.set(String(x.id), x));
+                        return Array.from(map.values());
+                    });
                 }
+            } catch (tErr) {
+                console.warn("Fallback GetTeacherList error:", tErr);
             }
 
-            // Fallback for rooms: call fetchRooms
-            if (loadedRooms.length === 0) {
-                try {
-                    const rList = await fetchRooms();
-                    if (Array.isArray(rList) && rList.length > 0) {
-                        const formattedRooms = rList.map(r => ({
-                            id: r.id || r.ID,
-                            friendlyID: r.friendlyID || r.FriendlyID,
-                            title: r.title || r.Title || r.friendlyID
-                        })).filter(r => r.friendlyID);
-                        setAvailableRooms(prev => prev.length > 0 ? prev : formattedRooms);
+            // Fallback for rooms and owners: call fetchRooms
+            try {
+                const rList = await fetchRooms();
+                if (Array.isArray(rList) && rList.length > 0) {
+                    const formattedRooms = rList.map(r => {
+                        const fid = r.friendlyID || r.FriendlyID || r.friendlyId || r.roomID || r.RoomID;
+                        return {
+                            id: r.id || r.ID || fid,
+                            friendlyID: fid,
+                            friendlyId: fid,
+                            title: r.title || r.Title || fid
+                        };
+                    }).filter(r => r.friendlyID);
+
+                    setAvailableRooms(prev => {
+                        const map = new Map(prev.map(x => [x.friendlyID, x]));
+                        formattedRooms.forEach(x => map.set(x.friendlyID, x));
+                        return Array.from(map.values());
+                    });
+
+                    // Extract all owners from user's rooms/groups
+                    const ownerMap = new Map();
+                    rList.forEach(r => {
+                        const o = r.owner || r.Owner || r.OwnerTBL;
+                        if (o) {
+                            const oId = o.id || o.ID || o.uid || o.UID || o.username;
+                            const oName = o.fullname || o.Fullname || o.name || o.username || (oId ? `مالک #${oId}` : '');
+                            if (oId && oName) {
+                                ownerMap.set(String(oId), { id: String(oId), fullname: oName });
+                            }
+                        }
+                    });
+                    if (ownerMap.size > 0) {
+                        setAvailableOwners(prev => {
+                            const map = new Map(prev.map(x => [String(x.id), x]));
+                            ownerMap.forEach((v, k) => map.set(k, v));
+                            return Array.from(map.values());
+                        });
                     }
-                } catch (rErr) {
-                    console.warn("Fallback fetchRooms error:", rErr);
+
+                    // Extract any teachers defined in room plans
+                    const planTeachers = [];
+                    rList.forEach(r => {
+                        const plans = r.planJSONs || r.PlanJSONs || r.plan || [];
+                        plans.forEach(p => {
+                            if (p.teacher && typeof p.teacher === 'string') {
+                                planTeachers.push({ id: p.teacher, fullname: p.teacher });
+                            } else if (p.teachers && Array.isArray(p.teachers)) {
+                                p.teachers.forEach(t => {
+                                    if (typeof t === 'string') planTeachers.push({ id: t, fullname: t });
+                                    else if (t?.name) planTeachers.push({ id: t.id || t.name, fullname: t.name });
+                                });
+                            }
+                        });
+                    });
+                    if (planTeachers.length > 0) {
+                        setAvailableTeachers(prev => {
+                            const map = new Map(prev.map(x => [String(x.id), x]));
+                            planTeachers.forEach(x => map.set(String(x.id), x));
+                            return Array.from(map.values());
+                        });
+                    }
                 }
+            } catch (rErr) {
+                console.warn("Fallback fetchRooms error:", rErr);
             }
         };
         loadFilterOptions();
     }, []);
 
-    // Enrich availableTeachers and availableRooms from any loaded meetings
+    // Enrich availableTeachers, availableOwners and availableRooms from any loaded meetings
     useEffect(() => {
         if (meetings && meetings.length > 0) {
             setAvailableRooms(prev => {
@@ -347,6 +439,7 @@ const MeetingManagement = () => {
                         added.push({
                             id: m.roomId,
                             friendlyID: m.roomFriendlyID,
+                            friendlyId: m.roomFriendlyID,
                             title: m.roomTitle || m.roomFriendlyID
                         });
                     }
@@ -368,6 +461,30 @@ const MeetingManagement = () => {
                 });
                 return added.length > 0 ? [...prev, ...added] : prev;
             });
+
+            setAvailableOwners(prev => {
+                const existing = new Set(prev.map(o => String(o.id)));
+                const added = [];
+                meetings.forEach(m => {
+                    const o = m.owner;
+                    if (o && (o.id || o.ID) && !existing.has(String(o.id || o.ID))) {
+                        const oId = String(o.id || o.ID);
+                        existing.add(oId);
+                        added.push({
+                            id: oId,
+                            fullname: o.fullname || o.name || o.username || `مالک #${oId}`
+                        });
+                    } else if (m.ownerId && !existing.has(String(m.ownerId))) {
+                        const oId = String(m.ownerId);
+                        existing.add(oId);
+                        added.push({
+                            id: oId,
+                            fullname: m.ownerName || `مالک #${oId}`
+                        });
+                    }
+                });
+                return added.length > 0 ? [...prev, ...added] : prev;
+            });
         }
     }, [meetings]);
 
@@ -383,16 +500,25 @@ const MeetingManagement = () => {
         if (attendeeCountVal !== '') {
             const target = parseInt(attendeeCountVal, 10);
             if (!isNaN(target)) {
-                const hasSpecific = attendeeTypes.normal || attendeeTypes.guest || attendeeTypes.teacher || attendeeTypes.admin;
+                const anyRoleChecked = Object.values(attendeeTypes).some(Boolean);
                 list = list.filter(item => {
                     let count = 0;
-                    if (hasSpecific) {
-                        if (attendeeTypes.normal) count += (item.attendeeNormalCount ?? 0);
+                    if (anyRoleChecked) {
+                        if (attendeeTypes.viewer) count += (item.attendeeViewerCount ?? item.attendeeNormalCount ?? 0);
                         if (attendeeTypes.guest) count += (item.attendeeGuestCount ?? 0);
                         if (attendeeTypes.teacher) count += (item.attendeeTeacherCount ?? 0);
+                        if (attendeeTypes.moderator) count += (item.attendeeModeratorCount ?? 0);
                         if (attendeeTypes.admin) count += (item.attendeeAdminCount ?? 0);
+                        if (attendeeTypes.administrator) count += (item.attendeeAdministratorCount ?? 0);
+                        if (attendeeTypes.creator) count += (item.attendeeCreatorCount ?? 0);
+                        if (attendeeTypes.dabir) count += (item.attendeeDabirCount ?? 0);
+
+                        // If breakdown counts were not provided by backend, fall back to attendeesCount
+                        if (count === 0 && item.attendeeNormalCount === undefined && item.attendeeViewerCount === undefined) {
+                            count = item.attendeesCount ?? item.participantsCount ?? item.countAttendees ?? 0;
+                        }
                     } else {
-                        count = item.attendeesCount ?? 0;
+                        count = item.attendeesCount ?? item.participantsCount ?? item.countAttendees ?? 0;
                     }
                     return attendeeCountOp === '<' ? count < target : count > target;
                 });
@@ -404,7 +530,15 @@ const MeetingManagement = () => {
             const durTarget = parseInt(durationVal, 10);
             if (!isNaN(durTarget)) {
                 list = list.filter(item => {
-                    const dur = item.durationMinutes ?? item.duration ?? 0;
+                    let dur = item.durationMinutes ?? item.duration;
+                    if (dur === undefined || dur === null) {
+                        if (item.dateInsert && item.endDate) {
+                            const diff = new Date(item.endDate).getTime() - new Date(item.dateInsert).getTime();
+                            dur = Math.max(0, Math.round(diff / 60000));
+                        } else {
+                            dur = 0;
+                        }
+                    }
                     return durationOp === '<' ? dur < durTarget : dur > durTarget;
                 });
             }
@@ -417,7 +551,7 @@ const MeetingManagement = () => {
 
         // 4. Filter room
         if (selectedRoomFriendlyId) {
-            list = list.filter(item => item.roomFriendlyID === selectedRoomFriendlyId);
+            list = list.filter(item => (item.roomFriendlyID === selectedRoomFriendlyId || item.roomFriendlyId === selectedRoomFriendlyId));
         }
 
         // 5. Filter teacher
@@ -1504,11 +1638,14 @@ const MeetingManagement = () => {
                             className="bg-transparent text-xs font-bold text-[#1f2937] focus:outline-none cursor-pointer max-w-[140px] truncate"
                         >
                             <option value="">همه اتاق‌ها</option>
-                            {availableRooms.map(r => (
-                                <option key={r.friendlyId || r.id} value={r.friendlyId}>
-                                    {r.title || r.friendlyId}
-                                </option>
-                            ))}
+                            {availableRooms.map(r => {
+                                const fid = r.friendlyID || r.friendlyId;
+                                return (
+                                    <option key={fid || r.id} value={fid}>
+                                        {r.title || fid}
+                                    </option>
+                                );
+                            })}
                         </select>
                     </div>
 
@@ -1624,43 +1761,18 @@ const MeetingManagement = () => {
                                 <span className="text-[#6b7280]">نفر</span>
                             </div>
                             <div className="text-[11px] text-[#6b7280] mb-1.5 font-bold">شمارش کدام نقش‌ها لحاظ شود؟</div>
-                            <div className="grid grid-cols-2 gap-1.5">
-                                <label className="flex items-center gap-1.5 cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        checked={attendeeTypes.normal}
-                                        onChange={(e) => setAttendeeTypes(p => ({ ...p, normal: e.target.checked }))}
-                                        className="rounded text-[#f97316]"
-                                    />
-                                    <span>حضار عادی</span>
-                                </label>
-                                <label className="flex items-center gap-1.5 cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        checked={attendeeTypes.guest}
-                                        onChange={(e) => setAttendeeTypes(p => ({ ...p, guest: e.target.checked }))}
-                                        className="rounded text-[#f97316]"
-                                    />
-                                    <span>میهمانان</span>
-                                </label>
-                                <label className="flex items-center gap-1.5 cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        checked={attendeeTypes.teacher}
-                                        onChange={(e) => setAttendeeTypes(p => ({ ...p, teacher: e.target.checked }))}
-                                        className="rounded text-[#f97316]"
-                                    />
-                                    <span>اساتید</span>
-                                </label>
-                                <label className="flex items-center gap-1.5 cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        checked={attendeeTypes.admin}
-                                        onChange={(e) => setAttendeeTypes(p => ({ ...p, admin: e.target.checked }))}
-                                        className="rounded text-[#f97316]"
-                                    />
-                                    <span>مدیران</span>
-                                </label>
+                            <div className="grid grid-cols-2 gap-1.5 max-h-36 overflow-y-auto pr-1">
+                                {ALL_ROLES.map(role => (
+                                    <label key={role.key} className="flex items-center gap-1.5 cursor-pointer bg-[#ffffff] p-1.5 rounded-lg border border-[#e5e7eb] hover:border-[#fdba74] transition text-[11px]">
+                                        <input
+                                            type="checkbox"
+                                            checked={!!attendeeTypes[role.key]}
+                                            onChange={(e) => setAttendeeTypes(p => ({ ...p, [role.key]: e.target.checked }))}
+                                            className="rounded text-[#f97316] focus:ring-[#f97316]"
+                                        />
+                                        <span className="truncate">{role.label}</span>
+                                    </label>
+                                ))}
                             </div>
                         </div>
 
@@ -1695,18 +1807,21 @@ const MeetingManagement = () => {
                         <div className="p-3 bg-[#f9fafb] border border-[#e5e7eb] rounded-xl flex flex-col justify-between">
                             <div>
                                 <label className="font-bold text-[#1f2937] block mb-2">جلسات تستی / نادیده‌گرفته‌شده:</label>
-                                <label className="flex items-center gap-2 p-2.5 bg-[#ffffff] border border-[#fca5a5] rounded-xl cursor-pointer hover:bg-[#fef2f2] transition">
-                                    <input
-                                        type="checkbox"
-                                        checked={includeIgnored}
-                                        onChange={(e) => setIncludeIgnored(e.target.checked)}
-                                        className="rounded text-[#dc2626] w-4 h-4"
-                                    />
-                                    <span className="font-bold text-[#dc2626]">نمایش جلسات تستی (-۹۹)</span>
-                                </label>
+                                <button
+                                    type="button"
+                                    onClick={() => setIncludeIgnored(prev => !prev)}
+                                    className={`w-full flex items-center justify-center gap-2 p-2.5 rounded-xl border font-bold text-xs transition shadow-xs cursor-pointer ${
+                                        includeIgnored
+                                            ? 'bg-[#dc2626] text-[#ffffff] border-[#b91c1c]'
+                                            : 'bg-[#ffffff] text-[#4b5563] border-[#d1d5db] hover:bg-[#f3f4f6]'
+                                    }`}
+                                >
+                                    <span className={`w-3 h-3 rounded-full ${includeIgnored ? 'bg-[#ffffff]' : 'bg-[#9ca3af]'}`} />
+                                    <span>{includeIgnored ? 'نمایش جلسات تستی (-۹۹) فعال است' : 'نمایش جلسات تستی (-۹۹) (غیرفعال)'}</span>
+                                </button>
                             </div>
                             <p className="text-[11px] text-[#6b7280] mt-2">
-                                به‌صورت پیش‌فرض جلسات تستی (-۹۹) مخفی بوده و فقط در صورت زدن این تیک نمایش داده می‌شوند.
+                                به‌صورت پیش‌فرض جلسات تستی (-۹۹) مخفی بوده و با کلیک روی این دکمه نمایش داده می‌شوند.
                             </p>
                         </div>
                     </div>
@@ -1760,82 +1875,80 @@ const MeetingManagement = () => {
             {/* Active Filter Chips */}
             {(selectedOwnerId || selectedTeacherId || selectedRoomFriendlyId || attendeeCountVal || durationVal || includeIgnored) && (
                 <div className="flex flex-wrap items-center gap-2 mb-6 bg-[#fff7ed] p-2.5 rounded-xl border border-[#ffedd5] text-xs">
-                    <span className="font-bold text-[#4b5563]">فیلترهای فعال:</span>
+                    <span className="font-bold text-[#4b5563]">فیلترهای فعال (برای حذف کلیک کنید):</span>
                     {selectedOwnerId && (
-                        <span className="inline-flex items-center gap-1.5 bg-[#ffffff] text-[#92400e] border border-[#fcd34d] px-2.5 py-1 rounded-lg font-bold shadow-xs">
+                        <button
+                            type="button"
+                            onClick={handleClearOwnerFilter}
+                            className="inline-flex items-center gap-1.5 bg-[#ffffff] hover:bg-[#fef2f2] text-[#92400e] hover:text-[#ef4444] border border-[#fcd34d] hover:border-[#fca5a5] px-2.5 py-1 rounded-lg font-bold shadow-xs transition cursor-pointer"
+                            title="کلیک برای حذف فیلتر مالک"
+                        >
                             <FaUser size={10} className="text-[#d97706]" />
                             <span>مالک: {selectedOwnerName || `#${selectedOwnerId}`}</span>
-                            <button
-                                onClick={handleClearOwnerFilter}
-                                className="hover:text-[#ef4444] transition mr-1"
-                                title="حذف فیلتر مالک"
-                            >
-                                <FaTimes size={11} />
-                            </button>
-                        </span>
+                            <FaTimes size={11} className="mr-1 text-[#ef4444]" />
+                        </button>
                     )}
                     {selectedRoomFriendlyId && (
-                        <span className="inline-flex items-center gap-1.5 bg-[#ffffff] text-[#1e40af] border border-[#93c5fd] px-2.5 py-1 rounded-lg font-bold shadow-xs">
+                        <button
+                            type="button"
+                            onClick={() => setSelectedRoomFriendlyId('')}
+                            className="inline-flex items-center gap-1.5 bg-[#ffffff] hover:bg-[#fef2f2] text-[#1e40af] hover:text-[#ef4444] border border-[#93c5fd] hover:border-[#fca5a5] px-2.5 py-1 rounded-lg font-bold shadow-xs transition cursor-pointer"
+                            title="کلیک برای حذف فیلتر اتاق"
+                        >
                             <FaDoorOpen size={11} className="text-[#2563eb]" />
-                            <span>اتاق: {availableRooms.find(r => r.friendlyId === selectedRoomFriendlyId)?.title || selectedRoomFriendlyId}</span>
-                            <button
-                                onClick={() => setSelectedRoomFriendlyId('')}
-                                className="hover:text-[#ef4444] transition mr-1"
-                                title="حذف فیلتر اتاق"
-                            >
-                                <FaTimes size={11} />
-                            </button>
-                        </span>
+                            <span>اتاق: {availableRooms.find(r => (r.friendlyId || r.friendlyID) === selectedRoomFriendlyId)?.title || selectedRoomFriendlyId}</span>
+                            <FaTimes size={11} className="mr-1 text-[#ef4444]" />
+                        </button>
                     )}
                     {selectedTeacherId && (
-                        <span className="inline-flex items-center gap-1.5 bg-[#ffffff] text-[#6b21a8] border border-[#d8b4fe] px-2.5 py-1 rounded-lg font-bold shadow-xs">
+                        <button
+                            type="button"
+                            onClick={handleClearTeacherFilter}
+                            className="inline-flex items-center gap-1.5 bg-[#ffffff] hover:bg-[#fef2f2] text-[#6b21a8] hover:text-[#ef4444] border border-[#d8b4fe] hover:border-[#fca5a5] px-2.5 py-1 rounded-lg font-bold shadow-xs transition cursor-pointer"
+                            title="کلیک برای حذف فیلتر استاد"
+                        >
                             <FaChalkboardTeacher size={11} className="text-[#9333ea]" />
                             <span>استاد: {selectedTeacherName || `#${selectedTeacherId}`}</span>
-                            <button
-                                onClick={handleClearTeacherFilter}
-                                className="hover:text-[#ef4444] transition mr-1"
-                                title="حذف فیلتر استاد"
-                            >
-                                <FaTimes size={11} />
-                            </button>
-                        </span>
+                            <FaTimes size={11} className="mr-1 text-[#ef4444]" />
+                        </button>
                     )}
                     {attendeeCountVal && (
-                        <span className="inline-flex items-center gap-1.5 bg-[#ffffff] text-[#065f46] border border-[#6ee7b7] px-2.5 py-1 rounded-lg font-bold shadow-xs">
+                        <button
+                            type="button"
+                            onClick={() => setAttendeeCountVal('')}
+                            className="inline-flex items-center gap-1.5 bg-[#ffffff] hover:bg-[#fef2f2] text-[#065f46] hover:text-[#ef4444] border border-[#6ee7b7] hover:border-[#fca5a5] px-2.5 py-1 rounded-lg font-bold shadow-xs transition cursor-pointer"
+                            title="کلیک برای حذف فیلتر تعداد حضار"
+                        >
                             <FaUsers size={11} className="text-[#059669]" />
                             <span>حضار: {attendeeCountOp === '<' ? 'کمتر از' : 'بیشتر از'} {attendeeCountVal} نفر</span>
-                            <button
-                                onClick={() => setAttendeeCountVal('')}
-                                className="hover:text-[#ef4444] transition mr-1"
-                            >
-                                <FaTimes size={11} />
-                            </button>
-                        </span>
+                            <FaTimes size={11} className="mr-1 text-[#ef4444]" />
+                        </button>
                     )}
                     {durationVal && (
-                        <span className="inline-flex items-center gap-1.5 bg-[#ffffff] text-[#0369a1] border border-[#7dd3fc] px-2.5 py-1 rounded-lg font-bold shadow-xs">
+                        <button
+                            type="button"
+                            onClick={() => setDurationVal('')}
+                            className="inline-flex items-center gap-1.5 bg-[#ffffff] hover:bg-[#fef2f2] text-[#0369a1] hover:text-[#ef4444] border border-[#7dd3fc] hover:border-[#fca5a5] px-2.5 py-1 rounded-lg font-bold shadow-xs transition cursor-pointer"
+                            title="کلیک برای حذف فیلتر مدت جلسه"
+                        >
                             <FaClock size={11} className="text-[#0284c7]" />
                             <span>مدت: {durationOp === '<' ? 'کمتر از' : 'بیشتر از'} {durationVal} دقیقه</span>
-                            <button
-                                onClick={() => setDurationVal('')}
-                                className="hover:text-[#ef4444] transition mr-1"
-                            >
-                                <FaTimes size={11} />
-                            </button>
-                        </span>
+                            <FaTimes size={11} className="mr-1 text-[#ef4444]" />
+                        </button>
                     )}
                     {includeIgnored && (
-                        <span className="inline-flex items-center gap-1.5 bg-[#ffffff] text-[#991b1b] border border-[#fca5a5] px-2.5 py-1 rounded-lg font-bold shadow-xs">
+                        <button
+                            type="button"
+                            onClick={() => setIncludeIgnored(false)}
+                            className="inline-flex items-center gap-1.5 bg-[#ffffff] hover:bg-[#fef2f2] text-[#991b1b] hover:text-[#ef4444] border border-[#fca5a5] px-2.5 py-1 rounded-lg font-bold shadow-xs transition cursor-pointer"
+                            title="کلیک برای مخفی‌سازی جلسات تستی"
+                        >
                             <span>نمایش جلسات تستی (-۹۹)</span>
-                            <button
-                                onClick={() => setIncludeIgnored(false)}
-                                className="hover:text-[#ef4444] transition mr-1"
-                            >
-                                <FaTimes size={11} />
-                            </button>
-                        </span>
+                            <FaTimes size={11} className="mr-1 text-[#ef4444]" />
+                        </button>
                     )}
                     <button
+                        type="button"
                         onClick={() => {
                             handleClearOwnerFilter();
                             handleClearTeacherFilter();
@@ -1844,9 +1957,9 @@ const MeetingManagement = () => {
                             setDurationVal('');
                             setIncludeIgnored(false);
                         }}
-                        className="text-gray-500 hover:text-red-600 underline font-semibold mr-auto text-[11px]"
+                        className="text-[#dc2626] hover:text-[#b91c1c] font-bold mr-auto px-2 py-1 rounded hover:bg-[#fee2e2] transition cursor-pointer"
                     >
-                        پاک کردن همه فیلترها
+                        حذف همه فیلترها
                     </button>
                 </div>
             )}
@@ -2053,7 +2166,12 @@ const MeetingManagement = () => {
 
                                             {/* تاریخ ثبت و طول مدت جلسه */}
                                             <td className="px-4 py-4 text-gray-600 text-xs whitespace-nowrap">
-                                                <div className="font-semibold">{item.jalaliDate || '-'}</div>
+                                                <div className="font-bold text-[#111827]">{item.jalaliDate || '-'}</div>
+                                                {formatMeetingTimeRange(item) && (
+                                                    <div className="text-[11px] text-[#4b5563] mt-0.5 font-medium">
+                                                        {formatMeetingTimeRange(item)}
+                                                    </div>
+                                                )}
                                                 {item.durationMinutes !== undefined && item.durationMinutes > 0 && (
                                                     <span className="text-[10px] font-mono text-[#0284c7] bg-[#f0f9ff] border border-[#bae6fd] px-1.5 py-0.5 rounded block w-max mt-1">
                                                         ⏱ {item.durationMinutes} دقیقه
@@ -2398,7 +2516,12 @@ const MeetingManagement = () => {
                                         )}
                                         <div className="flex items-center justify-between">
                                             <span className="text-[#9ca3af]">تاریخ:</span>
-                                            <span className="font-semibold text-[#1f2937]">{item.jalaliDate || '-'}</span>
+                                            <div className="text-left">
+                                                <span className="font-bold text-[#1f2937] block">{item.jalaliDate || '-'}</span>
+                                                {formatMeetingTimeRange(item) && (
+                                                    <span className="text-[11px] text-[#4b5563] block font-medium">{formatMeetingTimeRange(item)}</span>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
 

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FaSignInAlt, FaCalendarPlus, FaPaintBrush, FaSpinner, FaEdit, FaUsers, FaSyncAlt } from 'react-icons/fa';
 import { GetRoomCalendarActivity } from '../../api/GetRooms';
-import { RefreshRoomSpentMinutes } from '../../api/AdminAPI';
+import { RefreshRoomSpentMinutes, GetAdminMeetings } from '../../api/AdminAPI';
 import RoomCardMiniCalander from './RoomCardMiniCalander';
 import { EndMeet } from '../../api/StartNewMeeting';
 import { findNextPlan } from '../../Tools/tools';
@@ -55,12 +55,39 @@ const RoomCardOwn = ({
         if (isRefreshingMinutes) return;
         setIsRefreshingMinutes(true);
         try {
-            const res = await RefreshRoomSpentMinutes(room.roomID);
-            if (res && res.spentMinutes !== undefined) {
+            const targetId = room.roomID || room.RoomID || room.friendlyID || room.friendlyId;
+            const res = await RefreshRoomSpentMinutes(targetId);
+            if (res && res.data && res.data.spentMinutes !== undefined) {
+                setSpentMinutes(res.data.spentMinutes);
+            } else if (res && res.spentMinutes !== undefined) {
                 setSpentMinutes(res.spentMinutes);
             }
         } catch (err) {
-            console.error("Error refreshing room spent minutes:", err);
+            console.warn("RefreshRoomSpentMinutes endpoint 404/error, falling back to meetings calculation:", err);
+            try {
+                const targetFid = room.friendlyID || room.friendlyId || room.roomID;
+                const mRes = await GetAdminMeetings(1, 100, "", null, null, null, { roomFriendlyId: targetFid });
+                if (mRes) {
+                    const items = mRes.items || (Array.isArray(mRes.data) ? mRes.data : []);
+                    const totalMins = items
+                        .filter(m => m.type !== -99)
+                        .reduce((acc, m) => {
+                            let dur = m.durationMinutes;
+                            if (dur === undefined || dur === null) {
+                                if (m.dateInsert && m.endDate) {
+                                    const diff = new Date(m.endDate).getTime() - new Date(m.dateInsert).getTime();
+                                    dur = Math.max(0, Math.round(diff / 60000));
+                                } else {
+                                    dur = 0;
+                                }
+                            }
+                            return acc + (dur || 0);
+                        }, 0);
+                    setSpentMinutes(totalMins);
+                }
+            } catch (fallbackErr) {
+                console.error("Fallback meetings calculation error:", fallbackErr);
+            }
         } finally {
             setIsRefreshingMinutes(false);
         }
