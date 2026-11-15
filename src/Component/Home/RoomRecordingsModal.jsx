@@ -59,8 +59,9 @@ export default function RoomRecordingsModal({ isOpen, onClose, room }) {
             try {
                 if (targetFid) {
                     const data = await GetRoomRecordings(targetFid);
-                    if (!isCancelled && Array.isArray(data) && data.length > 0) {
-                        setMeetings(data);
+                    if (!isCancelled && Array.isArray(data)) {
+                        const recordedOnly = data.filter(m => m.isRecorded || m.hasRecording || !!m.recordingPlaybackUrl || !!m.videoUrl || !!m.playbackUrl);
+                        setMeetings(recordedOnly);
                         setLoading(false);
                         return;
                     }
@@ -69,7 +70,7 @@ export default function RoomRecordingsModal({ isOpen, onClose, room }) {
                 console.warn("GetRoomRecordings endpoint returned error/404, using meetings fallback:", err);
             }
 
-            // 2. Fallback: Query GetAdminMeetings and filter for this room
+            // 2. Fallback: Query GetAdminMeetings and match recordings via recordID == meetingID
             try {
                 const res = await GetAdminMeetings(1, 100, "", null, null, null, { roomFriendlyId: targetFid });
                 if (isCancelled) return;
@@ -78,17 +79,92 @@ export default function RoomRecordingsModal({ isOpen, onClose, room }) {
                 const targetStr = String(targetFid).toLowerCase().trim();
                 const targetNumStr = String(targetNumId).trim();
 
-                const filtered = items.filter(m => {
+                const roomMeetings = items.filter(m => {
                     if (m.type === -99) return false;
                     const mFid = String(m.roomFriendlyID || m.roomFriendlyId || m.friendlyID || m.friendlyId || '').toLowerCase().trim();
                     const mNumId = String(m.roomId || m.RoomId || m.roomID || '').trim();
-                    if (targetStr && mFid && mFid === targetStr) return true;
-                    if (targetNumStr && mNumId && mNumId === targetNumStr) return true;
-                    return false;
+                    return (targetStr && mFid && mFid === targetStr) || (targetNumStr && mNumId && mNumId === targetNumStr);
                 });
 
-                // Format meeting items
-                const formatted = filtered.map(m => {
+                // Try to fetch BBB recordings using any meeting of this room
+                let bbbRecs = [];
+                if (roomMeetings.length > 0) {
+                    try {
+                        const recRes = await GetMeetingRecordings(roomMeetings[0].id || roomMeetings[0].ID);
+                        bbbRecs = recRes?.data?.recordings || recRes?.recordings || [];
+                    } catch (e) {
+                        console.warn("Could not fetch BBB recordings via GetMeetingRecordings:", e);
+                    }
+                }
+
+                const recsByRecordId = new Map();
+                if (Array.isArray(bbbRecs)) {
+                    bbbRecs.forEach(r => {
+                        if (r && r.recordId) {
+                            recsByRecordId.set(String(r.recordId).trim(), r);
+                        }
+                    });
+                }
+
+                // Match: recordID in BBB is exactly MeetID in MeetingTBL!
+                const matchedList = [];
+                const matchedMeetingIds = new Set();
+
+                // First, for every BBB recording, find the meeting in MeetingTBL
+                if (recsByRecordId.size > 0) {
+                    recsByRecordId.forEach((r, recordId) => {
+                        const m = roomMeetings.find(item => {
+                            const itemMeetId = String(item.meetID || item.MeetID || '').trim();
+                            return itemMeetId && itemMeetId === recordId;
+                        });
+
+                        const start = m?.dateInsert ? new Date(m.dateInsert) : (r.startTime ? new Date(r.startTime) : null);
+                        const end = m?.endDate ? new Date(m.endDate) : (r.endTime ? new Date(r.endTime) : null);
+                        const startTimeStr = start && !isNaN(start.getTime())
+                            ? start.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit', hour12: false })
+                            : '-';
+                        const endTimeStr = end && !isNaN(end.getTime())
+                            ? end.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit', hour12: false })
+                            : (r.lengthMinutes && start ? new Date(start.getTime() + r.lengthMinutes * 60000).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit', hour12: false }) : '-');
+
+                        let teacherName = m?.teacher?.name || m?.teacher?.fullname || m?.teacherFullname ||
+                            (Array.isArray(m?.teachers) ? m.teachers.map(t => (typeof t === 'string' ? t : t.name)).filter(Boolean).join('، ') : '');
+
+                        if (!teacherName && r.metadata?.teachers) {
+                            try {
+                                const parsedTeachers = JSON.parse(r.metadata.teachers);
+                                if (Array.isArray(parsedTeachers)) {
+                                    teacherName = parsedTeachers.map(t => t.name).filter(Boolean).join('، ');
+                                }
+                            } catch {}
+                        }
+
+                        if (m) matchedMeetingIds.add(m.id || m.ID);
+
+                        matchedList.push({
+                            id: m ? (m.id || m.ID) : recordId,
+                            meetId: recordId,
+                            title: (m && m.title && m.title !== 'None') ? (m.title || m.Title) : (r.name || r.metadata?.meetingName || room?.title || 'نشست ضبط‌شده'),
+                            jalaliDate: m?.jalaliDate || m?.JalaliDate || (start ? start.toLocaleDateString('fa-IR') : '-'),
+                            startTime: startTimeStr,
+                            endTime: endTimeStr,
+                            teacherName: teacherName || 'تعیین نشده',
+                            durationMinutes: r.lengthMinutes || (start && end ? Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000)) : 0),
+                            playbackUrl: r.playbackUrl || m?.recordingPlaybackUrl || m?.videoUrl || null,
+                            voiceUrl: m?.voiceUrl || null,
+                            isRecorded: true,
+                            participantsCount: r.participants || m?.participantsCount || m?.participantCount || 0
+                        });
+                    });
+                }
+
+                // Also include meetings that have isRecorded / videoUrl / playbackUrl directly
+                roomMeetings.forEach(m => {
+                    const mId = m.id || m.ID;
+                    if (matchedMeetingIds.has(mId)) return;
+                    const hasRecord = m.isRecorded || m.hasRecording || !!m.recordingPlaybackUrl || !!m.videoUrl || !!m.playbackUrl;
+                    if (!hasRecord) return; // ONLY RECORDED SESSIONS!
+
                     const start = m.dateInsert ? new Date(m.dateInsert) : null;
                     const end = m.endDate ? new Date(m.endDate) : null;
                     const startTimeStr = start && !isNaN(start.getTime())
@@ -102,10 +178,8 @@ export default function RoomRecordingsModal({ isOpen, onClose, room }) {
                         (Array.isArray(m.teachers) ? m.teachers.map(t => (typeof t === 'string' ? t : t.name)).filter(Boolean).join('، ') : '') ||
                         'تعیین نشده';
 
-                    const hasRecord = m.isRecorded || !!m.recordingPlaybackUrl || !!m.videoUrl || !!m.voiceUrl;
-
-                    return {
-                        id: m.id || m.ID,
+                    matchedList.push({
+                        id: mId,
                         meetId: m.meetID || m.MeetID,
                         title: m.title || m.Title || 'نشست بدون عنوان',
                         jalaliDate: m.jalaliDate || m.JalaliDate || (start ? start.toLocaleDateString('fa-IR') : '-'),
@@ -115,12 +189,12 @@ export default function RoomRecordingsModal({ isOpen, onClose, room }) {
                         durationMinutes: m.durationMinutes || (start && end ? Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000)) : 0),
                         playbackUrl: m.recordingPlaybackUrl || m.videoUrl || (m.playbackUrl || null),
                         voiceUrl: m.voiceUrl || null,
-                        isRecorded: hasRecord,
+                        isRecorded: true,
                         participantsCount: m.participantsCount || m.participantCount || 0
-                    };
+                    });
                 });
 
-                setMeetings(formatted);
+                setMeetings(matchedList);
             } catch (err) {
                 console.error("Failed to load recordings/meetings for room:", err);
                 if (!isCancelled) {
