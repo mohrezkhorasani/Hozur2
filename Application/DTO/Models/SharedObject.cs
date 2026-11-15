@@ -181,6 +181,8 @@ namespace Application.DTO.Models
         public DateTime? LastMeet { get; set; }
         public DateTime? NextMeet { get; set; }
         public int SpentMinutes { get; set; }
+        public int Type { get; set; }
+        public int Status { get; set; }
         public MiniPlanJSON? NextPlan { get; set; }
         public List<string> NextMeetTeacher { get; set; } = [];
         public int Count { get; set; }

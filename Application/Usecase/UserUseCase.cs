@@ -1637,6 +1637,8 @@ namespace Application.Usecase
                             e.IsSubscribed,
                             e.Title,
                             e.DateInsert,
+                            e.Type,
+                            e.Status,
                             plan = e.RoomTBLPlanTBLs.OrderBy(e => e.StartDate).ToList(),
                             e.OwnerTBL,
                             isAdmin = _commonMethods.VerifyAdminAccessOfRoom(e, message.GeneralHeaders.UserTBL),
@@ -1645,6 +1647,7 @@ namespace Application.Usecase
                             WaitingMembersCount = e.RoomTBLToUserTBLs.Count(r => r.Status == MainEntity_Status.IsWaiting),
                             LastMeet = e.MeetingTBLs.OrderByDescending(m => m.DateInsert).Select(m => (DateTime?)m.DateInsert).FirstOrDefault(),
                             SpentMinutesStr = e.RoomMetaTBLs.Where(m => m.Key == "spent_minutes").Select(m => m.Value).FirstOrDefault(),
+                            CalculatedSpent = e.MeetingTBLs.Where(m => (int)m.Type != -99 && m.EndDate != null && m.EndDate > m.DateInsert).Sum(m => (int?)EF.Functions.DateDiffMinute(m.DateInsert, m.EndDate.Value)) ?? 0,
                         })
                         .ToListAsync();
 
@@ -1655,6 +1658,10 @@ namespace Application.Usecase
                         {
                             parsedSpent = sm;
                         }
+                        else
+                        {
+                            parsedSpent = room.CalculatedSpent;
+                        }
 
                         return new DTO.Models.MiniRoomJSON
                         {
@@ -1662,6 +1669,8 @@ namespace Application.Usecase
                             IsSubscribed = room.IsSubscribed,
                             Title = room.Title,
                             Created = room.DateInsert,
+                            Type = (int)room.Type,
+                            Status = (int)room.Status,
                             Owner = new MiniUserJSON
                             {
                                 UID = room.OwnerTBL.UUID,

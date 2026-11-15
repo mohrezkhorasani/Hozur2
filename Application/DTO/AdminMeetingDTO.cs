@@ -104,6 +104,8 @@ namespace Application.DTO
         public string? JalaliDate { get; set; }
         public string? Time { get; set; }
         public int Type { get; set; }
+        public int RoomType { get; set; }
+        public int RoomStatus { get; set; }
     }
 
     public class AdminMeetingsResultDTO
