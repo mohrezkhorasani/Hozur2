@@ -465,7 +465,7 @@ export default function RoomRecordingsModal({ isOpen, onClose, room }) {
                 {/* Footer */}
                 <div className="p-4 border-t border-[#f3f4f6] bg-[#f9fafb] rounded-b-3xl flex items-center justify-between">
                     <span className="text-xs text-[#6b7280]">
-                        تعداد نشست‌های شناسایی‌شده: <strong className="text-[#111827]">{filteredMeetings.length}</strong>
+                        <span>تعداد نشست‌های شناسایی‌شده: </span><strong className="text-[#111827]">{filteredMeetings.length}</strong>
                     </span>
                     <button
                         type="button"

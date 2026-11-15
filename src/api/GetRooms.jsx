@@ -2,11 +2,25 @@ import Cookies from 'js-cookie';
 import { BaseURL, NormalHeaderAPI } from './apiNeed';
 import { combinePath } from '../Tools/tools';
 
+export async function fetchWithRetry(url, options = {}, retries = 1, delayMs = 1000) {
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+            return await fetch(url, options);
+        } catch (err) {
+            if (attempt < retries) {
+                await new Promise((resolve) => setTimeout(resolve, delayMs));
+                continue;
+            }
+            throw err;
+        }
+    }
+}
+
 export async function fetchRooms(uname) {
-    const res = await fetch(combinePath(BaseURL, `/user/GetRooms?${uname ? `uname=${uname}` : ""}`), {
+    const res = await fetchWithRetry(combinePath(BaseURL, `/user/GetRooms?${uname ? `uname=${uname}` : ""}`), {
         method: "GET",
         headers: NormalHeaderAPI
-    });
+    }, 1, 1000);
 
     if (!res.ok) throw new Error("Failed to fetch rooms");
 
@@ -14,11 +28,11 @@ export async function fetchRooms(uname) {
     return json.data; // چون ساختار ریسپانس تو همین شکله
 }
 export async function fetchRoomsPublic(uname = null) {
-    const res = await fetch(combinePath(BaseURL, `/user/GetRoomsPublic?username=${uname == null ? "" : uname}`), {
+    const res = await fetchWithRetry(combinePath(BaseURL, `/user/GetRoomsPublic?username=${uname == null ? "" : uname}`), {
         method: "GET",
         headers: NormalHeaderAPI,
 
-    });
+    }, 1, 1000);
     //console.log(res)
     if (!res.ok) throw new Error("Failed to fetch rooms");
 
@@ -126,11 +140,11 @@ export async function GenerateCertificateWithUserMeetID(uid, options = {}) {
 }
 
 export async function fetchRoom(friendlyID) {
-    const res = await fetch(combinePath(BaseURL, `/user/GetRoomByFriendlyID?q=${friendlyID}`), {
+    const res = await fetchWithRetry(combinePath(BaseURL, `/user/GetRoomByFriendlyID?q=${friendlyID}`), {
         method: "GET",
         headers: NormalHeaderAPI,
 
-    });
+    }, 1, 1000);
 
     if (!res.ok) throw new Error("Failed to fetch rooms");
 
@@ -143,11 +157,11 @@ export async function fetchRoom(friendlyID) {
     }; // چون ساختار ریسپانس تو همین شکله
 }
 export async function fetchRoomLive() {
-    const res = await fetch(combinePath(BaseURL, `/user/GetLives?q=`), {
+    const res = await fetchWithRetry(combinePath(BaseURL, `/user/GetLives?q=`), {
         method: "GET",
         headers: NormalHeaderAPI
 
-    });
+    }, 1, 1000);
 
     if (!res.ok) throw new Error("Failed to fetch rooms");
 
@@ -189,11 +203,11 @@ export async function NewReservation(pid, nick, phone, na) {
     return json;
 }
 export async function fetchRoomLivesPublic() {
-    const res = await fetch(combinePath(BaseURL, `/user/GetLivesPublic?q=`), {
+    const res = await fetchWithRetry(combinePath(BaseURL, `/user/GetLivesPublic?q=`), {
         method: "GET",
         headers: NormalHeaderAPI
 
-    });
+    }, 1, 1000);
 
     if (!res.ok) throw new Error("Failed to fetch rooms");
 

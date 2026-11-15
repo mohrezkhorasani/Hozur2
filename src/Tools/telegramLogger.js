@@ -151,8 +151,35 @@ export function reportGlobalError({ error, context = 'فرانت‌اند', tags
     return;
   }
 
+  // Ignore DOM reconciliation errors caused by Google Translate or browser extensions
+  if (
+    errMsg.includes("Failed to execute 'removeChild'") ||
+    errMsg.includes("Failed to execute 'insertBefore'") ||
+    errMsg.includes("not a child of this node")
+  ) {
+    return;
+  }
+
+  // Ignore network failures if client device is currently offline or backgrounded
+  if (isFailed) {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      return;
+    }
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+      return;
+    }
+    // Ignore transient failures on periodic background polling endpoints
+    if (
+      context.includes('/user/GetLives') ||
+      context.includes('/user/GetLivesPublic') ||
+      errMsg.includes('/user/GetLives')
+    ) {
+      return;
+    }
+  }
+
   // Deduplication check
-  const dedupKey = `global_${pageUrl}_${errMsg}`;
+  const dedupKey = `global_${pageUrl}_${context}_${errMsg}`;
   const lastSent = recentErrorsCache.get(dedupKey);
   if (lastSent && Date.now() - lastSent < DEDUP_INTERVAL_MS) {
     return;
@@ -208,7 +235,11 @@ export function initGlobalErrorLogging() {
     } catch (err) {
       if (isFailedToFetchError(err)) {
         const targetUrl = typeof args[0] === 'string' ? args[0] : (args[0]?.url || 'unknown');
-        if (!targetUrl.includes('telbot.hekmateislami.com')) {
+        const isBackgroundPoller = targetUrl.includes('/user/GetLives') || targetUrl.includes('/user/GetLivesPublic');
+        const isOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
+        const isHidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
+
+        if (!targetUrl.includes('telbot.hekmateislami.com') && !isBackgroundPoller && !isOffline && !isHidden) {
           reportGlobalError({
             error: err,
             context: `خطای فراخوانی شبکه: ${targetUrl}`,
@@ -224,7 +255,9 @@ export function initGlobalErrorLogging() {
   window.addEventListener('error', (event) => {
     if (!event.error && !event.message) return;
 
-    // Filter out common third-party / browser extension noise
+    const errMsg = String(event.error?.message || event.message || '');
+
+    // Filter out common third-party / browser extension / DOM translation noise
     if (
       event.filename &&
       (event.filename.includes('chrome-extension://') ||
@@ -234,9 +267,11 @@ export function initGlobalErrorLogging() {
       return;
     }
     if (
-      event.message &&
-      (event.message.includes('ResizeObserver') ||
-       event.message.includes('Script error.'))
+      errMsg.includes('ResizeObserver') ||
+      errMsg.includes('Script error.') ||
+      errMsg.includes('removeChild') ||
+      errMsg.includes('insertBefore') ||
+      errMsg.includes('not a child of this node')
     ) {
       return;
     }

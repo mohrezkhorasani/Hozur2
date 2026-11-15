@@ -1615,7 +1615,8 @@ function JoinForm() {
                               <div className="text-xs text-[#4b5563]">
                                 {accountOtpTimer > 0 ? (
                                   <span>
-                                    زمان باقیمانده: <strong className="font-mono text-[#047857] font-bold">{Math.floor(accountOtpTimer / 60)}:{String(accountOtpTimer % 60).padStart(2, '0')}</strong>
+                                    <span>زمان باقیمانده: </span>
+                                    <strong className="font-mono text-[#047857] font-bold">{Math.floor(accountOtpTimer / 60)}:{String(accountOtpTimer % 60).padStart(2, '0')}</strong>
                                   </span>
                                 ) : (
                                   <button

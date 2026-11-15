@@ -563,7 +563,7 @@ const HomePage = () => {
                                 <span className="truncate">{plan.roomTitle || 'اتاق جلسه'}</span>
                               </div>
                               <div className="text-[11px] text-[#94a3b8] font-mono">
-                                شناسه: <span className="text-[#f1f5f9]">{plan.roomFriendlyId}</span>
+                                <span>شناسه: </span><span className="text-[#f1f5f9]">{plan.roomFriendlyId}</span>
                               </div>
                               <div className="flex items-center gap-1.5 text-[11px] text-[#cbd5e1]">
                                 <FaChalkboardTeacher className="text-[#a855f7] shrink-0" size={13} />
