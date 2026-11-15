@@ -244,7 +244,7 @@ function ProfilePage() {
             return (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6 lg:gap-8">
                 {liveRoomsOfProfile.map((item) => (
-                  <div key={item.roomID} className="transform transition-all duration-300 hover:-translate-y-1">
+                  <div key={item.roomID} className="h-full flex flex-col transform transition-all duration-300 hover:-translate-y-1">
                     <RoomCard i={item} isRoomLive={true} live={item} />
                   </div>
                 ))}
@@ -303,7 +303,7 @@ function ProfilePage() {
                   const liveInfo = roomLive.find(live => live.roomID === item.roomID);
                   const isLive = !!liveInfo;
                   return (
-                    <div key={item.roomID} className="transform transition-all duration-300 hover:-translate-y-1">
+                    <div key={item.roomID} className="h-full flex flex-col transform transition-all duration-300 hover:-translate-y-1">
                       <RoomCard i={item} isRoomLive={isLive} live={liveInfo} />
                     </div>
                   );

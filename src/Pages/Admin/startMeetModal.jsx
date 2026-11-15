@@ -9,6 +9,7 @@ const StartMeetingModal = ({ isOpen, onClose, onStartMeeting, onStartWithoutInfo
     scientificSecretary: null,
     isPublic: true,
   });
+  const [isTest, setIsTest] = useState(false);
 
   // تبدیل لیست اساتید به فرمت react-select (برای هر دو فیلد)
   const teacherOptions = useMemo(() => {
@@ -28,6 +29,7 @@ const StartMeetingModal = ({ isOpen, onClose, onStartMeeting, onStartWithoutInfo
         scientificSecretary: null,
         isPublic: true,
       });
+      setIsTest(false);
     }
   }, [isOpen]);
 
@@ -46,17 +48,22 @@ const StartMeetingModal = ({ isOpen, onClose, onStartMeeting, onStartWithoutInfo
   };
 
   const handleSubmit = (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     
     // validation
-    if (!formData.title.trim()) {
-      alert('لطفاً عنوان جلسه را وارد کنید');
-      return;
+    let titleToSubmit = formData.title.trim();
+    if (!titleToSubmit) {
+      if (isTest) {
+        titleToSubmit = `جلسه تستی ${room?.title ? `(${room.title})` : ''}`.trim();
+      } else {
+        alert('لطفاً عنوان جلسه را وارد کنید');
+        return;
+      }
     }
 
     const submitData = {
       roomId: room?.id || room?._id || room?.roomID,
-      title: formData.title,
+      title: titleToSubmit,
       teachers: formData.teachers.map(t => ({
         name: t.label,
         id: t.value,
@@ -66,6 +73,8 @@ const StartMeetingModal = ({ isOpen, onClose, onStartMeeting, onStartWithoutInfo
         id: formData.scientificSecretary.value,
       } : null,
       isPublic: formData.isPublic,
+      isTest: isTest,
+      type: isTest ? -99 : null,
     };
     
     onStartMeeting(submitData);
@@ -76,6 +85,8 @@ const StartMeetingModal = ({ isOpen, onClose, onStartMeeting, onStartWithoutInfo
     onStartWithoutInfo({
       roomId: room?.id || room?._id || room?.roomID,
       startNow: true,
+      isTest: isTest,
+      type: isTest ? -99 : null,
     });
     onClose();
   };
@@ -105,6 +116,63 @@ const StartMeetingModal = ({ isOpen, onClose, onStartMeeting, onStartWithoutInfo
 
         {/* Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          {/* دکمه / انتخابگر جلسه تستی */}
+          <div
+            onClick={() => setIsTest(prev => !prev)}
+            className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between select-none ${
+              isTest
+                ? 'bg-amber-50 border-amber-300 shadow-xs'
+                : 'bg-gray-50 border-gray-200 hover:bg-gray-100/70'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <div
+                className={`w-9 h-9 rounded-lg flex items-center justify-center text-lg transition-colors ${
+                  isTest ? 'bg-amber-100 text-amber-700' : 'bg-gray-200 text-gray-500'
+                }`}
+              >
+                🧪
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-sm font-bold ${isTest ? 'text-amber-900' : 'text-gray-800'}`}>
+                    جلسه تستی
+                  </span>
+                  {isTest ? (
+                    <span className="text-[11px] px-2 py-0.5 rounded-full font-bold bg-amber-200 text-amber-900 border border-amber-300">
+                      فعال (تایپ ۹۹-)
+                    </span>
+                  ) : (
+                    <span className="text-[11px] px-2 py-0.5 rounded-full text-gray-500 bg-gray-200/70">
+                      عادی
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  با فعال‌سازی این گزینه، جلسه به صورت آزمایشی ایجاد می‌شود و در آمار و محاسبات لحاظ نخواهد شد.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={isTest}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsTest(prev => !prev);
+              }}
+              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+                isTest ? 'bg-amber-500' : 'bg-gray-300'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-xs transition-transform ${
+                  isTest ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+
           {/* عنوان جلسه */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1">
@@ -205,15 +273,23 @@ const StartMeetingModal = ({ isOpen, onClose, onStartMeeting, onStartWithoutInfo
           <div className="flex gap-3">
             <button
               onClick={handleSubmit}
-              className="flex-1 bg-linear-to-r from-[#30d4cc] to-[#2bc4bc] text-[#000000] py-2.5 rounded-xl font-semibold hover:shadow-lg transition-all"
+              className={`flex-1 py-2.5 rounded-xl font-semibold hover:shadow-lg transition-all ${
+                isTest
+                  ? 'bg-amber-400 hover:bg-amber-500 text-amber-950 font-bold shadow-amber-200'
+                  : 'bg-linear-to-r from-[#30d4cc] to-[#2bc4bc] text-[#000000]'
+              }`}
             >
-              🚀 شروع جلسه با اطلاعات بالا
+              {isTest ? '🧪 شروع جلسه تستی با اطلاعات بالا' : '🚀 شروع جلسه با اطلاعات بالا'}
             </button>
             <button
               onClick={handleStartWithoutInfo}
-              className="flex-1 bg-gray-100 text-gray-700 py-2.5 rounded-xl font-semibold hover:bg-gray-200 transition-all"
+              className={`flex-1 py-2.5 rounded-xl font-semibold transition-all ${
+                isTest
+                  ? 'bg-amber-100 text-amber-900 hover:bg-amber-200'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
             >
-              ⚡ شروع جلسه بدون اطلاعات
+              {isTest ? '⚡ شروع تستی بدون اطلاعات' : '⚡ شروع جلسه بدون اطلاعات'}
             </button>
           </div>
           <button

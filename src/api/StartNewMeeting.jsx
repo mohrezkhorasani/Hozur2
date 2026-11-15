@@ -5,7 +5,7 @@ import { isFailedToFetchError } from '../Tools/telegramLogger';
 
 
 
-export async function startNewMeet(roomID, name, title = "", teachers = [], dabir = null, idplan = -1, hasCert = false) {
+export async function startNewMeet(roomID, name, title = "", teachers = [], dabir = null, idplan = -1, hasCert = false, type = null) {
 
     //console.log(teachers)
     let tStr = ""
@@ -14,7 +14,8 @@ export async function startNewMeet(roomID, name, title = "", teachers = [], dabi
         //console.log(tStr)
     })
     //console.log("startNewMeeting", idplan)
-    const url = combinePath(BaseURL, `/user/StartNewMeet/${roomID}?MeetTitle=${title}&Name=${name}&${dabir ? `Dabir=${dabir}` : ""}&${tStr}RequiredToEnterName=false&IDPlan=${idplan}&HasCertificate=${hasCert}`);
+    const typeParam = (type !== null && type !== undefined) ? `&Type=${type}` : "";
+    const url = combinePath(BaseURL, `/user/StartNewMeet/${roomID}?MeetTitle=${title}&Name=${name}&${dabir ? `Dabir=${dabir}` : ""}&${tStr}RequiredToEnterName=false&IDPlan=${idplan}&HasCertificate=${hasCert}${typeParam}`);
     //console.log(url)
     const res = await fetch(url, {
         method: "POST",

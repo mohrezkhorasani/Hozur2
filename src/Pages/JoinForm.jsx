@@ -152,6 +152,8 @@ function JoinForm() {
       if (user.nationalCode) {
         setAccountNationalCode(user.nationalCode);
       }
+    } else {
+      setActiveTab('guest');
     }
   }, [user]);
 
@@ -870,12 +872,25 @@ function JoinForm() {
               <span className="text-3xl hidden items-center justify-center w-full h-full">🏛️</span>
             )}
           </div>
-          <h1 className="text-xl sm:text-2xl font-black text-[#111827] tracking-tight">
-            {meet?.title || 'مجمع عالی حکمت اسلامی'}
-          </h1>
-          <p className="text-xs sm:text-sm text-[#6b7280] mt-1 font-medium">
-            سامانه ورود به تالار نشست‌ها و کلاس‌های تخصصی
-          </p>
+          <div className="flex items-center justify-center gap-2 flex-wrap">
+            <h1 className="text-xl sm:text-2xl font-black text-[#111827] tracking-tight">
+              {meet?.title || 'مجمع عالی حکمت اسلامی'}
+            </h1>
+            <button
+              type="button"
+              onClick={() => navigate(`/rooms/${Mid}`)}
+              className="p-1.5 text-[#059669] hover:text-[#047857] hover:bg-[#ecfdf5] rounded-xl transition-all cursor-pointer inline-flex items-center justify-center shadow-xs border border-[#a7f3d0]/60 active:scale-95"
+              title="مشاهده جزئیات و اطلاعات اتاق"
+            >
+              <span className="text-base sm:text-lg">ℹ️</span>
+            </button>
+            {isMeetingLive && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-[#ef4444] text-[#ffffff] rounded-full text-[11px] font-black shadow-xs animate-pulse">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#ffffff]"></span>
+                زنده
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Room Specific Check: Subscribed Room */}
@@ -1034,51 +1049,6 @@ function JoinForm() {
           )
         ) : (
           <>
-            {/* Room Information Card */}
-            <div className="bg-gradient-to-l from-[#ecfdf5]/90 via-[#f0fdfa]/60 to-[#ffffff] rounded-2xl p-4 mb-5 border border-[#a7f3d0]/80 shadow-sm relative overflow-hidden">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <span className="text-[11px] font-bold text-[#065f46] uppercase tracking-wider block mb-1">
-                    عنوان تالار / جلسه
-                  </span>
-                  <h2 className="text-base sm:text-lg font-black text-[#111827] leading-snug break-words">
-                    {meet?.title || 'در حال بارگذاری اطلاعات جلسه...'}
-                  </h2>
-                </div>
-                {isCheckingLive ? (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#fffbeb] text-[#92400e] rounded-full text-xs font-bold border border-[#fde68a]/80 shadow-sm flex-shrink-0 animate-pulse">
-                    <span className="w-2 h-2 rounded-full bg-[#f59e0b] animate-ping"></span>
-                    در حال بررسی وضعیت...
-                  </span>
-                ) : isMeetingLive ? (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#ef4444] text-[#ffffff] rounded-full text-xs font-black shadow-md animate-pulse flex-shrink-0">
-                    <span className="w-2 h-2 rounded-full bg-[#ffffff]"></span>
-                    زنده (آنلاین)
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#f3f4f6] text-[#4b5563] rounded-full text-xs font-semibold border border-[#e5e7eb] flex-shrink-0">
-                    غیرفعال
-                  </span>
-                )}
-              </div>
-
-              {meet?.owner?.fullname && (
-                <div className="mt-3 pt-2.5 border-t border-[#a7f3d0]/50 flex items-center gap-2 text-xs text-[#4b5563]">
-                  <span className="text-[#047857] font-bold">برگزارکننده:</span>
-                  <span className="font-semibold text-[#1f2937]">{meet.owner.fullname}</span>
-                </div>
-              )}
-
-              <div className="mt-3 pt-2.5 border-t border-[#a7f3d0]/50">
-                <button
-                  onClick={() => navigate(`/rooms/${Mid}`)}
-                  className="w-full py-2 bg-[#ffffff] hover:bg-[#ecfdf5] text-[#065f46] font-bold rounded-xl transition-colors border border-[#a7f3d0] shadow-sm text-xs flex items-center justify-center gap-2"
-                >
-                  <span>ℹ️</span> مشاهده جزئیات و اطلاعات کامل کلاس
-                </button>
-              </div>
-            </div>
-
             {/* Live Banner or Next Session Card */}
             {isCheckingLive ? (
               <div className="bg-gradient-to-r from-[#fffbeb] to-[#fff7ed]/60 border border-[#fde68a]/80 rounded-2xl p-4 mb-5 text-[#78350f] shadow-sm flex items-center gap-3 animate-pulse">
@@ -1099,9 +1069,15 @@ function JoinForm() {
                   🎙️
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="font-black text-sm">جلسه هم‌اکنون در حال برگزاری است</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-black text-sm">جلسه هم‌اکنون در حال برگزاری است</p>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-[#ef4444] text-[#ffffff] rounded-full text-[11px] font-black shadow-xs animate-pulse shrink-0">
+                      <span className="w-2 h-2 rounded-full bg-[#ffffff]"></span>
+                      زنده (آنلاین)
+                    </span>
+                  </div>
                   {meet?.latestTitle ? (
-                    <p className="text-xs text-[#d1fae5] mt-0.5 truncate font-medium">
+                    <p className="text-xs text-[#d1fae5] mt-1 font-medium">
                       موضوع جلسه: {meet.latestTitle}
                     </p>
                   ) : (
@@ -1204,42 +1180,41 @@ function JoinForm() {
             ) : isMeetingLive && (
               <div className="space-y-5">
 
-                {/* Segmented Tab Bar: 2 Simplified Sections */}
-                <div className="grid grid-cols-2 p-1.5 bg-[#f3f4f6]/90 rounded-2xl border border-[#e5e7eb]">
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('guest')}
-                    className={`py-2.5 px-3 rounded-xl font-black text-xs sm:text-sm transition-all flex items-center justify-center gap-1.5 ${
-                      activeTab === 'guest'
-                        ? 'bg-[#ffffff] text-[#064e3b] shadow-md border border-[#e5e7eb]/80 scale-[1.02]'
-                        : 'text-[#6b7280] hover:text-[#1f2937]'
-                    }`}
-                  >
-                    <span>👤</span>
-                    <span>ورود به عنوان مهمان</span>
-                  </button>
+                {/* Segmented Tab Bar: 2 Simplified Sections - ONLY IF NOT LOGGED IN */}
+                {!user && (
+                  <div className="grid grid-cols-2 p-1.5 bg-[#f3f4f6]/90 rounded-2xl border border-[#e5e7eb]">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('guest')}
+                      className={`py-2.5 px-3 rounded-xl font-black text-xs sm:text-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                        activeTab === 'guest'
+                          ? 'bg-[#ffffff] text-[#064e3b] shadow-md border border-[#e5e7eb]/80 scale-[1.02]'
+                          : 'text-[#6b7280] hover:text-[#1f2937]'
+                      }`}
+                    >
+                      <span>👤</span>
+                      <span>ورود به عنوان مهمان</span>
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('account')}
-                    className={`py-2.5 px-3 rounded-xl font-black text-xs sm:text-sm transition-all flex items-center justify-center gap-1.5 ${
-                      activeTab === 'account'
-                        ? 'bg-[#ffffff] text-[#064e3b] shadow-md border border-[#e5e7eb]/80 scale-[1.02]'
-                        : 'text-[#6b7280] hover:text-[#1f2937]'
-                    }`}
-                  >
-                    <span>🔐</span>
-                    <span>{user ? 'حساب کاربری من' : 'ورود / ثبت‌نام حساب'}</span>
-                    {user && (
-                      <span className="w-2 h-2 rounded-full bg-[#10b981]"></span>
-                    )}
-                  </button>
-                </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('account')}
+                      className={`py-2.5 px-3 rounded-xl font-black text-xs sm:text-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                        activeTab === 'account'
+                          ? 'bg-[#ffffff] text-[#064e3b] shadow-md border border-[#e5e7eb]/80 scale-[1.02]'
+                          : 'text-[#6b7280] hover:text-[#1f2937]'
+                      }`}
+                    >
+                      <span>🔐</span>
+                      <span>ورود / ثبت‌نام حساب</span>
+                    </button>
+                  </div>
+                )}
 
                 {/* ======================================================== */}
                 {/* SECTION 1: ورود به عنوان مهمان (فقط نام + تیک گواهی)     */}
                 {/* ======================================================== */}
-                {activeTab === 'guest' && (
+                {!user && activeTab === 'guest' && (
                   <div className="space-y-4 animate-in fade-in duration-200">
                     <div>
                       <label className="block text-xs font-bold text-[#374151] mb-1.5">
@@ -1376,7 +1351,7 @@ function JoinForm() {
                 {/* ======================================================== */}
                 {/* SECTION 2: ثبت‌نام یا ورود با حساب کاربری                */}
                 {/* ======================================================== */}
-                {activeTab === 'account' && (
+                {(user || activeTab === 'account') && (
                   <div className="space-y-4 animate-in fade-in duration-200">
 
                     {/* Case 2A: User is ALREADY Authenticated */}

@@ -169,13 +169,16 @@ const HomePage = () => {
           const numId = String(p.roomId || '').trim();
           const matchingRoom = (fid && roomsLookup.get(fid)) || (numId && roomsLookup.get(numId)) || null;
 
+          // فقط جلسات پیش‌رو مربوط به گروه‌های اکانت فعلی؛ اتاق‌های غیر نباید نمایش داده شوند
+          if (!matchingRoom) return;
+
           if (!isRoomEligible(matchingRoom, p)) return;
 
           plansMap.set(String(p.id), {
             id: p.id,
             title: p.title || 'جلسه بدون عنوان',
-            roomFriendlyId: p.roomFriendlyId || p.roomID || '',
-            roomTitle: p.roomTitle || matchingRoom?.title || matchingRoom?.Title || p.roomFriendlyId || '',
+            roomFriendlyId: p.roomFriendlyId || p.roomID || matchingRoom.friendlyID || matchingRoom.roomID,
+            roomTitle: matchingRoom.title || matchingRoom.Title || p.roomTitle || '',
             teacherName: p.teacherName || (typeof p.teacher === 'string' ? p.teacher : p.teacher?.name) || '',
             dabir: p.dabir || null,
             startDate: p.startDate || p.startAt,
@@ -386,8 +389,8 @@ const HomePage = () => {
     CheckLives()
 
   }
-  const handleStart = async (roomID, planID = -1, title = "", teachers = [], dabir = null, hasCert = false, ispublic = true) => {
-    console.log("handleStart", planID)
+  const handleStart = async (roomID, planID = -1, title = "", teachers = [], dabir = null, hasCert = false, ispublic = true, type = null) => {
+    console.log("handleStart", planID, "type:", type)
     let teacherStrings = []
     let dabire = null
     teachers.map((t) => {
@@ -414,7 +417,7 @@ const HomePage = () => {
             alert("لینک ورود یافت نشد.");
         }
       } else {
-        const data = await startNewMeet(roomID, user.fullname, title, teacherStrings, dabir, planID, hasCert);
+        const data = await startNewMeet(roomID, user.fullname, title, teacherStrings, dabir, planID, hasCert, type);
         console.warn(data)
         if (data.status != 200) {
           alert(data.message);
@@ -729,9 +732,9 @@ const HomePage = () => {
         isOpen={isStartMeetingModalOpen}
         onClose={() => { setIsStartMeetingModalOpen(false) }}
         room={selectedRoomForMeeting}
-        onStartWithoutInfo={(data) => { handleStart(data.roomId) }}
+        onStartWithoutInfo={(data) => { handleStart(data.roomId, -1, "", [], null, false, true, data.type ?? (data.isTest ? -99 : null)) }}
         teachersList={teachers}
-        onStartMeeting={(data) => { handleStart(data.roomId, 0, data.title, data.teachers, data.scientificSecretary?.name || null, true, data.isPublic) }}
+        onStartMeeting={(data) => { handleStart(data.roomId, 0, data.title, data.teachers, data.scientificSecretary?.name || null, true, data.isPublic, data.type ?? (data.isTest ? -99 : null)) }}
       />
       {modalOpen && (
         <DayMeetingsModal

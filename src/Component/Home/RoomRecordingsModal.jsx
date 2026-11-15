@@ -12,15 +12,80 @@ import {
     FaSearch,
     FaCheckCircle,
     FaVolumeUp,
-    FaSync
+    FaSync,
+    FaSortAmountDown,
+    FaSortAmountUp
 } from 'react-icons/fa';
 import { GetAdminMeetings, GetMeetingRecordings, GetRoomRecordings } from '../../api/AdminAPI';
+
+export function getMeetingTimestamp(item) {
+    if (!item) return 0;
+
+    // 1. If explicit rawDate number exists
+    if (typeof item.rawDate === 'number' && !isNaN(item.rawDate) && item.rawDate > 0) {
+        return item.rawDate;
+    }
+
+    // 2. Date fields: dateInsert, startDate, startTime, createdAt
+    const dateFields = [item.dateInsert, item.DateInsert, item.startDate, item.startTime, item.createdAt, item.date];
+    for (let val of dateFields) {
+        if (val) {
+            if (typeof val === 'number') return val;
+            if (!isNaN(Number(val)) && Number(val) > 1000000000) return Number(val);
+            const parsed = new Date(val);
+            if (!isNaN(parsed.getTime())) return parsed.getTime();
+        }
+    }
+
+    // 3. Jalali date parsing: e.g. "1403/08/24", "1404-09-01", etc.
+    const jalaliStr = item.jalaliDate || item.JalaliDate;
+    if (jalaliStr && typeof jalaliStr === 'string') {
+        const enStr = jalaliStr.replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
+                               .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+        const parts = enStr.match(/(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
+        if (parts) {
+            const year = parseInt(parts[1], 10);
+            const month = parseInt(parts[2], 10);
+            const day = parseInt(parts[3], 10);
+
+            let hour = 0;
+            let minute = 0;
+            const timeStr = item.startTime || item.StartTime;
+            if (timeStr && typeof timeStr === 'string') {
+                const enTime = timeStr.replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
+                                      .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+                const timeParts = enTime.match(/(\d{1,2}):(\d{1,2})/);
+                if (timeParts) {
+                    hour = parseInt(timeParts[1], 10);
+                    minute = parseInt(timeParts[2], 10);
+                }
+            }
+
+            const approxGregorianYear = year + 621;
+            let jalaliDays = 0;
+            if (month <= 6) {
+                jalaliDays = (month - 1) * 31 + day;
+            } else {
+                jalaliDays = 6 * 31 + (month - 7) * 30 + day;
+            }
+            const baseTime = new Date(Date.UTC(approxGregorianYear, 2, 21, hour, minute, 0)).getTime();
+            return baseTime + (jalaliDays - 1) * 86400000;
+        }
+    }
+
+    // 4. Fallback to numeric ID if available
+    const numId = parseInt(item.id, 10);
+    if (!isNaN(numId) && numId > 0) return numId;
+
+    return 0;
+}
 
 export default function RoomRecordingsModal({ isOpen, onClose, room }) {
     const [meetings, setMeetings] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [sortOrder, setSortOrder] = useState('desc'); // 'desc' = جدیدترین به قدیمی‌ترین, 'asc' = قدیمی‌ترین به جدیدترین
     const [expandedRecordings, setExpandedRecordings] = useState({});
     const [loadingBbbRecs, setLoadingBbbRecs] = useState({});
 
@@ -61,6 +126,11 @@ export default function RoomRecordingsModal({ isOpen, onClose, room }) {
                     const data = await GetRoomRecordings(targetFid);
                     if (!isCancelled && Array.isArray(data)) {
                         const recordedOnly = data.filter(m => m.isRecorded || m.hasRecording || !!m.recordingPlaybackUrl || !!m.videoUrl || !!m.playbackUrl);
+                        recordedOnly.forEach(item => {
+                            if (!item.rawDate) {
+                                item.rawDate = getMeetingTimestamp(item);
+                            }
+                        });
                         setMeetings(recordedOnly);
                         setLoading(false);
                         return;
@@ -118,8 +188,12 @@ export default function RoomRecordingsModal({ isOpen, onClose, room }) {
                             return itemMeetId && itemMeetId === recordId;
                         });
 
-                        const start = m?.dateInsert ? new Date(m.dateInsert) : (r.startTime ? new Date(r.startTime) : null);
-                        const end = m?.endDate ? new Date(m.endDate) : (r.endTime ? new Date(r.endTime) : null);
+                        let startTimeVal = r.startTime;
+                        if (startTimeVal && !isNaN(Number(startTimeVal))) {
+                            startTimeVal = Number(startTimeVal);
+                        }
+                        const start = m?.dateInsert ? new Date(m.dateInsert) : (startTimeVal ? new Date(startTimeVal) : null);
+                        const end = m?.endDate ? new Date(m.endDate) : (r.endTime ? new Date(!isNaN(Number(r.endTime)) ? Number(r.endTime) : r.endTime) : null);
                         const startTimeStr = start && !isNaN(start.getTime())
                             ? start.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit', hour12: false })
                             : '-';
@@ -141,10 +215,16 @@ export default function RoomRecordingsModal({ isOpen, onClose, room }) {
 
                         if (m) matchedMeetingIds.add(m.id || m.ID);
 
+                        const rawTimestamp = start && !isNaN(start.getTime())
+                            ? start.getTime()
+                            : (m?.dateInsert ? new Date(m.dateInsert).getTime() : 0);
+
                         matchedList.push({
                             id: m ? (m.id || m.ID) : recordId,
                             meetId: recordId,
                             title: (m && m.title && m.title !== 'None') ? (m.title || m.Title) : (r.name || r.metadata?.meetingName || room?.title || 'نشست ضبط‌شده'),
+                            rawDate: rawTimestamp,
+                            dateInsert: m?.dateInsert || (start ? start.toISOString() : null),
                             jalaliDate: m?.jalaliDate || m?.JalaliDate || (start ? start.toLocaleDateString('fa-IR') : '-'),
                             startTime: startTimeStr,
                             endTime: endTimeStr,
@@ -178,10 +258,14 @@ export default function RoomRecordingsModal({ isOpen, onClose, room }) {
                         (Array.isArray(m.teachers) ? m.teachers.map(t => (typeof t === 'string' ? t : t.name)).filter(Boolean).join('، ') : '') ||
                         'تعیین نشده';
 
+                    const rawTimestamp = start && !isNaN(start.getTime()) ? start.getTime() : 0;
+
                     matchedList.push({
                         id: mId,
                         meetId: m.meetID || m.MeetID,
                         title: m.title || m.Title || 'نشست بدون عنوان',
+                        rawDate: rawTimestamp,
+                        dateInsert: m.dateInsert || null,
                         jalaliDate: m.jalaliDate || m.JalaliDate || (start ? start.toLocaleDateString('fa-IR') : '-'),
                         startTime: startTimeStr,
                         endTime: endTimeStr,
@@ -234,16 +318,32 @@ export default function RoomRecordingsModal({ isOpen, onClose, room }) {
         }
     };
 
-    // Filter by search term
-    const filteredMeetings = useMemo(() => {
-        if (!searchTerm.trim()) return meetings;
-        const term = searchTerm.trim().toLowerCase();
-        return meetings.filter(m =>
-            (m.title && m.title.toLowerCase().includes(term)) ||
-            (m.teacherName && m.teacherName.toLowerCase().includes(term)) ||
-            (m.jalaliDate && m.jalaliDate.includes(term))
-        );
-    }, [meetings, searchTerm]);
+    // Filter by search term & Sort by date
+    const sortedAndFilteredMeetings = useMemo(() => {
+        let list = [...meetings];
+
+        // 1. Filter by search term
+        if (searchTerm.trim()) {
+            const term = searchTerm.trim().toLowerCase();
+            list = list.filter(m =>
+                (m.title && m.title.toLowerCase().includes(term)) ||
+                (m.teacherName && m.teacherName.toLowerCase().includes(term)) ||
+                (m.jalaliDate && m.jalaliDate.includes(term))
+            );
+        }
+
+        // 2. Sort by date
+        list.sort((a, b) => {
+            const timeA = getMeetingTimestamp(a);
+            const timeB = getMeetingTimestamp(b);
+            if (sortOrder === 'asc') {
+                return timeA - timeB;
+            }
+            return timeB - timeA; // default: 'desc' (جدیدترین به قدیمی‌ترین)
+        });
+
+        return list;
+    }, [meetings, searchTerm, sortOrder]);
 
     if (!isOpen) return null;
 
@@ -284,9 +384,9 @@ export default function RoomRecordingsModal({ isOpen, onClose, room }) {
                     </button>
                 </div>
 
-                {/* Search Bar */}
-                <div className="p-4 border-b border-[#f3f4f6] bg-[#ffffff]">
-                    <div className="relative">
+                {/* Search Bar & Date Sort Toggle */}
+                <div className="p-4 border-b border-[#f3f4f6] bg-[#ffffff] flex flex-wrap items-center gap-3">
+                    <div className="relative flex-1 min-w-[220px]">
                         <input
                             type="text"
                             placeholder="جستجو در عنوان جلسه، نام استاد یا تاریخ..."
@@ -296,6 +396,26 @@ export default function RoomRecordingsModal({ isOpen, onClose, room }) {
                         />
                         <FaSearch className="absolute right-3.5 top-3.5 text-[#9ca3af] text-xs" />
                     </div>
+
+                    <button
+                        type="button"
+                        onClick={() => setSortOrder(prev => (prev === 'desc' ? 'asc' : 'desc'))}
+                        className="px-3.5 py-2.5 bg-[#f9fafb] hover:bg-[#f3f4f6] active:bg-[#e5e7eb] border border-[#e5e7eb] rounded-2xl text-xs font-bold text-[#374151] flex items-center gap-2 transition shrink-0 cursor-pointer shadow-xs select-none"
+                        title={sortOrder === 'desc' ? 'مرتب‌سازی: جدیدترین به قدیمی‌ترین' : 'مرتب‌سازی: قدیمی‌ترین به جدیدترین'}
+                    >
+                        {sortOrder === 'desc' ? (
+                            <FaSortAmountDown className="text-[#ef4444]" size={14} />
+                        ) : (
+                            <FaSortAmountUp className="text-[#ef4444]" size={14} />
+                        )}
+                        <span className="text-[#6b7280]">سورت تاریخ:</span>
+                        <span className="text-[#111827]">
+                            {sortOrder === 'desc' ? 'جدیدترین اول' : 'قدیمی‌ترین اول'}
+                        </span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-[#e5e7eb] text-[#4b5563] font-mono">
+                            {sortOrder === 'desc' ? '▼ نزولی' : '▲ صعودی'}
+                        </span>
+                    </button>
                 </div>
 
                 {/* Content Body */}
@@ -309,7 +429,7 @@ export default function RoomRecordingsModal({ isOpen, onClose, room }) {
                         <div className="p-4 bg-[#fef2f2] border border-[#fca5a5] rounded-2xl text-[#b91c1c] text-xs font-bold text-center">
                             {error}
                         </div>
-                    ) : filteredMeetings.length === 0 ? (
+                    ) : sortedAndFilteredMeetings.length === 0 ? (
                         <div className="py-16 text-center">
                             <div className="w-16 h-16 mx-auto mb-3 bg-[#fef2f2] text-[#ef4444] rounded-full flex items-center justify-center">
                                 <FaVideo size={28} />
@@ -320,7 +440,7 @@ export default function RoomRecordingsModal({ isOpen, onClose, room }) {
                             </p>
                         </div>
                     ) : (
-                        filteredMeetings.map((item) => {
+                        sortedAndFilteredMeetings.map((item) => {
                             const bbbRecs = expandedRecordings[item.id] || [];
                             const isExpanded = expandedRecordings[item.id] !== undefined;
                             const isLoadingThis = loadingBbbRecs[item.id] || false;
@@ -465,7 +585,7 @@ export default function RoomRecordingsModal({ isOpen, onClose, room }) {
                 {/* Footer */}
                 <div className="p-4 border-t border-[#f3f4f6] bg-[#f9fafb] rounded-b-3xl flex items-center justify-between">
                     <span className="text-xs text-[#6b7280]">
-                        <span>تعداد نشست‌های شناسایی‌شده: </span><strong className="text-[#111827]">{filteredMeetings.length}</strong>
+                        <span>تعداد نشست‌های شناسایی‌شده: </span><strong className="text-[#111827]">{sortedAndFilteredMeetings.length}</strong>
                     </span>
                     <button
                         type="button"

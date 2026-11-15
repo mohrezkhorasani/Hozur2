@@ -85,7 +85,7 @@ export default function RoomCard({ i, isRoomLive, live = null, joinButton = true
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       className={`
-        relative rounded-2xl p-3.5 sm:p-4 flex flex-col h-full
+        relative rounded-2xl p-3 sm:p-3.5 flex flex-col h-full
         bg-white shadow-md hover:shadow-xl transition-all duration-300
         ${isRoomLive ? 'ring-2 ring-[#ef4444] ring-offset-2' : 'border border-[#f3f4f6]'}
         overflow-hidden
@@ -94,13 +94,13 @@ export default function RoomCard({ i, isRoomLive, live = null, joinButton = true
 
       <div className="absolute inset-0 top-0 w-full h-full pointer-events-none z-1">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 320">
-          <path fill="#E6F7F6" fill-opacity="1" d={SVG_ROOMCARD_WAVE}></path>
+          <path fill="#E6F7F6" fillOpacity="1" d={SVG_ROOMCARD_WAVE}></path>
         </svg>
       </div>
 
       {/* === راست بالا: نشانگر زنده === */}
       {isRoomLive && (
-        <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 bg-[#ef4444]/10 backdrop-blur-sm px-2 py-0.5 rounded-full z-10">
+        <div className="absolute top-2 right-2 flex items-center gap-1.5 bg-[#ef4444]/10 backdrop-blur-sm px-2 py-0.5 rounded-full z-10">
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#f87171] opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-[#ef4444]"></span>
@@ -111,7 +111,7 @@ export default function RoomCard({ i, isRoomLive, live = null, joinButton = true
 
       {/* === چپ بالا: تعداد حضار با آیکون (فقط در حالت زنده) === */}
       {isRoomLive && live && live.countPartis > 0 && (
-        <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 bg-[#f5f5f5] backdrop-blur-sm px-2 py-0.5 rounded-full z-10">
+        <div className="absolute top-2 left-2 flex items-center gap-1.5 bg-[#f5f5f5] backdrop-blur-sm px-2 py-0.5 rounded-full z-10">
           <span className="text-[#374151] text-xs font-semibold tabular-nums">
             {live.countPartis} نفر
           </span>
@@ -119,27 +119,28 @@ export default function RoomCard({ i, isRoomLive, live = null, joinButton = true
         </div>
       )}
 
-      {/* بقیه محتوای کارت */}
-      <div className="flex-1 flex flex-col z-4">
+      {/* محتوای اصلی کارت */}
+      <div className="flex-1 flex flex-col justify-between z-4">
+        {/* بالای کارت: آیکون، عنوان، موسسه، و عنوان جلسه زنده */}
         <div className="text-center">
-          {/* ایموجی / آواتار با افکت hover */}
+          {/* ایموجی / آواتار با افکت hover - ارتفاع فشرده‌تر */}
           <div 
-            className={`w-11 h-11 sm:w-12 sm:h-12 mx-auto mb-1.5 text-[#30d4cc] flex items-center justify-center transition-all duration-500 ease-out ${
-              isHovered ? 'transform -translate-y-1 scale-110 rotate-6' : 'transform translate-y-0 scale-100 rotate-0'
+            className={`w-9 h-9 sm:w-10 sm:h-10 mx-auto mb-1 text-[#30d4cc] flex items-center justify-center transition-all duration-500 ease-out ${
+              isHovered ? 'transform -translate-y-0.5 scale-110 rotate-6' : 'transform translate-y-0 scale-100 rotate-0'
             }`}
           >
             {i.avatar ? (
               <EmojiIcon 
                 name={i.avatar} 
-                className={`text-xl sm:text-2xl transition-all duration-500 ease-out ${
-                  isHovered ? 'scale-120' : 'scale-100'
+                className={`text-lg sm:text-xl transition-all duration-500 ease-out ${
+                  isHovered ? 'scale-110' : 'scale-100'
                 }`} 
               />
             ) : (
               <FontAwesomeIcon 
                 icon={faUsers} 
-                className={`text-2xl sm:text-3xl transition-all duration-500 ease-out ${
-                  isHovered ? 'scale-120' : 'scale-100'
+                className={`text-xl sm:text-2xl transition-all duration-500 ease-out ${
+                  isHovered ? 'scale-110' : 'scale-100'
                 }`} 
               />
             )}
@@ -182,7 +183,7 @@ export default function RoomCard({ i, isRoomLive, live = null, joinButton = true
 
           {/* نام موسسه */}
           {i.owner && i.owner.fullname && (
-            <p className="text-[#4b5563] text-xs font-semibold mt-1 flex items-center justify-center gap-1">
+            <p className="text-[#4b5563] text-xs font-semibold mt-0.5 flex items-center justify-center gap-1">
               <a href={`/a/@${i.owner.username}`}
                 className="relative text-[#6b7280] hover:text-[#59DDD6] text-[11px] transition-colors duration-300 group whitespace-nowrap truncate max-w-full"
               >
@@ -197,30 +198,35 @@ export default function RoomCard({ i, isRoomLive, live = null, joinButton = true
 
           {/* نمایش آخرین جلسه یا موضوع جلسه */}
           {isRoomLive && i.latestTitle && (
-            <p className="text-[#6b7280] text-xs mt-1 truncate">
+            <p className="text-[#6b7280] text-xs mt-0.5 truncate">
               موضوع جلسه: {i.latestTitle}
             </p>
           )}
+        </div>
 
-          {/* بخش جلسه بعدی */}
-          {nextSessionInfo && i.nextMeet && (
-            <div className="mt-2 p-2 bg-[#f0fdf4] rounded-xl text-xs border border-[#bbf7d0]/60 text-right">
+        {/* بخش برنامه آتی - فیکس شده در پایین، دقیقاً بالای ورود به جلسه با فونت بزرگتر و خواناتر */}
+        {nextSessionInfo && i.nextMeet && (
+          <div className="mt-auto pt-2 w-full">
+            <div className="p-2 sm:p-2.5 bg-[#f0fdf4] rounded-xl border border-[#bbf7d0] text-right shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
               <div className="flex items-center justify-between text-[#166534] font-bold mb-0.5">
-                <span className="text-[11px]">برنامه آتی:</span>
+                <span className="text-xs sm:text-[13px] font-black flex items-center gap-1.5">
+                  <span className="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
+                  برنامه آتی:
+                </span>
               </div>
-              <p className="text-[#15803d] font-bold text-xs">{nextSessionInfo}</p>
+              <p className="text-[#15803d] font-bold text-xs sm:text-sm leading-relaxed">{nextSessionInfo}</p>
               {teacherNames && (
-                <p className="text-[#4b5563] text-[11px] mt-0.5 truncate" title={teacherNames}>
-                  با: {teacherNames}
+                <p className="text-[#374151] text-xs sm:text-[13px] font-semibold mt-0.5 truncate" title={teacherNames}>
+                  استاد / ارائه: <span className="text-[#1f2937] font-bold">{teacherNames}</span>
                 </p>
               )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* دکمه‌ها */}
-      <div className="mt-auto pt-2.5 w-full z-4">
+      <div className="mt-auto pt-2 w-full z-4">
         <div className="flex items-center justify-center gap-2 w-full">
           {copyButton && (
             <button
@@ -259,67 +265,62 @@ export default function RoomCard({ i, isRoomLive, live = null, joinButton = true
 
 export const RoomCardLoading = () => {
   return (
-    <div className="relative rounded-2xl p-5 flex flex-col h-full bg-white shadow-md border border-[#f3f4f6] overflow-hidden">
+    <div className="relative rounded-2xl p-3 sm:p-3.5 flex flex-col h-full bg-white shadow-md border border-[#f3f4f6] overflow-hidden">
       {/* راست بالا: placeholder نشانگر زنده */}
-      <div className="absolute top-3 right-3">
-        <div className="w-12 h-6 bg-gray-200 rounded-full shimmer"></div>
+      <div className="absolute top-2 right-2">
+        <div className="w-10 h-5 bg-gray-200 rounded-full shimmer"></div>
       </div>
 
       {/* چپ بالا: placeholder تعداد حضار */}
-      <div className="absolute top-3 left-3">
-        <div className="w-16 h-6 bg-gray-200 rounded-full shimmer"></div>
+      <div className="absolute top-2 left-2">
+        <div className="w-12 h-5 bg-gray-200 rounded-full shimmer"></div>
       </div>
 
       {/* بقیه محتوای کارت */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col justify-between">
         <div className="text-center">
           {/* آیکون */}
-          <div className="w-14 h-14 mx-auto mb-3">
+          <div className="w-9 h-9 sm:w-10 sm:h-10 mx-auto mb-1.5">
             <div className="w-full h-full rounded-full bg-gray-200 shimmer"></div>
           </div>
 
           {/* عنوان */}
-          <div className="h-7 w-3/4 mx-auto mb-1">
+          <div className="h-5 w-3/4 mx-auto mb-1">
             <div className="w-full h-full bg-gray-200 rounded-lg shimmer"></div>
           </div>
 
           {/* نام موسسه */}
-          <div className="h-5 w-1/2 mx-auto mt-1">
+          <div className="h-4 w-1/2 mx-auto mt-0.5">
             <div className="w-full h-full bg-gray-200 rounded-md shimmer"></div>
           </div>
+        </div>
 
-          {/* آخرین جلسه */}
-          <div className="h-4 w-2/3 mx-auto mt-3">
-            <div className="w-full h-full bg-gray-200 rounded-md shimmer"></div>
-          </div>
-
-          {/* بخش جلسه بعدی */}
-          <div className="mt-3">
-            <div className="p-2 bg-gray-100 rounded-lg">
-              <div className="h-4 w-1/3 mx-auto mb-2">
-                <div className="w-full h-full bg-gray-200 rounded shimmer"></div>
-              </div>
-              <div className="h-4 w-2/3 mx-auto mb-1">
-                <div className="w-full h-full bg-gray-200 rounded shimmer"></div>
-              </div>
-              <div className="h-3 w-1/2 mx-auto">
-                <div className="w-full h-full bg-gray-200 rounded shimmer"></div>
-              </div>
+        {/* بخش جلسه بعدی */}
+        <div className="mt-auto pt-2">
+          <div className="p-2 bg-gray-100 rounded-xl">
+            <div className="h-4 w-1/3 mx-auto mb-1.5">
+              <div className="w-full h-full bg-gray-200 rounded shimmer"></div>
+            </div>
+            <div className="h-4 w-2/3 mx-auto mb-1">
+              <div className="w-full h-full bg-gray-200 rounded shimmer"></div>
+            </div>
+            <div className="h-3 w-1/2 mx-auto">
+              <div className="w-full h-full bg-gray-200 rounded shimmer"></div>
             </div>
           </div>
         </div>
       </div>
 
       {/* دکمه‌ها */}
-      <div className="flex flex-col sm:flex-row items-center w-full justify-center mt-6 gap-3">
-        <div className="flex flex-row items-center justify-center gap-3 w-full">
+      <div className="mt-auto pt-2 w-full">
+        <div className="flex flex-row items-center justify-center gap-2 w-full">
           {/* دکمه کپی لینک */}
-          <div className="flex-1 h-10">
+          <div className="flex-1 h-8">
             <div className="w-full h-full bg-gray-200 rounded-xl shimmer"></div>
           </div>
 
           {/* دکمه ورود */}
-          <div className="flex-1 h-10">
+          <div className="flex-1 h-8">
             <div className="w-full h-full bg-gray-300 rounded-xl shimmer"></div>
           </div>
         </div>

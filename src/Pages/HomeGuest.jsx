@@ -251,7 +251,7 @@ const HomeGuest = () => {
                     const fullRoom = rooms.find(room => room.roomID === item.roomID);
                     if (fullRoom) {
                       return (
-                        <div key={item.roomID} className="transform transition-all duration-300 hover:-translate-y-1">
+                        <div key={item.roomID} className="h-full flex flex-col transform transition-all duration-300 hover:-translate-y-1">
                           <RoomCard i={fullRoom} isRoomLive={true} live={item} />
                         </div>
                       );
@@ -337,7 +337,7 @@ const HomeGuest = () => {
                       const isLive = roomLive.some(live => live.roomID === item.roomID);
                       const live = roomLive.find(room => room.roomID === item.roomID);
                       return (
-                        <div key={item.roomID} className="transform transition-all duration-300 hover:-translate-y-1">
+                        <div key={item.roomID} className="h-full flex flex-col transform transition-all duration-300 hover:-translate-y-1">
                           <RoomCard i={item} isRoomLive={isLive} live={live} />
                         </div>
                       );
