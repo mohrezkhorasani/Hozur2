@@ -980,23 +980,191 @@ namespace Application.Services
             }
             if (room == null) return list;
 
-            var result = await GetMeetingsAsync(
-                user: user,
-                page: 1,
-                count: 100,
-                roomFriendlyId: room.FriendlyID,
-                includeIgnored: false);
-
-            if (result != null && result.Items != null)
+            // 1. استعلام مستقیم رکوردهای ضبط شده از سرور بیگ‌بلو‌باتن
+            var bbbRecordings = new List<RecordingInfo>();
+            if (_bbb != null)
             {
-                var recordedItems = result.Items
-                    .Where(m => m.HasRecording || m.IsRecorded || !string.IsNullOrWhiteSpace(m.VideoUrl) || !string.IsNullOrWhiteSpace(m.RecordingPlaybackUrl))
-                    .ToList();
+                if (!string.IsNullOrWhiteSpace(room.BBB_MeetID))
+                {
+                    try
+                    {
+                        var recs = await _bbb.GetRecordingsAsync(meetingId: room.BBB_MeetID);
+                        if (recs != null && recs.Count > 0)
+                            bbbRecordings.AddRange(recs);
+                    }
+                    catch (Exception ex)
+                    {
+                        Statics.Log("GetRoomRecordingsAsync BBB Error (BBB_MeetID)", ex.Message);
+                    }
+                }
 
-                return recordedItems.Count > 0 ? recordedItems : result.Items;
+                if (!string.IsNullOrWhiteSpace(room.FriendlyID))
+                {
+                    try
+                    {
+                        var recs = await _bbb.GetRecordingsAsync(meetingId: room.FriendlyID);
+                        if (recs != null && recs.Count > 0)
+                        {
+                            foreach (var r in recs)
+                            {
+                                if (!bbbRecordings.Any(existing => existing.RecordID == r.RecordID))
+                                    bbbRecordings.Add(r);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Statics.Log("GetRoomRecordingsAsync BBB Error (FriendlyID)", ex.Message);
+                    }
+                }
             }
 
-            return list;
+            // 2. واکشی اطلاعات نشست‌های این اتاق از جدول MeetingTBL
+            var roomMeetings = await _db.MeetingTBLs
+                .Include(m => m.Teacher)
+                .Include(m => m.RoomTBLPlanTBL)
+                .Where(m => (m.RoomFriendlyID == room.FriendlyID || (m.RoomTBL != null && m.RoomTBL.FriendlyID == room.FriendlyID)) &&
+                            (int)m.Type != -99)
+                .ToListAsync();
+
+            var meetingsByMeetId = roomMeetings
+                .Where(m => !string.IsNullOrEmpty(m.MeetID))
+                .GroupBy(m => m.MeetID)
+                .ToDictionary(g => g.Key, g => g.First());
+
+            var matchedMeetingIds = new HashSet<long>();
+
+            // 3. تطبیق هر ضبط BBB بر اساس recordID == meeting.MeetID
+            foreach (var rec in bbbRecordings)
+            {
+                MeetingTBL? matchedMeeting = null;
+                if (!string.IsNullOrEmpty(rec.RecordID) && meetingsByMeetId.TryGetValue(rec.RecordID, out var mFound))
+                {
+                    matchedMeeting = mFound;
+                    matchedMeetingIds.Add(mFound.ID);
+                }
+
+                // عنوان نشست: اولویت با عنوان جدول میت، سپس نام جلسه در BBB یا متادیتا
+                string title = "";
+                if (matchedMeeting != null && !string.IsNullOrWhiteSpace(matchedMeeting.Title))
+                    title = matchedMeeting.Title;
+                else if (rec.Metadata != null && rec.Metadata.TryGetValue("meetingName", out var mn) && !string.IsNullOrWhiteSpace(mn))
+                    title = mn;
+                else if (rec.Metadata != null && rec.Metadata.TryGetValue("title", out var mt) && !string.IsNullOrWhiteSpace(mt))
+                    title = mt;
+                else if (!string.IsNullOrWhiteSpace(rec.Name))
+                    title = rec.Name;
+                else
+                    title = room.Title;
+
+                DateTime startDate = matchedMeeting?.DateInsert ?? rec.StartTime;
+                DateTime? endDate = matchedMeeting?.EndDate ?? (rec.EndTime > DateTime.MinValue ? rec.EndTime : null);
+
+                var (tehranDate, startTimeStr, _) = PlanTimeHelper.ToTehranJalaliStrings(startDate);
+                string endTimeStr = "-";
+                if (endDate.HasValue && endDate.Value > DateTime.MinValue)
+                {
+                    var (_, etStr, _) = PlanTimeHelper.ToTehranJalaliStrings(endDate.Value);
+                    endTimeStr = etStr;
+                }
+                else if (rec.LengthMinutes > 0)
+                {
+                    var calculatedEnd = startDate.AddMinutes(rec.LengthMinutes);
+                    var (_, etStr, _) = PlanTimeHelper.ToTehranJalaliStrings(calculatedEnd);
+                    endTimeStr = etStr;
+                }
+
+                // نام استاد
+                string teacherName = "";
+                if (matchedMeeting?.Teacher != null)
+                {
+                    teacherName = matchedMeeting.Teacher.GetName();
+                }
+                else if (matchedMeeting?.RoomTBLPlanTBL != null && !string.IsNullOrWhiteSpace(matchedMeeting.RoomTBLPlanTBL.Teachers))
+                {
+                    teacherName = matchedMeeting.RoomTBLPlanTBL.Teachers;
+                }
+                else if (rec.Metadata != null && rec.Metadata.TryGetValue("teachers", out var tJson) && !string.IsNullOrWhiteSpace(tJson))
+                {
+                    try
+                    {
+                        var tList = System.Text.Json.JsonSerializer.Deserialize<List<Dictionary<string, string>>>(tJson);
+                        if (tList != null && tList.Count > 0)
+                        {
+                            teacherName = string.Join("، ", tList.Select(x => x.GetValueOrDefault("name", "")).Where(s => !string.IsNullOrWhiteSpace(s)));
+                        }
+                    }
+                    catch
+                    {
+                        teacherName = tJson;
+                    }
+                }
+
+                if (string.IsNullOrWhiteSpace(teacherName))
+                    teacherName = "تعیین نشده";
+
+                int durationMinutes = rec.LengthMinutes;
+                if (durationMinutes <= 0 && endDate.HasValue && endDate.Value > startDate)
+                {
+                    durationMinutes = (int)Math.Max(1, (endDate.Value - startDate).TotalMinutes);
+                }
+
+                list.Add(new AdminMeetingItemDTO
+                {
+                    Id = matchedMeeting?.ID ?? (long.TryParse(rec.RecordID.Split('-').LastOrDefault(), out var genId) ? genId : 0),
+                    MeetID = rec.RecordID,
+                    Title = title,
+                    RoomFriendlyID = room.FriendlyID,
+                    RoomTitle = room.Title,
+                    Teacher = new AdminMeetingTeacherDTO { Name = teacherName },
+                    DateInsert = startDate,
+                    EndDate = endDate,
+                    JalaliDate = tehranDate,
+                    DurationMinutes = durationMinutes,
+                    ParticipantsCount = rec.Participants,
+                    IsRecorded = true,
+                    HasRecording = true,
+                    RecordingPlaybackUrl = rec.PlaybackUrl,
+                    VideoUrl = rec.PlaybackUrl,
+                    RecordingRecordId = rec.RecordID,
+                    Status = matchedMeeting != null ? (int)matchedMeeting.Status : 100,
+                    Type = matchedMeeting != null ? (int)matchedMeeting.Type : 1
+                });
+            }
+
+            // 4. همچنین اضافه کردن نشست‌هایی در دیتابیس که فلگ IsRecorded دارند ولی در لیست BBB نبوده‌اند
+            foreach (var m in roomMeetings.Where(m => m.IsRecorded && !matchedMeetingIds.Contains(m.ID)))
+            {
+                var (tehranDate, _, _) = PlanTimeHelper.ToTehranJalaliStrings(m.DateInsert);
+                int dur = 0;
+                if (m.EndDate.HasValue && m.EndDate.Value > m.DateInsert)
+                {
+                    dur = (int)Math.Max(1, (m.EndDate.Value - m.DateInsert).TotalMinutes);
+                }
+
+                string mTeacherName = m.Teacher?.GetName() ?? m.RoomTBLPlanTBL?.Teachers ?? "تعیین نشده";
+
+                list.Add(new AdminMeetingItemDTO
+                {
+                    Id = m.ID,
+                    MeetID = m.MeetID,
+                    Title = !string.IsNullOrWhiteSpace(m.Title) ? m.Title : room.Title,
+                    RoomFriendlyID = room.FriendlyID,
+                    RoomTitle = room.Title,
+                    Teacher = new AdminMeetingTeacherDTO { Name = mTeacherName },
+                    DateInsert = m.DateInsert,
+                    EndDate = m.EndDate,
+                    JalaliDate = tehranDate,
+                    DurationMinutes = dur,
+                    IsRecorded = true,
+                    HasRecording = true,
+                    Status = (int)m.Status,
+                    Type = (int)m.Type
+                });
+            }
+
+            // فقط نشست‌های ضبط‌شده و مرتب‌شده به صورت نزولی بر اساس تاریخ
+            return list.OrderByDescending(x => x.DateInsert).ToList();
         }
     }
 }
