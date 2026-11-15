@@ -2000,16 +2000,13 @@ const MeetingManagement = () => {
                                             title="انتخاب همه جلسات این صفحه"
                                         />
                                     </th>
-                                    <th className="px-4 py-3.5 text-right text-xs font-black text-gray-600">شناسه</th>
+                                    <th className="px-4 py-3.5 text-right text-xs font-black text-gray-600">شناسه و شروع‌کننده</th>
                                     <th className="px-4 py-3.5 text-right text-xs font-black text-gray-600">عنوان جلسه و استاد</th>
-                                    <th className="px-4 py-3.5 text-right text-xs font-black text-gray-600">اتاق</th>
+                                    <th className="px-4 py-3.5 text-right text-xs font-black text-gray-600">اتاق و مالک</th>
                                     <th className="px-4 py-3.5 text-center text-xs font-black text-gray-600 min-w-[190px]">
                                         نوع جلسه (قابل ویرایش)
                                     </th>
                                     <th className="px-4 py-3.5 text-right text-xs font-black text-gray-600">تاریخ ثبت</th>
-                                    <th className="px-4 py-3.5 text-center text-xs font-black text-gray-600 min-w-[280px]">
-                                        رسانه‌ها (صوت / ویدیو / شرح)
-                                    </th>
                                     <th className="px-4 py-3.5 text-center text-xs font-black text-gray-600">عملیات جلسه</th>
                                 </tr>
                             </thead>
@@ -2032,7 +2029,7 @@ const MeetingManagement = () => {
                                                 />
                                             </td>
 
-                                            {/* شناسه و مالک */}
+                                            {/* شناسه و شروع‌کننده */}
                                             <td className="px-4 py-4 text-xs">
                                                 <div className="flex flex-col gap-1.5 items-start">
                                                     <span className="font-mono font-black text-gray-700 bg-gray-100 px-1.5 py-0.5 rounded text-[11px]">
@@ -2052,32 +2049,20 @@ const MeetingManagement = () => {
                                                         </button>
                                                     )}
 
-                                                    {/* مالک اتاق با قابلیت کلیک جهت فیلتر */}
-                                                    {item.owner && (item.owner.name || item.owner.fullname || item.owner.id) && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleFilterByOwner(item.owner.id, item.owner.fullname || item.owner.name)}
-                                                            className="flex items-center gap-1 text-[11px] font-bold text-[#92400e] bg-[#fef3c7] hover:bg-[#fde68a] border border-[#fcd34d] px-2 py-0.5 rounded-lg transition"
-                                                            title={`کلیک برای فیلتر جلسات بر اساس مالک (${item.owner.fullname || item.owner.name || item.owner.id})`}
-                                                        >
-                                                            <FaUser size={10} className="text-[#d97706] shrink-0" />
-                                                            <span className="truncate max-w-[110px]">
-                                                                {item.owner.fullname || item.owner.name || `مالک #${item.owner.id}`}
-                                                            </span>
-                                                        </button>
-                                                    )}
-
-                                                    {/* عنوان شروع کننده */}
-                                                    {item.creator && (item.creator.name || item.creator.fullname || item.creator.username) && (
+                                                    {/* شروع‌کننده جلسه (IDCreator) به جای اونر */}
+                                                    {(item.creator || item.idCreator || item.IDCreator) ? (
                                                         <div
                                                             className="flex items-center gap-1 text-[11px] font-bold text-[#065f46] bg-[#d1fae5] border border-[#a7f3d0] px-2 py-0.5 rounded-lg transition"
-                                                            title={`شروع‌کننده: ${item.creator.name || item.creator.fullname || item.creator.username}`}
+                                                            title={`شروع‌کننده: ${item.creator?.name || item.creator?.fullname || item.creator?.username || (item.idCreator || item.IDCreator ? `کاربر #${item.idCreator || item.IDCreator}` : 'نامشخص')}`}
                                                         >
                                                             <FaUserCheck size={10} className="text-[#059669] shrink-0" />
-                                                            <span className="truncate max-w-[110px]">
-                                                                {item.creator.name || item.creator.fullname || item.creator.username}
+                                                            <span className="text-[10px] text-[#047857] font-normal">شروع‌کننده:</span>
+                                                            <span className="truncate max-w-[105px]">
+                                                                {item.creator?.name || item.creator?.fullname || item.creator?.username || (item.idCreator || item.IDCreator ? `کاربر #${item.idCreator || item.IDCreator}` : 'نامشخص')}
                                                             </span>
                                                         </div>
+                                                    ) : (
+                                                        <span className="text-[10px] text-gray-400 font-medium">شروع‌کننده: نامشخص</span>
                                                     )}
                                                 </div>
                                             </td>
@@ -2102,16 +2087,31 @@ const MeetingManagement = () => {
                                                 </div>
                                             </td>
 
-                                            {/* اتاق */}
+                                            {/* اتاق و مالک */}
                                             <td className="px-4 py-4">
-                                                <div className="flex flex-col">
+                                                <div className="flex flex-col gap-1 items-start">
                                                     <span className="font-bold text-[#1f2937] text-xs" title="عنوان روم">
                                                         {item.roomTitle || item.room?.title || 'بدون عنوان اتاق'}
                                                     </span>
                                                     {(item.roomFriendlyID || item.room?.friendlyID) && (
-                                                        <span className="text-[11px] font-mono text-[#c2410c] bg-[#ffedd5] border border-[#fed7aa] px-1.5 py-0.5 rounded w-max mt-0.5">
+                                                        <span className="text-[11px] font-mono text-[#c2410c] bg-[#ffedd5] border border-[#fed7aa] px-1.5 py-0.5 rounded w-max">
                                                             {item.roomFriendlyID || item.room?.friendlyID}
                                                         </span>
+                                                    )}
+                                                    {/* مالک اتاق در سلول اتاق */}
+                                                    {item.owner && (item.owner.name || item.owner.fullname || item.owner.id) && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleFilterByOwner(item.owner.id, item.owner.fullname || item.owner.name)}
+                                                            className="flex items-center gap-1 text-[11px] font-bold text-[#92400e] bg-[#fef3c7] hover:bg-[#fde68a] border border-[#fcd34d] px-2 py-0.5 rounded-lg transition mt-0.5"
+                                                            title={`کلیک برای فیلتر جلسات بر اساس مالک (${item.owner.fullname || item.owner.name || item.owner.id})`}
+                                                        >
+                                                            <FaUser size={10} className="text-[#d97706] shrink-0" />
+                                                            <span className="text-[10px] text-[#b45309] font-normal">مالک:</span>
+                                                            <span className="truncate max-w-[120px]">
+                                                                {item.owner.fullname || item.owner.name || `مالک #${item.owner.id}`}
+                                                            </span>
+                                                        </button>
                                                     )}
                                                 </div>
                                             </td>
@@ -2179,173 +2179,52 @@ const MeetingManagement = () => {
                                                 )}
                                             </td>
 
-                                            {/* عملیات رسانه‌ها (صوت، ویدیو، شرح جلسه، رکورد کامل) */}
-                                            <td className="px-4 py-4">
-                                                <div className="grid grid-cols-2 gap-2 min-w-[340px] max-w-[420px]">
-                                                    {/* صوت */}
-                                                    <div className="flex items-center gap-1.5 w-full justify-between bg-blue-50/50 p-2 rounded-xl border border-blue-100">
-                                                        <div className="flex items-center gap-1.5 flex-wrap">
-                                                            <FaVolumeUp className={item.voiceUrl ? "text-blue-600" : "text-gray-400"} size={13} />
-                                                            <span className="text-xs font-bold text-gray-700">صوت:</span>
-                                                            {item.voiceUrl ? (
-                                                                <>
-                                                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${item.voiceType === 103 ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}`}>
-                                                                        {item.voiceType === 103 ? 'فقط استریم' : 'دانلود'}
-                                                                    </span>
-                                                                    <a
-                                                                        href={voiceUrl}
-                                                                        target="_blank"
-                                                                        rel="noopener noreferrer"
-                                                                        download={item.voiceType !== 103}
-                                                                        className="text-[11px] text-blue-700 font-extrabold hover:underline flex items-center gap-0.5"
-                                                                        title="پخش یا دانلود صوت"
-                                                                    >
-                                                                        <FaExternalLinkAlt size={9} />
-                                                                    </a>
-                                                                </>
-                                                            ) : (
-                                                                <span className="text-[11px] text-gray-400">ندارد</span>
-                                                            )}
-                                                        </div>
-                                                        <div className="flex items-center gap-1">
-                                                            <button
-                                                                onClick={() => openSoundModal(item)}
-                                                                className="px-2 py-1 text-[11px] font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition shadow-xs flex items-center gap-1"
-                                                                title="مدیریت و ثبت فایل صوتی"
-                                                            >
-                                                                {item.voiceUrl ? <FaEdit size={10} /> : <FaPlus size={9} />}
-                                                                <span>{item.voiceUrl ? 'ویرایش' : 'ثبت'}</span>
-                                                            </button>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* ویدیو */}
-                                                    <div className="flex items-center gap-1.5 w-full justify-between bg-emerald-50/50 p-2 rounded-xl border border-emerald-100">
-                                                        <div className="flex items-center gap-1.5 flex-wrap">
-                                                            <FaVideo className={item.videoUrl ? "text-emerald-600" : "text-gray-400"} size={13} />
-                                                            <span className="text-xs font-bold text-gray-700">ویدیو:</span>
-                                                            {item.videoUrl ? (
-                                                                <>
-                                                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${item.videoType === 103 ? 'bg-purple-100 text-purple-800' : 'bg-emerald-100 text-emerald-800'}`}>
-                                                                        {item.videoType === 103 ? 'فقط استریم' : 'دانلود'}
-                                                                    </span>
-                                                                    <a
-                                                                        href={videoUrl}
-                                                                        target="_blank"
-                                                                        rel="noopener noreferrer"
-                                                                        download={item.videoType !== 103}
-                                                                        className="text-[11px] text-emerald-700 font-extrabold hover:underline flex items-center gap-0.5"
-                                                                        title="مشاهده یا دانلود فیلم"
-                                                                    >
-                                                                        <FaExternalLinkAlt size={9} />
-                                                                    </a>
-                                                                </>
-                                                            ) : (
-                                                                <span className="text-[11px] text-gray-400">ندارد</span>
-                                                            )}
-                                                        </div>
-                                                        <div className="flex items-center gap-1">
-                                                            <button
-                                                                onClick={() => openVideoModal(item)}
-                                                                className="px-2 py-1 text-[11px] font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition shadow-xs flex items-center gap-1"
-                                                                title="مدیریت و ثبت فیلم جلسه"
-                                                            >
-                                                                {item.videoUrl ? <FaEdit size={10} /> : <FaPlus size={9} />}
-                                                                <span>{item.videoUrl ? 'ویرایش' : 'ثبت'}</span>
-                                                            </button>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* گزارش و شرح جلسه */}
-                                                    <div className="flex items-center gap-1.5 w-full justify-between bg-amber-50/50 p-2 rounded-xl border border-amber-100">
-                                                        <div className="flex items-center gap-1.5 flex-wrap">
-                                                            <FaFileAlt className={item.reportUrl ? "text-amber-600" : "text-gray-400"} size={13} />
-                                                            <span className="text-xs font-bold text-gray-700">گزارش:</span>
-                                                            {item.reportUrl ? (
-                                                                <>
-                                                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${item.reportType === 102 ? 'bg-amber-100 text-amber-800' : 'bg-purple-100 text-purple-800'}`}>
-                                                                        {item.reportType === 102 ? 'دانلود' : 'وب'}
-                                                                    </span>
-                                                                    <a
-                                                                        href={reportUrl}
-                                                                        target="_blank"
-                                                                        rel="noopener noreferrer"
-                                                                        download={item.reportType === 102}
-                                                                        className="text-[11px] text-amber-800 font-extrabold hover:underline flex items-center gap-0.5"
-                                                                        title="مشاهده یا دانلود گزارش"
-                                                                    >
-                                                                        <FaExternalLinkAlt size={9} />
-                                                                    </a>
-                                                                </>
-                                                            ) : (
-                                                                <span className="text-[11px] text-gray-400">ندارد</span>
-                                                            )}
-                                                        </div>
-                                                        <div className="flex items-center gap-1">
-                                                            <button
-                                                                onClick={() => openReportModal(item)}
-                                                                className="px-2 py-1 text-[11px] font-bold rounded-lg bg-amber-600 hover:bg-amber-700 text-white transition shadow-xs flex items-center gap-1"
-                                                                title="مدیریت لینک گزارش جلسه"
-                                                            >
-                                                                {item.reportUrl ? <FaEdit size={10} /> : <FaPlus size={9} />}
-                                                                <span>{item.reportUrl ? 'ویرایش' : 'ثبت'}</span>
-                                                            </button>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* رکورد کامل (بیگ‌بلو‌باتن) */}
-                                                    <div className="flex items-center gap-1.5 w-full justify-between bg-rose-50/60 p-2 rounded-xl border border-rose-100">
-                                                        <div className="flex items-center gap-1.5 flex-wrap">
-                                                            <FaRecordVinyl className={item.hasRecording || item.recordingPlaybackUrl || item.isRecorded ? "text-rose-600 animate-pulse" : "text-gray-400"} size={13} />
-                                                            <span className="text-xs font-bold text-gray-700">رکورد:</span>
-                                                            {item.recordingPlaybackUrl ? (
-                                                                <>
-                                                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${item.recordingDownloadable ? 'bg-emerald-100 text-emerald-800' : 'bg-purple-100 text-purple-800'}`}>
-                                                                        {item.recordingDownloadable ? 'دانلود' : 'استریم'}
-                                                                    </span>
-                                                                    <a
-                                                                        href={item.recordingPlaybackUrl}
-                                                                        target="_blank"
-                                                                        rel="noopener noreferrer"
-                                                                        className="text-[11px] text-rose-700 font-extrabold hover:underline flex items-center gap-0.5"
-                                                                        title="تماشای آنلاین رکورد"
-                                                                    >
-                                                                        <FaExternalLinkAlt size={9} />
-                                                                    </a>
-                                                                </>
-                                                            ) : (item.hasRecording || item.isRecorded) ? (
-                                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#fee2e2] text-[#991b1b] border border-[#fca5a5] flex items-center gap-1">
-                                                                    <span className="w-1.5 h-1.5 rounded-full bg-[#ef4444] animate-pulse"></span>
-                                                                    دارد
-                                                                </span>
-                                                            ) : (
-                                                                <span className="text-[11px] text-gray-400">ندارد</span>
-                                                            )}
-                                                        </div>
-                                                        <div className="flex items-center gap-1">
-                                                            <button
-                                                                onClick={() => openRecordModal(item)}
-                                                                className="px-2 py-1 text-[11px] font-bold rounded-lg bg-rose-600 hover:bg-rose-700 text-white transition shadow-xs flex items-center gap-1"
-                                                                title="مشاهده رکورد کامل و تنظیمات دسترسی"
-                                                            >
-                                                                <FaEye size={10} />
-                                                                <span>رکورد</span>
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </td>
-
                                             {/* عملیات جلسه */}
                                             <td className="px-4 py-4 text-center">
-                                                <div className="flex items-center justify-center gap-1.5">
-                                                    <button
-                                                        onClick={() => openMediaModal(item, 'voice')}
-                                                        className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-xl transition"
-                                                        title="مدیریت تمام رسانه‌ها (صوت، فیلم، گزارش)"
-                                                    >
-                                                        <FaCloudUploadAlt size={17} />
-                                                    </button>
+                                                <div className="flex items-center justify-center gap-2">
+                                                    {/* دکمه مدیریت تمام رسانه‌ها همراه با نقطه‌های رنگی بالای دکمه */}
+                                                    <div className="relative inline-flex flex-col items-center">
+                                                        {/* نقاط نشانگر وضعیت رسانه‌ها: صوت (آبی)، ویدیو (سبز)، گزارش (کهربایی)، رکورد (قرمز) */}
+                                                        <div className="flex items-center justify-center gap-1 mb-1 min-h-[9px]">
+                                                            {item.voiceUrl && (
+                                                                <span
+                                                                    className="w-2.5 h-2.5 rounded-full bg-blue-600 shadow-xs cursor-pointer hover:scale-125 transition-transform"
+                                                                    title={`صوت جلسه موجود است (${item.voiceType === 103 ? 'فقط استریم' : 'دانلود'}) - کلیک برای مشاهده`}
+                                                                    onClick={() => openSoundModal(item)}
+                                                                />
+                                                            )}
+                                                            {item.videoUrl && (
+                                                                <span
+                                                                    className="w-2.5 h-2.5 rounded-full bg-emerald-600 shadow-xs cursor-pointer hover:scale-125 transition-transform"
+                                                                    title={`فیلم جلسه موجود است (${item.videoType === 103 ? 'فقط استریم' : 'دانلود'}) - کلیک برای مشاهده`}
+                                                                    onClick={() => openVideoModal(item)}
+                                                                />
+                                                            )}
+                                                            {item.reportUrl && (
+                                                                <span
+                                                                    className="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-xs cursor-pointer hover:scale-125 transition-transform"
+                                                                    title={`گزارش جلسه موجود است (${item.reportType === 102 ? 'دانلود' : 'وب'}) - کلیک برای مشاهده`}
+                                                                    onClick={() => openReportModal(item)}
+                                                                />
+                                                            )}
+                                                            {(item.recordingPlaybackUrl || item.hasRecording || item.isRecorded) && (
+                                                                <span
+                                                                    className="w-2.5 h-2.5 rounded-full bg-rose-600 shadow-xs animate-pulse cursor-pointer hover:scale-125 transition-transform"
+                                                                    title="رکورد جلسه (بیگ‌بلو‌باتن) موجود است - کلیک برای مشاهده"
+                                                                    onClick={() => openRecordModal(item)}
+                                                                />
+                                                            )}
+                                                        </div>
+
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => openMediaModal(item, 'voice')}
+                                                            className="p-2 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-xl transition border border-transparent hover:border-indigo-100 cursor-pointer shadow-2xs"
+                                                            title="مدیریت تمام رسانه‌ها (صوت، فیلم، گزارش، رکورد)"
+                                                        >
+                                                            <FaCloudUploadAlt size={18} />
+                                                        </button>
+                                                    </div>
 
                                                     {/* دکمه لیست حضار با نشانگر و هاور دقیق */}
                                                     <button
@@ -2491,12 +2370,12 @@ const MeetingManagement = () => {
                                                 </button>
                                             </div>
                                         )}
-                                        {item.creator && (item.creator.name || item.creator.fullname || item.creator.username) && (
+                                        {(item.creator || item.idCreator || item.IDCreator) && (
                                             <div className="flex items-center justify-between">
                                                 <span className="text-[#9ca3af]">شروع‌کننده:</span>
                                                 <span className="font-bold text-[#065f46] flex items-center gap-1">
                                                     <FaUserCheck size={10} className="text-[#059669]" />
-                                                    <span>{item.creator.name || item.creator.fullname || item.creator.username}</span>
+                                                    <span>{item.creator?.name || item.creator?.fullname || item.creator?.username || (item.idCreator || item.IDCreator ? `کاربر #${item.idCreator || item.IDCreator}` : 'نامشخص')}</span>
                                                 </span>
                                             </div>
                                         )}
@@ -2524,47 +2403,31 @@ const MeetingManagement = () => {
                                             </div>
                                         </div>
                                     </div>
-
-                                    {/* Media Status Buttons */}
-                                    <div className="grid grid-cols-3 gap-2 mb-4">
-                                        <button
-                                            type="button"
-                                            onClick={() => openSoundModal(item)}
-                                            className={`p-2 rounded-xl text-center border text-xs font-bold transition hover:opacity-90 ${item.voiceUrl ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-gray-50 text-gray-400 border-gray-200'}`}
-                                            title="مدیریت صوت"
-                                        >
-                                            <FaVolumeUp className="mx-auto mb-1" />
-                                            <span className="block truncate">{item.voiceUrl ? (item.voiceType === 103 ? 'صوت (استریم)' : 'صوت (دانلود)') : 'ثبت صوت'}</span>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => openVideoModal(item)}
-                                            className={`p-2 rounded-xl text-center border text-xs font-bold transition hover:opacity-90 ${item.videoUrl ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-gray-50 text-gray-400 border-gray-200'}`}
-                                            title="مدیریت ویدیو"
-                                        >
-                                            <FaVideo className="mx-auto mb-1" />
-                                            <span className="block truncate">{item.videoUrl ? (item.videoType === 103 ? 'فیلم (استریم)' : 'فیلم (دانلود)') : 'ثبت فیلم'}</span>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => openReportModal(item)}
-                                            className={`p-2 rounded-xl text-center border text-xs font-bold transition hover:opacity-90 ${item.reportUrl ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-gray-50 text-gray-400 border-gray-200'}`}
-                                            title="مدیریت گزارش"
-                                        >
-                                            <FaFileAlt className="mx-auto mb-1" />
-                                            <span className="block truncate">{item.reportUrl ? (item.reportType === 102 ? 'گزارش (فایل)' : 'گزارش (لینک)') : 'ثبت گزارش'}</span>
-                                        </button>
-                                    </div>
                                 </div>
 
                                 {/* Operations Bottom */}
                                 <div className="border-t border-gray-100 pt-3 flex items-center justify-between gap-2">
                                     <button
                                         onClick={() => openMediaModal(item, 'voice')}
-                                        className="flex-1 py-2 bg-orange-50 hover:bg-orange-100 text-orange-700 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5"
+                                        className="flex-1 py-2 bg-orange-50 hover:bg-orange-100 text-orange-700 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2"
                                     >
                                         <FaCloudUploadAlt size={15} />
                                         <span>مدیریت فایل‌ها</span>
+                                        {/* نشانگرهای نقطه‌ای رسانه‌ها: صوت (آبی)، ویدیو (سبز)، گزارش (کهربایی)، رکورد (قرمز) */}
+                                        <div className="flex items-center gap-1 mr-1">
+                                            {item.voiceUrl && (
+                                                <span className="w-2 h-2 rounded-full bg-blue-600" title="صوت موجود است" />
+                                            )}
+                                            {item.videoUrl && (
+                                                <span className="w-2 h-2 rounded-full bg-emerald-600" title="فیلم موجود است" />
+                                            )}
+                                            {item.reportUrl && (
+                                                <span className="w-2 h-2 rounded-full bg-amber-500" title="گزارش موجود است" />
+                                            )}
+                                            {(item.recordingPlaybackUrl || item.hasRecording || item.isRecorded) && (
+                                                <span className="w-2 h-2 rounded-full bg-rose-600 animate-pulse" title="رکورد موجود است" />
+                                            )}
+                                        </div>
                                     </button>
                                     <button
                                         onClick={() => openAttendeesModal(item)}
@@ -2604,6 +2467,11 @@ const MeetingManagement = () => {
                                 <option value={50}>۵۰</option>
                                 <option value={100}>۱۰۰</option>
                                 <option value={200}>۲۰۰</option>
+                                <option value={500}>۵۰۰</option>
+                                <option value={1000}>۱,۰۰۰</option>
+                                <option value={2500}>۲,۵۰۰</option>
+                                <option value={5000}>۵,۰۰۰</option>
+                                <option value={10000}>۱۰,۰۰۰</option>
                             </select>
                         </div>
                     </div>
