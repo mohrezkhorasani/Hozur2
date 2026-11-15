@@ -50,6 +50,7 @@ namespace Application.Services
         Task<bool> BatchUpdateMeetingTypeAsync(UserTBL user, List<long> meetingIds, int newType);
         Task<int> RecalculateRoomSpentMinutesAsync(string roomFriendlyId);
         Task<List<UpcomingPlanItemDTO>> GetUpcomingPlansAsync(UserTBL user);
+        Task<List<AdminMeetingItemDTO>> GetRoomRecordingsAsync(string roomFriendlyId, UserTBL user);
         Task<MeetingRecordingsResponseDTO> GetMeetingRecordingsAsync(long meetingId, UserTBL user);
         Task<MeetingRecordingSettingsDTO> UpdateRecordingSettingsAsync(UpdateRecordingSettingsRequestDTO req, UserTBL user);
         Task<bool> PublishRecordingAsync(PublishRecordingRequestDTO req, UserTBL user);
@@ -957,6 +958,37 @@ namespace Application.Services
                     Time = tehranTime,
                     Type = (int)p.Type
                 });
+            }
+
+            return list;
+        }
+
+        public async Task<List<AdminMeetingItemDTO>> GetRoomRecordingsAsync(string roomFriendlyId, UserTBL user)
+        {
+            var list = new List<AdminMeetingItemDTO>();
+            if (string.IsNullOrWhiteSpace(roomFriendlyId) || user == null) return list;
+
+            var room = await _db.RoomTBLs.FirstOrDefaultAsync(r => r.FriendlyID == roomFriendlyId);
+            if (room == null && long.TryParse(roomFriendlyId, out var numId))
+            {
+                room = await _db.RoomTBLs.FirstOrDefaultAsync(r => r.ID == numId);
+            }
+            if (room == null) return list;
+
+            var result = await GetAdminMeetingsAsync(
+                user: user,
+                page: 1,
+                count: 100,
+                roomFriendlyId: room.FriendlyID,
+                includeIgnored: false);
+
+            if (result != null && result.Items != null)
+            {
+                var recordedItems = result.Items
+                    .Where(m => m.HasRecording || m.IsRecorded || !string.IsNullOrWhiteSpace(m.VideoUrl) || !string.IsNullOrWhiteSpace(m.RecordingPlaybackUrl))
+                    .ToList();
+
+                return recordedItems.Count > 0 ? recordedItems : result.Items;
             }
 
             return list;

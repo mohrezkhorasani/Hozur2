@@ -1165,7 +1165,25 @@ namespace CoreMe.Controllers
             });
         }
 
-        
+        [HttpGet("/admin/rooms/{roomId}/recordings")]
+        public async Task<IActionResult> GetRoomRecordings([FromRoute] string roomId)
+        {
+            var user = await GetAuthenticatedUserAsync();
+            if (user == null)
+            {
+                return Ok(new { message = "کاربر احراز هویت نشده است", status = 401 });
+            }
+
+            var service = new AdminMeetingService(_db, bbb);
+            var result = await service.GetRoomRecordingsAsync(roomId, user);
+            return Ok(new
+            {
+                message = "ok",
+                status = 200,
+                data = result
+            });
+        }
+
         [HttpGet("/admin/meetings/{meetingId}/recordings")]
         public async Task<IActionResult> GetMeetingRecordings([FromRoute] long meetingId)
         {
