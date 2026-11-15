@@ -975,7 +975,7 @@ namespace Application.Services
             }
             if (room == null) return list;
 
-            var result = await GetAdminMeetingsAsync(
+            var result = await GetMeetingsAsync(
                 user: user,
                 page: 1,
                 count: 100,
