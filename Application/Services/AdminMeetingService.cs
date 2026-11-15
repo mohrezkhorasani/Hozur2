@@ -311,7 +311,7 @@ namespace Application.Services
         {
             if (page < 1) page = 1;
             if (count < 1) count = 15;
-            if (count > 100) count = 100;
+            if (count > 10000) count = 10000;
 
             var query = BuildScopedQuery(
                 user, type, q, ownerId, teacherId, roomFriendlyId,
@@ -350,6 +350,7 @@ namespace Application.Services
                         Username = m.RoomTBL.OwnerTBL.Username,
                         Avatar = m.RoomTBL.OwnerTBL.AvatarPath
                     } : null,
+                    idCreator = m.IDCreator,
                     creator = m.Creator != null ? new AdminMeetingOwnerDTO
                     {
                         Id = m.Creator.ID,
@@ -432,6 +433,7 @@ namespace Application.Services
                     RoomTitle = m.roomTitle,
                     BbbMeetID = m.bbbMeetID,
                     Owner = m.owner,
+                    IDCreator = m.idCreator,
                     Creator = m.creator,
                     Teacher = m.teacher,
                     ParticipantsCount = m.participantsCount,
