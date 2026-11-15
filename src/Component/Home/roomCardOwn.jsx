@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { FaSignInAlt, FaCalendarPlus, FaPaintBrush, FaSpinner, FaEdit, FaUsers, FaSyncAlt } from 'react-icons/fa';
+import { FaSignInAlt, FaCalendarPlus, FaPaintBrush, FaSpinner, FaEdit, FaUsers, FaSyncAlt, FaVideo } from 'react-icons/fa';
 import { GetRoomCalendarActivity } from '../../api/GetRooms';
 import { RefreshRoomSpentMinutes, GetAdminMeetings } from '../../api/AdminAPI';
 import RoomCardMiniCalander from './RoomCardMiniCalander';
+import RoomRecordingsModal from './RoomRecordingsModal';
 import { EndMeet } from '../../api/StartNewMeeting';
 import { findNextPlan } from '../../Tools/tools';
 import NextMeetingBadge from '../NextMeetBadge';
@@ -45,6 +46,7 @@ const RoomCardOwn = ({
     const [currentCalendarYear, setCurrentCalendarYear] = useState(null);
     const [spentMinutes, setSpentMinutes] = useState(room.spentMinutes ?? room.SpentMinutes ?? 0);
     const [isRefreshingMinutes, setIsRefreshingMinutes] = useState(false);
+    const [isRecordingsModalOpen, setIsRecordingsModalOpen] = useState(false);
 
     useEffect(() => {
         setSpentMinutes(room.spentMinutes ?? room.SpentMinutes ?? 0);
@@ -65,24 +67,32 @@ const RoomCardOwn = ({
         } catch (err) {
             console.warn("RefreshRoomSpentMinutes endpoint 404/error, falling back to meetings calculation:", err);
             try {
-                const targetFid = room.friendlyID || room.friendlyId || room.roomID;
+                const targetFid = String(room.friendlyID || room.friendlyId || room.roomID || room.RoomID || '').trim().toLowerCase();
+                const targetNumId = String(room.id || room.ID || '').trim();
                 const mRes = await GetAdminMeetings(1, 100, "", null, null, null, { roomFriendlyId: targetFid });
                 if (mRes) {
                     const items = mRes.items || (Array.isArray(mRes.data) ? mRes.data : []);
-                    const totalMins = items
-                        .filter(m => m.type !== -99)
-                        .reduce((acc, m) => {
-                            let dur = m.durationMinutes;
-                            if (dur === undefined || dur === null) {
-                                if (m.dateInsert && m.endDate) {
-                                    const diff = new Date(m.endDate).getTime() - new Date(m.dateInsert).getTime();
-                                    dur = Math.max(0, Math.round(diff / 60000));
-                                } else {
-                                    dur = 0;
-                                }
+                    // Strictly filter meetings to this room only!
+                    const roomMeetings = items.filter(m => {
+                        if (m.type === -99) return false;
+                        const mFid = String(m.roomFriendlyID || m.roomFriendlyId || m.friendlyID || m.friendlyId || '').trim().toLowerCase();
+                        const mNumId = String(m.roomId || m.RoomId || m.roomID || '').trim();
+                        if (targetFid && mFid && mFid === targetFid) return true;
+                        if (targetNumId && mNumId && mNumId === targetNumId) return true;
+                        return false;
+                    });
+                    const totalMins = roomMeetings.reduce((acc, m) => {
+                        let dur = m.durationMinutes;
+                        if (dur === undefined || dur === null) {
+                            if (m.dateInsert && m.endDate) {
+                                const diff = new Date(m.endDate).getTime() - new Date(m.dateInsert).getTime();
+                                dur = Math.max(0, Math.round(diff / 60000));
+                            } else {
+                                dur = 0;
                             }
-                            return acc + (dur || 0);
-                        }, 0);
+                        }
+                        return acc + (dur || 0);
+                    }, 0);
                     setSpentMinutes(totalMins);
                 }
             } catch (fallbackErr) {
@@ -174,42 +184,57 @@ const RoomCardOwn = ({
                         </div>
                     )}
 
-                    {/* Edit Room Button for Owners & Admins */}
-                    {(room.isAdmin || room.isOwner) && (
-                        <div className="absolute top-3 left-3 z-20 flex items-center gap-2">
-                            <button
-                                type="button"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (onOpenEditRoomModal) {
-                                        onOpenEditRoomModal(room.roomID);
-                                    }
-                                }}
-                                className="p-2 bg-white/90 hover:bg-[#30d4cc] text-gray-600 hover:text-white rounded-full shadow-md hover:shadow-lg transition-all border border-gray-200"
-                                title="ویرایش کامل اتاق"
-                            >
-                                <FaEdit className="w-4 h-4" />
-                            </button>
-                            <button
-                                type="button"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (onOpenEditRoomModal) {
-                                        onOpenEditRoomModal(room.roomID);
-                                    }
-                                }}
-                                className="relative p-2 bg-white/90 hover:bg-[#30d4cc] text-gray-600 hover:text-white rounded-full shadow-md hover:shadow-lg transition-all border border-gray-200"
-                                title="اعضا"
-                            >
-                                <FaUsers className="w-4 h-4" />
-                                {room.waitingMembersCount > 0 && (
-                                    <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white ring-2 ring-white">
-                                        {room.waitingMembersCount}
-                                    </span>
-                                )}
-                            </button>
-                        </div>
-                    )}
+                    {/* Top Left Action Buttons */}
+                    <div className="absolute top-3 left-3 z-20 flex items-center gap-2">
+                        {/* Red Button: Recorded Meetings in BigBlueButton */}
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setIsRecordingsModalOpen(true);
+                            }}
+                            className="p-2 bg-[#ffffff]/95 hover:bg-[#ef4444] text-[#ef4444] hover:text-[#ffffff] rounded-full shadow-md hover:shadow-lg transition-all border border-[#fca5a5] flex items-center justify-center cursor-pointer group"
+                            title="جلسات ضبط‌شده اتاق (بیگ‌بلو‌باتن)"
+                        >
+                            <FaVideo className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+                        </button>
+
+                        {(room.isAdmin || room.isOwner) && (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (onOpenEditRoomModal) {
+                                            onOpenEditRoomModal(room.roomID);
+                                        }
+                                    }}
+                                    className="p-2 bg-white/90 hover:bg-[#30d4cc] text-gray-600 hover:text-white rounded-full shadow-md hover:shadow-lg transition-all border border-gray-200 cursor-pointer"
+                                    title="ویرایش کامل اتاق"
+                                >
+                                    <FaEdit className="w-4 h-4" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (onOpenEditRoomModal) {
+                                            onOpenEditRoomModal(room.roomID);
+                                        }
+                                    }}
+                                    className="relative p-2 bg-white/90 hover:bg-[#30d4cc] text-gray-600 hover:text-white rounded-full shadow-md hover:shadow-lg transition-all border border-gray-200 cursor-pointer"
+                                    title="اعضا"
+                                >
+                                    <FaUsers className="w-4 h-4" />
+                                    {room.waitingMembersCount > 0 && (
+                                        <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white ring-2 ring-white">
+                                            {room.waitingMembersCount}
+                                        </span>
+                                    )}
+                                </button>
+                            </>
+                        )}
+                    </div>
 
                     {/* Content Front */}
                     <div className="relative p-6">
@@ -577,6 +602,13 @@ const RoomCardOwn = ({
                     </div>
                 </div>
             )}
+
+            {/* Modal for BBB Recorded Meetings */}
+            <RoomRecordingsModal
+                isOpen={isRecordingsModalOpen}
+                onClose={() => setIsRecordingsModalOpen(false)}
+                room={room}
+            />
         </div>
     );
 };

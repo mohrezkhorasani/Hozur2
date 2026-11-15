@@ -771,6 +771,19 @@ export async function BatchUpdateMeetingType(meetingIds, newType) {
     return await res.json();
 }
 
+export async function GetRoomRecordings(roomId) {
+    const url = combinePath(BaseURL, `/admin/rooms/${roomId}/recordings`);
+    const res = await fetch(url, {
+        method: "GET",
+        headers: NormalHeaderAPI
+    });
+    if (!res.ok) {
+        throw new Error(`Failed to fetch room recordings: ${res.status}`);
+    }
+    const json = await res.json();
+    return json.data;
+}
+
 export async function RefreshRoomSpentMinutes(roomId) {
     const url = combinePath(BaseURL, `/admin/rooms/${roomId}/refresh-spent-minutes`);
     const res = await fetch(url, {

@@ -1,9 +1,8 @@
 // src/pages/Home.jsx
-import React, { useRef } from "react";
+import React, { useRef, useState, useEffect, useMemo } from "react";
 import Header from "../Component/header";
 import Hero from "../Component/Home/Hero";
 // بعداً بقیه کامپوننت‌ها رو import می‌کنیم
-import { useState, useEffect } from "react";
 import ImageAboutUsVideoThumb from "@assets/ax/ups/video_cap.jpg";
 import VideoAboutUsVideoThumb from "@assets/ax/ups/video_2025-02-12_21-31-39.mp4";
 import cert1 from "@assets/ax/ups/2025/02/Group-863.jpg";
@@ -24,13 +23,13 @@ import FooterUpper from "@/Component/FooterUpper";
 import HeaderStickTop from "../Component/HeaderStickTop";
 import { fetchRoomLive, fetchRooms } from "@/api/GetRooms.jsx"; // مسیر دلخواه تو پروژه
 import { startNewMeet, VerifyToken } from "@/api/StartNewMeeting";
-import { timeAgo } from "@/Tools/tools";
+import { timeAgo, formatPersianDateTime } from "@/Tools/tools";
 import Cookies from 'js-cookie';
 import { Navigate, useNavigate, useLocation, Outlet } from 'react-router-dom';
 import useFetch from "../Tools/Hooks/UseFetchHook";
 import { useAuth } from "../Tools/AuthProvider";
 import PersianCalendarModal from "./Dashboard/modal/PersianCalanderModal";
-import { FaCalendarPlus, FaPaintBrush, FaSignInAlt } from "react-icons/fa";
+import { FaCalendarPlus, FaPaintBrush, FaSignInAlt, FaClock, FaChalkboardTeacher, FaPlay } from "react-icons/fa";
 import PlanRoomModal from "./Dashboard/modal/PlanRoomModal";
 import { joinMeeting } from "../api/StartNewMeeting";
 import MobileEmojiModal from "../Component/MobileEmojiModal";
@@ -81,6 +80,107 @@ const HomePage = () => {
   const [flippedCards, setFlippedCards] = useState({});
   const [upcomingPlans, setUpcomingPlans] = useState([]);
   const [loadingUpcomingPlans, setLoadingUpcomingPlans] = useState(false);
+
+  // Helper to determine plan timing, proximity, and whether start button should show
+  const getPlanTimingInfo = (startDateStr) => {
+    if (!startDateStr) return { canStart: false, diffHours: null, dateStr: '-', timeRemainingText: '' };
+    const now = new Date();
+    const start = new Date(startDateStr);
+    if (isNaN(start.getTime())) return { canStart: false, diffHours: null, dateStr: '-', timeRemainingText: '' };
+
+    const diffMs = start.getTime() - now.getTime();
+    const diffHours = diffMs / (1000 * 60 * 60);
+
+    // Can start if starting in <= 5 hours, or already running (up to 4 hours past start)
+    const canStart = diffHours <= 5 && diffHours >= -4;
+
+    let timeRemainingText = '';
+    if (diffHours < 0) {
+      timeRemainingText = 'زمان جلسه فرا رسیده / در جریان است';
+    } else if (diffHours < 1) {
+      const mins = Math.max(1, Math.round(diffMs / 60000));
+      timeRemainingText = `${mins} دقیقه مانده تا شروع`;
+    } else if (diffHours <= 5) {
+      const h = Math.floor(diffHours);
+      const m = Math.round((diffHours - h) * 60);
+      timeRemainingText = m > 0 ? `${h} ساعت و ${m} دقیقه تا شروع` : `${h} ساعت تا شروع`;
+    } else if (diffHours < 24) {
+      const h = Math.round(diffHours);
+      timeRemainingText = `${h} ساعت مانده تا شروع`;
+    } else {
+      const days = Math.round(diffHours / 24);
+      timeRemainingText = `${days} روز مانده تا شروع`;
+    }
+
+    const dateFormatted = formatPersianDateTime(startDateStr);
+    return { canStart, diffHours, dateStr: dateFormatted, timeRemainingText };
+  };
+
+  // Aggregate upcoming plans from both GetMyUpcomingPlans and rooms' planJSONs
+  const activeUpcomingPlans = useMemo(() => {
+    const plansMap = new Map();
+
+    // 1. Add plans from upcomingPlans (if loaded from API)
+    if (Array.isArray(upcomingPlans)) {
+      upcomingPlans.forEach(p => {
+        if (p && p.id) {
+          plansMap.set(String(p.id), {
+            id: p.id,
+            title: p.title || 'جلسه بدون عنوان',
+            roomFriendlyId: p.roomFriendlyId || p.roomID || '',
+            roomTitle: p.roomTitle || p.roomFriendlyId || '',
+            teacherName: p.teacherName || (typeof p.teacher === 'string' ? p.teacher : p.teacher?.name) || '',
+            dabir: p.dabir || null,
+            startDate: p.startDate || p.startAt,
+          });
+        }
+      });
+    }
+
+    // 2. Also aggregate from all loaded rooms (fall-back & enrichment)
+    if (Array.isArray(rooms)) {
+      rooms.forEach(r => {
+        const plans = r.planJSONs || r.PlanJSONs || r.plan || [];
+        if (Array.isArray(plans)) {
+          plans.forEach(p => {
+            const pId = p.id || p.ID;
+            const start = p.startAt || p.startDate || p.StartAt || p.StartDate;
+            if (pId && start) {
+              const teacherStr = typeof p.teacher === 'string'
+                ? p.teacher
+                : (p.teacher?.name || (Array.isArray(p.teachers) ? p.teachers.map(t => typeof t === 'string' ? t : t.name).filter(Boolean).join('، ') : ''));
+
+              if (!plansMap.has(String(pId))) {
+                plansMap.set(String(pId), {
+                  id: pId,
+                  title: p.title || p.Title || 'جلسه بدون عنوان',
+                  roomFriendlyId: r.friendlyID || r.friendlyId || r.roomID || r.RoomID,
+                  roomTitle: r.title || r.Title || r.friendlyID,
+                  teacherName: teacherStr || '',
+                  dabir: p.dabir || p.Dabir || null,
+                  startDate: start,
+                });
+              }
+            }
+          });
+        }
+      });
+    }
+
+    // 3. Filter out plans that are already expired!
+    const now = new Date();
+    const list = Array.from(plansMap.values()).filter(plan => {
+      if (!plan.startDate) return false;
+      const start = new Date(plan.startDate);
+      if (isNaN(start.getTime())) return false;
+      // Not expired: start is in future or started less than 3 hours ago (active session window)
+      return (start.getTime() - now.getTime()) > (-3 * 3600 * 1000);
+    });
+
+    // 4. Sort ascending by startDate
+    list.sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+    return list;
+  }, [upcomingPlans, rooms]);
 
   const handleFlip = (roomId) => {
     setFlippedCards(prev => ({
@@ -339,21 +439,23 @@ const HomePage = () => {
     <div className="container mx-auto px-4 py-8 max-w-7xl">
       <QuickAccessToolbar />
 
-      {/* جدول برنامه‌های آینده تنظیم شده */}
-      {upcomingPlans && upcomingPlans.length > 0 && (
-        <div className="mb-10 bg-[#ffffff] rounded-3xl border border-[#e5e7eb] shadow-sm p-6 text-right">
-          <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#f3f4f6]">
-            <div className="flex items-center gap-2">
-              <span className="p-2 bg-[#ecfeff] text-[#0891b2] rounded-xl">
-                <FaCalendarPlus size={18} />
+      {/* سکشن جلسات پیش رو */}
+      {activeUpcomingPlans && activeUpcomingPlans.length > 0 && (
+        <div className="mb-10 bg-[#ffffff] rounded-3xl border border-[#e5e7eb] shadow-sm p-5 sm:p-6 text-right">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-5 pb-4 border-b border-[#f3f4f6]">
+            <div className="flex items-center gap-3">
+              <span className="p-2.5 bg-[#eff6ff] text-[#2563eb] rounded-2xl border border-[#bfdbfe]">
+                <FaCalendarPlus size={20} />
               </span>
               <div>
-                <h3 className="text-lg font-bold text-[#1f2937]">برنامه‌های آینده جلسات</h3>
-                <p className="text-xs text-[#6b7280]">جلسات تنظیم‌شده برای آینده با امکان شروع مستقیم</p>
+                <h3 className="text-lg sm:text-xl font-black text-[#1f2937]">جلسات پیش‌رو</h3>
+                <p className="text-xs text-[#6b7280] mt-0.5 font-medium">
+                  برنامه‌های آینده اتاق‌ها — دکمه شروع جلسه از ۵ ساعت قبل از آغاز فعال می‌شود
+                </p>
               </div>
             </div>
-            <span className="text-xs font-bold px-3 py-1 bg-[#f0fdf4] text-[#16a34a] border border-[#bbf7d0] rounded-full">
-              {upcomingPlans.length} برنامه فعال
+            <span className="text-xs font-bold px-3 py-1 bg-[#eff6ff] text-[#1d4ed8] border border-[#bfdbfe] rounded-full">
+              {activeUpcomingPlans.length} جلسه پیش‌رو
             </span>
           </div>
 
@@ -364,50 +466,74 @@ const HomePage = () => {
                   <th className="py-3 px-4">عنوان جلسه</th>
                   <th className="py-3 px-4">اتاق مربوطه</th>
                   <th className="py-3 px-4">استاد / ارائه‌دهنده</th>
-                  <th className="py-3 px-4">تاریخ و ساعت شروع</th>
+                  <th className="py-3 px-4">تاریخ و ساعت شروع برنامه</th>
+                  <th className="py-3 px-4">وضعیت زمان‌بندی</th>
                   <th className="py-3 px-4 text-center">عملیات</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#f3f4f6]">
-                {upcomingPlans.map((plan) => (
-                  <tr key={plan.id} className="hover:bg-[#f9fafb] transition">
-                    <td className="py-3 px-4 font-bold text-[#1f2937]">
-                      {plan.title}
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className="font-medium text-[#4b5563]">{plan.roomTitle || plan.roomFriendlyId}</span>
-                      {plan.roomFriendlyId && (
-                        <span className="text-xs text-[#9ca3af] block font-mono mt-0.5">{plan.roomFriendlyId}</span>
-                      )}
-                    </td>
-                    <td className="py-3 px-4 text-[#4b5563]">
-                      {plan.teacherName || "-"}
-                    </td>
-                    <td className="py-3 px-4 text-xs font-mono text-[#0369a1]" dir="ltr">
-                      {plan.startDate ? new Date(plan.startDate).toLocaleString('fa-IR') : "-"}
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <button
-                        onClick={() => {
-                          const teachersArr = plan.teacherName ? [{ name: plan.teacherName }] : [];
-                          handleStart(
-                            plan.roomFriendlyId,
-                            plan.id,
-                            plan.title,
-                            teachersArr,
-                            null,
-                            true,
-                            true
-                          );
-                        }}
-                        className="px-4 py-2 bg-[#0284c7] hover:bg-[#0369a1] text-[#ffffff] font-bold text-xs rounded-xl transition shadow-sm hover:shadow active:scale-95 flex items-center justify-center gap-1.5 mx-auto"
-                      >
-                        <FaSignInAlt size={12} />
-                        <span>شروع جلسه</span>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {activeUpcomingPlans.map((plan) => {
+                  const timing = getPlanTimingInfo(plan.startDate);
+                  return (
+                    <tr key={plan.id} className="hover:bg-[#f9fafb] transition">
+                      <td className="py-3.5 px-4 font-bold text-[#1f2937]">
+                        {plan.title}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span className="font-semibold text-[#374151] block">{plan.roomTitle || plan.roomFriendlyId}</span>
+                        {plan.roomFriendlyId && (
+                          <span className="text-[11px] text-[#9ca3af] block font-mono mt-0.5">{plan.roomFriendlyId}</span>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4 text-[#4b5563] font-medium">
+                        {plan.teacherName || "-"}
+                      </td>
+                      <td className="py-3.5 px-4 text-xs font-bold text-[#0369a1] whitespace-nowrap">
+                        {timing.dateStr}
+                      </td>
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border ${
+                          timing.canStart
+                            ? 'bg-[#ecfdf5] text-[#047857] border-[#a7f3d0]'
+                            : 'bg-[#fffbeb] text-[#b45309] border-[#fde68a]'
+                        }`}>
+                          {timing.timeRemainingText}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                        {timing.canStart ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const teachersArr = plan.teacherName ? [{ name: plan.teacherName }] : [];
+                              handleStart(
+                                plan.roomFriendlyId,
+                                plan.id,
+                                plan.title,
+                                teachersArr,
+                                plan.dabir || null,
+                                true,
+                                true
+                              );
+                            }}
+                            className="px-4 py-2 bg-[#0284c7] hover:bg-[#0369a1] text-[#ffffff] font-bold text-xs rounded-xl transition shadow-xs hover:shadow active:scale-95 flex items-center justify-center gap-1.5 mx-auto cursor-pointer"
+                            title="شروع جلسه آنلاین"
+                          >
+                            <FaSignInAlt size={12} />
+                            <span>شروع جلسه</span>
+                          </button>
+                        ) : (
+                          <span
+                            className="inline-flex items-center gap-1 text-[11px] text-[#6b7280] bg-[#f3f4f6] border border-[#e5e7eb] px-2.5 py-1.5 rounded-xl font-medium"
+                            title="دکمه شروع ۵ ساعت قبل از آغاز جلسه فعال خواهد شد"
+                          >
+                            <span>فعال‌سازی ۵ ساعت قبل از پخش</span>
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

@@ -58,7 +58,7 @@ const MeetingManagement = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [typeFilter, setTypeFilter] = useState('100_101'); // '100_101', '100', '101', 'all'
     const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(15);
+    const [itemsPerPage, setItemsPerPage] = useState(100);
     const [totalPages, setTotalPages] = useState(1);
     const [viewMode, setViewMode] = useState('table'); // 'table', 'grid'
 
@@ -2585,11 +2585,28 @@ const MeetingManagement = () => {
             )}
 
             {/* Pagination Controls */}
-            {!loading && totalPages > 1 && (
+            {!loading && (totalPages > 1 || totalCount > 0) && (
                 <div className="bg-white p-4 rounded-2xl border border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
-                    <p className="text-xs text-gray-500 font-bold">
-                        نمایش صفحه <strong className="text-gray-900">{currentPage}</strong> از <strong className="text-gray-900">{totalPages}</strong> (مجموعاً {totalCount} نشست)
-                    </p>
+                    <div className="flex flex-wrap items-center gap-3">
+                        <p className="text-xs text-gray-500 font-bold">
+                            نمایش صفحه <strong className="text-gray-900">{currentPage}</strong> از <strong className="text-gray-900">{totalPages}</strong> (مجموعاً {totalCount} نشست)
+                        </p>
+                        <div className="flex items-center gap-1.5 text-xs text-gray-500 font-bold mr-2 border-r pr-3 border-gray-200">
+                            <span>تعداد در صفحه:</span>
+                            <select
+                                value={itemsPerPage}
+                                onChange={(e) => {
+                                    setItemsPerPage(Number(e.target.value));
+                                    setCurrentPage(1);
+                                }}
+                                className="px-2 py-1 bg-gray-50 border border-gray-200 rounded-lg font-bold text-xs focus:outline-none cursor-pointer"
+                            >
+                                <option value={50}>۵۰</option>
+                                <option value={100}>۱۰۰</option>
+                                <option value={200}>۲۰۰</option>
+                            </select>
+                        </div>
+                    </div>
 
                     <div className="flex items-center gap-2">
                         <button
