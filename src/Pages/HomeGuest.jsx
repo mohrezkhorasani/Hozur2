@@ -152,15 +152,16 @@ const HomeGuest = () => {
           <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
             {/* قسمت خالی سمت چپ - که بعداً میتونید چیز دیگه ای بذارید */}
 
-            <div className="flex-1 min-w-0 min-h-0 ">
-              <div className="h-full " dir="ltr"> {/* این div را اضافه کنید */}
+            <div className="flex-1 min-w-0 min-h-0">
+              <div className="h-full min-h-[460px] sm:min-h-[500px]" dir="ltr">
                 <LiveSectionSlider
                   roomLive={roomLive}
                   rooms={rooms}
                   loading={roomLiveLoading || loading}
                   title="پخش زنده"
                   subtitle="پخش زنده مجمع عالی حکمت اسلامی در اینجا نمایش داده میشود"
-                />            </div>
+                />
+              </div>
             </div>
 
             {/* RIGHT SIDEBAR - اسلایدر عمودی با سایز محدود */}

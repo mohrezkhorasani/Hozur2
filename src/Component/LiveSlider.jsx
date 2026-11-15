@@ -14,38 +14,44 @@ export default function LiveSectionSlider({
     const [currentPage, setCurrentPage] = useState(0);
     const [isLive, setIsLive] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
-    let itemsPerPage = 3;
+    const [itemsPerPage, setItemsPerPage] = useState(3);
 
-    // تشخیص سایز موبایل
+    // تشخیص ریسپانسیو و تعداد آیتم‌ها
     useEffect(() => {
-        const checkMobile = () => {
-            setIsMobile(window.innerWidth < 768); // 768px breakpoint for mobile
+        const updateLayout = () => {
+            const width = window.innerWidth;
+            if (width < 768) {
+                setIsMobile(true);
+                setItemsPerPage(1);
+            } else if (width < 1400) {
+                setIsMobile(false);
+                setItemsPerPage(3);
+            } else {
+                setIsMobile(false);
+                setItemsPerPage(isLive ? 3 : 4);
+            }
         };
-        checkMobile();
-        window.addEventListener('resize', checkMobile);
-        return () => window.removeEventListener('resize', checkMobile);
-    }, []);
+        updateLayout();
+        window.addEventListener('resize', updateLayout);
+        return () => window.removeEventListener('resize', updateLayout);
+    }, [isLive]);
+
     // آماده‌سازی داده‌های کامل
-    let validRooms = roomLive
-        .map(item => {
-            const fullRoom = rooms.find(room => room.roomID === item.roomID);
-            return fullRoom ? { ...fullRoom, live: item } : null;
-        })
-        .filter(item => item !== null);
-    if (!isLive) {
-        itemsPerPage = 4
-        validRooms = rooms
+    let validRooms = isLive
+        ? roomLive
             .map(item => {
                 const fullRoom = rooms.find(room => room.roomID === item.roomID);
                 return fullRoom ? { ...fullRoom, live: item } : null;
             })
-    }
+            .filter(Boolean)
+        : (rooms || []).filter(Boolean);
+
     useEffect(() => {
-        if (roomLive.length != 0)
-            setIsLive(true)
+        if (roomLive && roomLive.length > 0)
+            setIsLive(true);
         else
-            setIsLive(false)
-    }, [roomLive])
+            setIsLive(false);
+    }, [roomLive]);
 
     let totalPages = Math.ceil(validRooms.length / itemsPerPage);
 
@@ -127,7 +133,7 @@ export default function LiveSectionSlider({
                 </div>
 
                 {/* نمایش عمودی همه کارت‌ها */}
-                <div className="space-y-4 px-4">
+                <div className="space-y-4 px-4 pb-4">
                     {isLive ? (
                         validRooms.map((item) => (
                             <RoomCardLive
@@ -160,10 +166,10 @@ export default function LiveSectionSlider({
 
     // حالت دسکتاپ: اسلایدر افقی
     return (
-        <div className={`bg-white rounded-2xl h-full shadow-sm border border-[#f3f4f6] pt-4 ${className}`}>
+        <div className={`bg-white rounded-2xl h-full min-h-[460px] sm:min-h-[500px] flex flex-col justify-between shadow-sm border border-[#f3f4f6] pt-4 pb-3 ${className}`}>
             {/* هدر */}
-            <div className="text-center mb-5">
-                <div className="inline-flex items-center gap-2 bg-[#fef2f2] px-3 py-1 rounded-full mb-2">
+            <div className="text-center mb-3 flex-shrink-0">
+                <div className="inline-flex items-center gap-2 bg-[#fef2f2] px-3 py-1 rounded-full mb-1.5">
                     <span className="relative flex h-2 w-2">
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#f87171] opacity-75"></span>
                         <span className="relative inline-flex rounded-full h-2 w-2 bg-[#ef4444]"></span>
@@ -171,11 +177,11 @@ export default function LiveSectionSlider({
                     <span className="text-[#dc2626] text-xs font-semibold">{!isLive ? "برنامه های آتی" : "پخش زنده"}</span>
                 </div>
                 <h3 className="text-lg font-bold text-[#111827]">{!isLive ? "برنامه های آتی" : "پخش زنده"}</h3>
-                <p className="text-[#6b7280] text-xs mt-1">{!isLive ? "" : subtitle}</p>
+                <p className="text-[#6b7280] text-xs mt-0.5">{!isLive ? "" : subtitle}</p>
             </div>
 
             {/* اسلایدر افقی */}
-            <div className="relative overflow-hidden px-4 py-2 h-8/12">
+            <div className="relative overflow-hidden px-3 sm:px-4 py-1 flex-1 min-h-0">
                 <div
                     className="flex transition-transform duration-300 ease-out gap-4 h-full"
                     style={{ transform: `translateX(-${currentPage * 100}%)` }}
@@ -185,7 +191,7 @@ export default function LiveSectionSlider({
                             {!isLive ? (
                                 validRooms.slice(pageIdx * itemsPerPage, (pageIdx + 1) * itemsPerPage)
                                     .map((i) => (
-                                        <div className="flex-1 min-w-0 max-w-100 min-h-0" key={i.roomID}>
+                                        <div className="flex-1 min-w-0 max-w-100 min-h-0 h-full" key={i.roomID}>
                                             {(() => {
                                                 let nextSessionInfo = null;
                                                 let n = false;
@@ -256,7 +262,7 @@ export default function LiveSectionSlider({
                                     ))) : (
                                 validRooms.slice(pageIdx * itemsPerPage, (pageIdx + 1) * itemsPerPage)
                                     .map((item) => (
-                                        <div className="flex-1 min-w-0 max-w-70 min-h-0 " key={item.roomID}>
+                                        <div className="flex-1 min-w-0 max-w-70 min-h-0 h-full" key={item.roomID}>
 
                                             <RoomCardLive
                                                 i={item}
@@ -277,7 +283,7 @@ export default function LiveSectionSlider({
                         onClick={prevPage}
                         className="absolute -left-2 top-1/2 
             -translate-y-1/2 z-10 bg-[#0B3F32] text-white w-8 h-8 rounded-full
-             shadow-lg hover:bg-[#0a352a] transition-all flex items-center justify-center"
+             shadow-lg hover:bg-[#0a352a] transition-all flex items-center justify-center cursor-pointer"
                     >
                         <svg className="w-5 h-5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -289,7 +295,7 @@ export default function LiveSectionSlider({
                 {totalPages > 1 && currentPage < totalPages - 1 && (
                     <button
                         onClick={nextPage}
-                        className="absolute -right-2 top-1/2 -translate-y-1/2 z-10 bg-[#0B3F32] text-white w-8 h-8 rounded-full shadow-lg hover:bg-[#0a352a] transition-all flex items-center justify-center"
+                        className="absolute -right-2 top-1/2 -translate-y-1/2 z-10 bg-[#0B3F32] text-white w-8 h-8 rounded-full shadow-lg hover:bg-[#0a352a] transition-all flex items-center justify-center cursor-pointer"
                     >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -299,7 +305,7 @@ export default function LiveSectionSlider({
             </div>
             {/* صفحه‌نما */}
             {totalPages > 1 && (
-                <div className="flex justify-center gap-1.5 mt-7">
+                <div className="flex justify-center gap-1.5 mt-2 flex-shrink-0">
                     {Array.from({ length: totalPages }).map((_, idx) => (
                         <button
                             key={idx}
