@@ -205,6 +205,7 @@ namespace Application.DTO
         public long? IDPlan { get; set; }
         public bool HasCertificate { get; set; } = false;
         public List<string> Teachers { get; set; }
+        public int? Type { get; set; }
     }
 
     public class StartNewMeetResponse : BaseParentResponce

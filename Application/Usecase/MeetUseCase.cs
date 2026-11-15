@@ -1171,7 +1171,7 @@ namespace Application.Usecase
                                 RequiredToEnterName = message.RequiredToEnterName,
                                 Teachers = string.Join(" ، ", message.Teachers),
                                 Status = MainEntity_Status.MEETING_STARTED_LATER,
-                                Type = message.HasCertificate ? MainEntity_Types.PLAN_WITH_CERT : MainEntity_Types.PLAN_NORMAL,
+                                Type = (message.Type.HasValue && message.Type.Value == -99) ? MainEntity_Types.MEET_IGNORE : (message.HasCertificate ? MainEntity_Types.PLAN_WITH_CERT : MainEntity_Types.PLAN_NORMAL),
                             };
                             _db.RoomTBLPlanTBLs.Add(planTBL);
                             await _db.SaveChangesAsync();
@@ -1225,7 +1225,7 @@ namespace Application.Usecase
                         {
                             RoomFriendlyID = message.IDRoom,
                             MeetID = meetid,
-                            Type = MainEntity_Types.MEET_API,
+                            Type = (message.Type.HasValue && message.Type.Value != 0) ? (MainEntity_Types)message.Type.Value : MainEntity_Types.MEET_API,
                             Status = MainEntity_Status.MEETING_STARTED_LATER,
                             JalaliDate = Statics.ToJalaliDate(DateTime.Now),
                             Title = planTBL.Title,

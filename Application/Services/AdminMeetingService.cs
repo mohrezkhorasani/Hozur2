@@ -924,22 +924,21 @@ namespace Application.Services
                             p.StartDate >= DateTime.UtcNow.AddHours(-3) &&
                             !string.IsNullOrWhiteSpace(p.Title) &&
                             p.Status == MainEntity_Status.Enabled &&
+                            p.Type != MainEntity_Types.MEET_IGNORE &&
                             p.RoomTBL != null &&
                             ((int)p.RoomTBL.Type == 1 || (int)p.RoomTBL.Type == 2) &&
                             (int)p.RoomTBL.Status == 100);
 
-            if (!IsSuperAdmin(user))
-            {
-                var accessibleRoomFids = _db.RoomTBLToUserTBLs
-                    .Where(r => (r.UUIDParticipatorTBL == user.UUID || (r.ParticipatorTBL != null && r.ParticipatorTBL.ID == user.ID)) &&
-                                r.Status != MainEntity_Status.Deactive &&
-                                r.Status != MainEntity_Status.Delete)
-                    .Select(r => r.FriendlyIDRoomTBL ?? r.FriendlyID)
-                    .Distinct();
+            // فقط جلسات پیش‌رو مربوط به گروه‌ها و اتاق‌های اکانت فعلی
+            var accessibleRoomFids = _db.RoomTBLToUserTBLs
+                .Where(r => (r.UUIDParticipatorTBL == user.UUID || (r.ParticipatorTBL != null && r.ParticipatorTBL.ID == user.ID)) &&
+                            r.Status != MainEntity_Status.Deactive &&
+                            r.Status != MainEntity_Status.Delete)
+                .Select(r => r.FriendlyIDRoomTBL ?? r.FriendlyID)
+                .Distinct();
 
-                query = query.Where(p => p.RoomTBL != null &&
-                    (p.RoomTBL.IDOwnerTBL == user.ID || accessibleRoomFids.Contains(p.RoomTBL.FriendlyID)));
-            }
+            query = query.Where(p => p.RoomTBL != null &&
+                (p.RoomTBL.IDOwnerTBL == user.ID || accessibleRoomFids.Contains(p.RoomTBL.FriendlyID)));
 
             var plans = await query
                 .OrderBy(p => p.StartDate)

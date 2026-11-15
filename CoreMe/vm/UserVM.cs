@@ -254,6 +254,7 @@ namespace CoreMe.VM
         public List<string> Teachers { get; set; } = new List<string>();
         public bool HasCertificate { get; set; } = false;
         public string? Dabir { get; set; }
+        public int? Type { get; set; }
 
     }
 
