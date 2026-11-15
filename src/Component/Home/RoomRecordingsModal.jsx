@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
     FaTimes,
     FaVideo,
@@ -25,6 +26,23 @@ export default function RoomRecordingsModal({ isOpen, onClose, room }) {
 
     const targetFid = room?.friendlyID || room?.friendlyId || room?.roomID || room?.RoomID || '';
     const targetNumId = room?.id || room?.ID || '';
+
+    // Lock body scroll and handle Escape key
+    useEffect(() => {
+        if (!isOpen) return;
+        const originalOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+
+        return () => {
+            document.body.style.overflow = originalOverflow;
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [isOpen, onClose]);
 
     useEffect(() => {
         if (!isOpen || !room) return;
@@ -95,26 +113,21 @@ export default function RoomRecordingsModal({ isOpen, onClose, room }) {
                         endTime: endTimeStr,
                         teacherName: teacherName,
                         durationMinutes: m.durationMinutes || (start && end ? Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000)) : 0),
-                        playbackUrl: m.recordingPlaybackUrl || m.videoUrl,
-                        videoUrl: m.videoUrl,
-                        voiceUrl: m.voiceUrl,
+                        playbackUrl: m.recordingPlaybackUrl || m.videoUrl || (m.playbackUrl || null),
+                        voiceUrl: m.voiceUrl || null,
                         isRecorded: hasRecord,
-                        participantsCount: m.participantsCount || m.attendeesCount || 0
+                        participantsCount: m.participantsCount || m.participantCount || 0
                     };
                 });
 
-                // Sort: items with recordings first, then by date descending
-                formatted.sort((a, b) => (b.isRecorded ? 1 : 0) - (a.isRecorded ? 1 : 0));
                 setMeetings(formatted);
-            } catch (fallbackErr) {
-                console.error("Error fetching room meetings for recordings modal:", fallbackErr);
+            } catch (err) {
+                console.error("Failed to load recordings/meetings for room:", err);
                 if (!isCancelled) {
-                    setError("خطا در برقراری ارتباط با سرور و دریافت لیست جلسات اتاق");
+                    setError("خطا در دریافت لیست جلسات اتاق. لطفاً مجدداً تلاش کنید.");
                 }
             } finally {
-                if (!isCancelled) {
-                    setLoading(false);
-                }
+                if (!isCancelled) setLoading(false);
             }
         };
 
@@ -125,7 +138,7 @@ export default function RoomRecordingsModal({ isOpen, onClose, room }) {
         };
     }, [isOpen, room, targetFid, targetNumId]);
 
-    // Handle fetching BBB live recordings for a specific meeting
+    // Handle fetching live recordings for a specific meeting
     const handleFetchBbbRecordings = async (meetingId) => {
         if (!meetingId) return;
         setLoadingBbbRecs(prev => ({ ...prev, [meetingId]: true }));
@@ -137,7 +150,7 @@ export default function RoomRecordingsModal({ isOpen, onClose, room }) {
                 [meetingId]: recList
             }));
         } catch (err) {
-            console.error(`Failed to fetch BBB recordings for meeting #${meetingId}:`, err);
+            console.error(`Failed to fetch recordings for meeting #${meetingId}:`, err);
             setExpandedRecordings(prev => ({
                 ...prev,
                 [meetingId]: []
@@ -160,11 +173,17 @@ export default function RoomRecordingsModal({ isOpen, onClose, room }) {
 
     if (!isOpen) return null;
 
-    return (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+    const modalContent = (
+        <div
+            className="fixed inset-0 z-[9999] bg-black/65 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto"
+            onClick={(e) => {
+                if (e.target === e.currentTarget) onClose();
+            }}
+        >
             <div
-                className="bg-[#ffffff] rounded-3xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-[#f3f4f6] relative animate-fadeIn text-right"
+                className="bg-[#ffffff] rounded-3xl max-w-4xl lg:max-w-5xl w-full max-h-[88vh] flex flex-col shadow-2xl border border-[#e5e7eb] relative text-right my-auto overflow-hidden animate-in fade-in zoom-in-95 duration-200"
                 dir="rtl"
+                onClick={(e) => e.stopPropagation()}
             >
                 {/* Header */}
                 <div className="flex items-center justify-between p-5 border-b border-[#f3f4f6] bg-[#f9fafb] rounded-t-3xl">
@@ -174,7 +193,7 @@ export default function RoomRecordingsModal({ isOpen, onClose, room }) {
                         </span>
                         <div>
                             <h3 className="text-base sm:text-lg font-black text-[#1f2937]">
-                                جلسات ضبط‌شده در بیگ‌بلو‌باتن
+                                جلسات ضبط شده در سامانه پخش مجازی
                             </h3>
                             <p className="text-xs text-[#6b7280] mt-0.5 font-medium">
                                 اتاق: <strong className="text-[#111827]">{room?.title || targetFid}</strong>
@@ -218,55 +237,60 @@ export default function RoomRecordingsModal({ isOpen, onClose, room }) {
                         </div>
                     ) : filteredMeetings.length === 0 ? (
                         <div className="py-16 text-center">
-                            <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-[#fef2f2] text-[#ef4444] flex items-center justify-center text-2xl shadow-inner">
-                                <FaVideo />
+                            <div className="w-16 h-16 mx-auto mb-3 bg-[#fef2f2] text-[#ef4444] rounded-full flex items-center justify-center">
+                                <FaVideo size={28} />
                             </div>
-                            <h4 className="text-sm font-black text-[#1f2937] mb-1">جلسه ضبط‌شده‌ای یافت نشد</h4>
-                            <p className="text-xs text-[#6b7280] max-w-sm mx-auto">
-                                هنوز جلسه‌ای برای این اتاق در بیگ‌بلو‌باتن ضبط نشده است یا ضبط‌ها در حال پردازش در سرور می‌باشند.
+                            <h4 className="text-sm font-bold text-[#1f2937]">هیچ جلسه ضبط‌شده‌ای یافت نشد</h4>
+                            <p className="text-xs text-[#6b7280] mt-1 max-w-sm mx-auto">
+                                در صورتی که جلسه‌ای ضبط شده باشد، پس از پردازش نهایی در این بخش قابل مشاهده و بازپخش خواهد بود.
                             </p>
                         </div>
                     ) : (
                         filteredMeetings.map((item) => {
-                            const bbbRecs = expandedRecordings[item.id];
-                            const isExpanded = Array.isArray(bbbRecs);
-                            const isLoadingThis = !!loadingBbbRecs[item.id];
+                            const bbbRecs = expandedRecordings[item.id] || [];
+                            const isExpanded = expandedRecordings[item.id] !== undefined;
+                            const isLoadingThis = loadingBbbRecs[item.id] || false;
 
                             return (
                                 <div
                                     key={item.id}
-                                    className="p-4 rounded-2xl border border-[#e5e7eb] bg-[#ffffff] hover:border-[#fdba74] hover:shadow-md transition-all space-y-3"
+                                    className="p-4 rounded-2xl border border-[#e5e7eb] bg-[#ffffff] hover:border-[#fca5a5] hover:shadow-sm transition space-y-3"
                                 >
-                                    {/* Meeting Title & Status */}
-                                    <div className="flex flex-wrap items-start justify-between gap-2">
+                                    {/* Top Row: Title & Badge */}
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
                                         <div className="flex items-center gap-2">
-                                            <span className="w-2.5 h-2.5 rounded-full bg-[#ef4444] animate-pulse shrink-0"></span>
-                                            <h4 className="text-sm font-black text-[#111827]">
+                                            <span className="w-2.5 h-2.5 rounded-full bg-[#ef4444]" />
+                                            <h4 className="font-bold text-sm text-[#111827]">
                                                 {item.title}
                                             </h4>
                                         </div>
-                                        {item.isRecorded && (
-                                            <span className="px-2.5 py-0.5 bg-[#fef2f2] text-[#b91c1c] border border-[#fca5a5] rounded-full text-[11px] font-bold flex items-center gap-1 shadow-2xs">
-                                                <FaCheckCircle size={10} className="text-[#ef4444]" />
-                                                <span>دارای ضبط</span>
+                                        <div className="flex items-center gap-2">
+                                            {item.isRecorded && (
+                                                <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#fef2f2] text-[#dc2626] border border-[#fca5a5]">
+                                                    <FaCheckCircle size={10} />
+                                                    <span>دارای ضبط</span>
+                                                </span>
+                                            )}
+                                            <span className="text-[11px] text-[#9ca3af] font-mono">
+                                                #{item.id}
                                             </span>
-                                        )}
+                                        </div>
                                     </div>
 
-                                    {/* Metadata Grid */}
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 bg-[#f9fafb] p-3 rounded-xl border border-[#f3f4f6] text-xs">
+                                    {/* Middle Row: Date, Time, Teacher */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-[#4b5563] bg-[#f9fafb] p-3 rounded-xl border border-[#f3f4f6]">
                                         {/* تاریخ شمسی */}
                                         <div className="flex items-center gap-1.5 text-[#374151]">
-                                            <FaCalendarAlt className="text-[#d97706] shrink-0" size={13} />
+                                            <FaCalendarAlt className="text-[#0284c7] shrink-0" size={13} />
                                             <span className="text-[#6b7280]">تاریخ:</span>
                                             <strong className="text-[#111827]">{item.jalaliDate}</strong>
                                         </div>
 
                                         {/* ساعت شروع و پایان */}
                                         <div className="flex items-center gap-1.5 text-[#374151]">
-                                            <FaClock className="text-[#0284c7] shrink-0" size={13} />
+                                            <FaClock className="text-[#059669] shrink-0" size={13} />
                                             <span className="text-[#6b7280]">زمان:</span>
-                                            <span className="font-bold text-[#111827]">
+                                            <span className="font-mono text-[#111827]">
                                                 {item.startTime !== '-' && item.endTime !== '-'
                                                     ? `از ${item.startTime} تا ${item.endTime}`
                                                     : item.startTime !== '-' ? `ساعت ${item.startTime}` : '-'}
@@ -314,25 +338,25 @@ export default function RoomRecordingsModal({ isOpen, onClose, room }) {
                                             )}
                                         </div>
 
-                                        {/* BBB Live Query Button */}
+                                        {/* Live Query Button */}
                                         <button
                                             type="button"
                                             disabled={isLoadingThis}
                                             onClick={() => handleFetchBbbRecordings(item.id)}
                                             className="px-3 py-1.5 bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#4b5563] font-bold text-xs rounded-xl transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                                            title="استعلام آخرین فایل‌های ضبط‌شده از سرور بیگ‌بلو‌باتن"
+                                            title="استعلام آخرین فایل‌های ضبط‌شده از سرور"
                                         >
                                             {isLoadingThis ? <FaSpinner className="animate-spin text-[#ef4444]" /> : <FaSync size={11} />}
-                                            <span>{isExpanded ? 'بروزرسانی رکوردهای BBB' : 'دریافت رکوردهای سرور BBB'}</span>
+                                            <span>{isExpanded ? 'بروزرسانی فایل‌های ضبط' : 'استعلام فایل‌های ضبط سرور'}</span>
                                         </button>
                                     </div>
 
-                                    {/* BBB Nested Recordings Details */}
+                                    {/* Nested Recordings Details */}
                                     {isExpanded && (
                                         <div className="mt-3 p-3 bg-[#f8fafc] rounded-xl border border-[#e2e8f0] text-xs space-y-2">
-                                            <p className="font-bold text-[#334155]">رکوردهای پردازش‌شده بیگ‌بلو‌باتن:</p>
+                                            <p className="font-bold text-[#334155]">فایل‌های ضبط‌شده در سرور سامانه:</p>
                                             {bbbRecs.length === 0 ? (
-                                                <p className="text-[#94a3b8] text-[11px]">رکوردی روی سرور BBB برای این نشست یافت نشد یا هنوز پردازش آن به پایان نرسیده است.</p>
+                                                <p className="text-[#94a3b8] text-[11px]">فایل ضبط‌شده‌ای روی سرور برای این نشست یافت نشد یا هنوز پردازش آن به پایان نرسیده است.</p>
                                             ) : (
                                                 bbbRecs.map((r, rIdx) => (
                                                     <div key={r.recordId || rIdx} className="flex flex-wrap items-center justify-between gap-2 p-2 bg-[#ffffff] rounded-lg border border-[#e2e8f0]">
@@ -380,4 +404,6 @@ export default function RoomRecordingsModal({ isOpen, onClose, room }) {
             </div>
         </div>
     );
+
+    return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 }

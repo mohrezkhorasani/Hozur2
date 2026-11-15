@@ -29,7 +29,7 @@ import { Navigate, useNavigate, useLocation, Outlet } from 'react-router-dom';
 import useFetch from "../Tools/Hooks/UseFetchHook";
 import { useAuth } from "../Tools/AuthProvider";
 import PersianCalendarModal from "./Dashboard/modal/PersianCalanderModal";
-import { FaCalendarPlus, FaPaintBrush, FaSignInAlt, FaClock, FaChalkboardTeacher, FaPlay } from "react-icons/fa";
+import { FaCalendarPlus, FaPaintBrush, FaSignInAlt, FaClock, FaChalkboardTeacher, FaPlay, FaChevronDown, FaChevronUp, FaUsers } from "react-icons/fa";
 import PlanRoomModal from "./Dashboard/modal/PlanRoomModal";
 import { joinMeeting } from "../api/StartNewMeeting";
 import MobileEmojiModal from "../Component/MobileEmojiModal";
@@ -80,58 +80,106 @@ const HomePage = () => {
   const [flippedCards, setFlippedCards] = useState({});
   const [upcomingPlans, setUpcomingPlans] = useState([]);
   const [loadingUpcomingPlans, setLoadingUpcomingPlans] = useState(false);
+  const [isUpcomingExpanded, setIsUpcomingExpanded] = useState(false);
 
-  // Helper to determine plan timing, proximity, and whether start button should show
+  // Helper to determine plan remaining time & Jalali date
   const getPlanTimingInfo = (startDateStr) => {
-    if (!startDateStr) return { canStart: false, diffHours: null, dateStr: '-', timeRemainingText: '' };
+    if (!startDateStr) return { remainingText: '-', dateStr: '-', isOngoing: false };
     const now = new Date();
     const start = new Date(startDateStr);
-    if (isNaN(start.getTime())) return { canStart: false, diffHours: null, dateStr: '-', timeRemainingText: '' };
+    if (isNaN(start.getTime())) return { remainingText: '-', dateStr: '-', isOngoing: false };
 
     const diffMs = start.getTime() - now.getTime();
-    const diffHours = diffMs / (1000 * 60 * 60);
+    const diffMins = Math.round(diffMs / 60000);
+    const dateFormatted = formatPersianDateTime(startDateStr);
 
-    // Can start if starting in <= 5 hours, or already running (up to 4 hours past start)
-    const canStart = diffHours <= 5 && diffHours >= -4;
-
-    let timeRemainingText = '';
-    if (diffHours < 0) {
-      timeRemainingText = 'زمان جلسه فرا رسیده / در جریان است';
-    } else if (diffHours < 1) {
-      const mins = Math.max(1, Math.round(diffMs / 60000));
-      timeRemainingText = `${mins} دقیقه مانده تا شروع`;
-    } else if (diffHours <= 5) {
-      const h = Math.floor(diffHours);
-      const m = Math.round((diffHours - h) * 60);
-      timeRemainingText = m > 0 ? `${h} ساعت و ${m} دقیقه تا شروع` : `${h} ساعت تا شروع`;
-    } else if (diffHours < 24) {
-      const h = Math.round(diffHours);
-      timeRemainingText = `${h} ساعت مانده تا شروع`;
-    } else {
-      const days = Math.round(diffHours / 24);
-      timeRemainingText = `${days} روز مانده تا شروع`;
+    // If started within the past 3 hours: currently live / ongoing
+    if (diffMs <= 0 && diffMs > -3 * 3600 * 1000) {
+      return {
+        remainingText: 'در حال برگزاری',
+        dateStr: dateFormatted,
+        isOngoing: true,
+      };
     }
 
-    const dateFormatted = formatPersianDateTime(startDateStr);
-    return { canStart, diffHours, dateStr: dateFormatted, timeRemainingText };
+    if (diffMs <= 0) {
+      return {
+        remainingText: 'برگزار شده',
+        dateStr: dateFormatted,
+        isOngoing: false,
+      };
+    }
+
+    const totalMinutes = diffMins;
+    const days = Math.floor(totalMinutes / (24 * 60));
+    const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
+    const minutes = totalMinutes % 60;
+
+    let remainingText = '';
+    if (days > 0) {
+      remainingText = `${days} روز${hours > 0 ? ` و ${hours} ساعت` : ''} مانده`;
+    } else if (hours > 0) {
+      remainingText = `${hours} ساعت${minutes > 0 ? ` و ${minutes} دقیقه` : ''} مانده`;
+    } else {
+      remainingText = `${Math.max(1, minutes)} دقیقه مانده`;
+    }
+
+    return { remainingText, dateStr: dateFormatted, isOngoing: false };
   };
 
   // Aggregate upcoming plans from both GetMyUpcomingPlans and rooms' planJSONs
+  // Strictly filters out test rooms (only keeps rooms with Type in [1, 2] and Status === 100)
   const activeUpcomingPlans = useMemo(() => {
     const plansMap = new Map();
+
+    // Fast lookup map of loaded rooms
+    const roomsLookup = new Map();
+    if (Array.isArray(rooms)) {
+      rooms.forEach(r => {
+        if (!r) return;
+        const fid = String(r.friendlyID || r.friendlyId || r.roomID || r.RoomID || '').toLowerCase().trim();
+        const numId = String(r.id || r.ID || '').trim();
+        if (fid) roomsLookup.set(fid, r);
+        if (numId) roomsLookup.set(numId, r);
+      });
+    }
+
+    // Filter check: room must have Type 1 or 2, and Status 100
+    const isRoomEligible = (roomObj, planObj) => {
+      if (roomObj) {
+        const rType = roomObj.type !== undefined ? roomObj.type : roomObj.Type;
+        const rStatus = roomObj.status !== undefined ? roomObj.status : roomObj.Status;
+        if (rType !== undefined && rType !== null && rType !== 1 && rType !== 2) return false;
+        if (rStatus !== undefined && rStatus !== null && rStatus !== 100) return false;
+      }
+      if (planObj) {
+        const pRoomType = planObj.roomType !== undefined ? planObj.roomType : planObj.RoomType;
+        const pRoomStatus = planObj.roomStatus !== undefined ? planObj.roomStatus : planObj.RoomStatus;
+        if (pRoomType !== undefined && pRoomType !== null && pRoomType !== 0 && pRoomType !== 1 && pRoomType !== 2) return false;
+        if (pRoomStatus !== undefined && pRoomStatus !== null && pRoomStatus !== 0 && pRoomStatus !== 100) return false;
+      }
+      return true;
+    };
 
     // 1. Add plans from upcomingPlans (if loaded from API)
     if (Array.isArray(upcomingPlans)) {
       upcomingPlans.forEach(p => {
         if (p && p.id) {
+          const fid = String(p.roomFriendlyId || p.roomID || '').toLowerCase().trim();
+          const numId = String(p.roomId || '').trim();
+          const matchingRoom = (fid && roomsLookup.get(fid)) || (numId && roomsLookup.get(numId)) || null;
+
+          if (!isRoomEligible(matchingRoom, p)) return;
+
           plansMap.set(String(p.id), {
             id: p.id,
             title: p.title || 'جلسه بدون عنوان',
             roomFriendlyId: p.roomFriendlyId || p.roomID || '',
-            roomTitle: p.roomTitle || p.roomFriendlyId || '',
+            roomTitle: p.roomTitle || matchingRoom?.title || matchingRoom?.Title || p.roomFriendlyId || '',
             teacherName: p.teacherName || (typeof p.teacher === 'string' ? p.teacher : p.teacher?.name) || '',
             dabir: p.dabir || null,
             startDate: p.startDate || p.startAt,
+            roomObj: matchingRoom
           });
         }
       });
@@ -140,6 +188,9 @@ const HomePage = () => {
     // 2. Also aggregate from all loaded rooms (fall-back & enrichment)
     if (Array.isArray(rooms)) {
       rooms.forEach(r => {
+        if (!r) return;
+        if (!isRoomEligible(r, null)) return; // Exclude test rooms
+
         const plans = r.planJSONs || r.PlanJSONs || r.plan || [];
         if (Array.isArray(plans)) {
           plans.forEach(p => {
@@ -159,6 +210,7 @@ const HomePage = () => {
                   teacherName: teacherStr || '',
                   dabir: p.dabir || p.Dabir || null,
                   startDate: start,
+                  roomObj: r
                 });
               }
             }
@@ -450,7 +502,7 @@ const HomePage = () => {
               <div>
                 <h3 className="text-lg sm:text-xl font-black text-[#1f2937]">جلسات پیش‌رو</h3>
                 <p className="text-xs text-[#6b7280] mt-0.5 font-medium">
-                  برنامه‌های آینده اتاق‌ها — دکمه شروع جلسه از ۵ ساعت قبل از آغاز فعال می‌شود
+                  برنامه‌ها و نشست‌های آینده اتاق‌های فعال
                 </p>
               </div>
             </div>
@@ -463,73 +515,112 @@ const HomePage = () => {
             <table className="w-full text-right text-sm">
               <thead>
                 <tr className="bg-[#f9fafb] text-[#4b5563] text-xs font-bold border-b border-[#e5e7eb]">
-                  <th className="py-3 px-4">عنوان جلسه</th>
-                  <th className="py-3 px-4">اتاق مربوطه</th>
-                  <th className="py-3 px-4">استاد / ارائه‌دهنده</th>
-                  <th className="py-3 px-4">تاریخ و ساعت شروع برنامه</th>
-                  <th className="py-3 px-4">وضعیت زمان‌بندی</th>
+                  <th className="py-3 px-4 min-w-[200px]">عنوان جلسه</th>
+                  <th className="py-3 px-4">گروه / اتاق</th>
+                  <th className="py-3 px-4">زمان باقی‌مانده تا شروع</th>
                   <th className="py-3 px-4 text-center">عملیات</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#f3f4f6]">
-                {activeUpcomingPlans.map((plan) => {
+                {(isUpcomingExpanded ? activeUpcomingPlans : activeUpcomingPlans.slice(0, 3)).map((plan) => {
                   const timing = getPlanTimingInfo(plan.startDate);
                   return (
                     <tr key={plan.id} className="hover:bg-[#f9fafb] transition">
-                      <td className="py-3.5 px-4 font-bold text-[#1f2937]">
-                        {plan.title}
+                      {/* عنوان جلسه با محدودیت دو خط، سه نقطه و پاپ‌اور شناور روی هاور */}
+                      <td className="py-3.5 px-4 font-bold text-[#1f2937] max-w-xs sm:max-w-md">
+                        <div className="relative group/title inline-block w-full">
+                          <p
+                            className="line-clamp-2 text-ellipsis overflow-hidden text-xs sm:text-sm font-bold text-[#1f2937] leading-relaxed cursor-help hover:text-[#0284c7] transition"
+                            title={plan.title}
+                          >
+                            {plan.title}
+                          </p>
+
+                          {/* پنجره عنوان کامل بالای موس/المان */}
+                          <div className="pointer-events-none absolute bottom-full right-0 mb-2 w-72 sm:w-80 p-3 bg-[#0f172a] text-[#f8fafc] text-xs font-medium rounded-2xl shadow-2xl border border-[#334155] opacity-0 group-hover/title:opacity-100 transition-all duration-200 z-40 leading-relaxed text-right">
+                            <div className="text-[10px] text-[#38bdf8] font-bold mb-1">عنوان کامل جلسه:</div>
+                            <div className="break-words font-semibold">{plan.title}</div>
+                            <div className="absolute top-full right-6 -mt-px border-4 border-transparent border-t-[#0f172a]" />
+                          </div>
+                        </div>
                       </td>
-                      <td className="py-3.5 px-4">
-                        <span className="font-semibold text-[#374151] block">{plan.roomTitle || plan.roomFriendlyId}</span>
-                        {plan.roomFriendlyId && (
-                          <span className="text-[11px] text-[#9ca3af] block font-mono mt-0.5">{plan.roomFriendlyId}</span>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-4 text-[#4b5563] font-medium">
-                        {plan.teacherName || "-"}
-                      </td>
-                      <td className="py-3.5 px-4 text-xs font-bold text-[#0369a1] whitespace-nowrap">
-                        {timing.dateStr}
-                      </td>
+
+                      {/* گروه / اتاق با هاور زیبا شامل مشخصات اتاق، شناسه و نام استاد */}
                       <td className="py-3.5 px-4 whitespace-nowrap">
-                        <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border ${
-                          timing.canStart
-                            ? 'bg-[#ecfdf5] text-[#047857] border-[#a7f3d0]'
-                            : 'bg-[#fffbeb] text-[#b45309] border-[#fde68a]'
-                        }`}>
-                          {timing.timeRemainingText}
-                        </span>
+                        <div className="relative inline-block group/group">
+                          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#f1f5f9] hover:bg-[#e2e8f0] text-[#334155] rounded-xl font-bold text-xs cursor-pointer transition border border-[#cbd5e1]/60 shadow-2xs">
+                            <FaUsers className="text-[#64748b] shrink-0" size={13} />
+                            <span className="max-w-[130px] sm:max-w-[180px] truncate">
+                              {plan.roomTitle || plan.roomFriendlyId}
+                            </span>
+                          </div>
+
+                          {/* پاپ‌اور شناور اطلاعات گروه و استاد در بالای دکمه */}
+                          <div className="pointer-events-none absolute bottom-full right-0 sm:right-1/2 sm:translate-x-1/2 mb-2 w-64 p-3.5 bg-[#1e293b] text-[#ffffff] rounded-2xl shadow-2xl border border-[#334155] opacity-0 group-hover/group:opacity-100 group-hover/group:pointer-events-auto transition-all duration-200 z-30 transform group-hover/group:-translate-y-1">
+                            <div className="text-xs space-y-2 text-right" dir="rtl">
+                              <div className="flex items-center gap-1.5 border-b border-[#334155] pb-2 text-[#38bdf8] font-black">
+                                <FaUsers size={13} />
+                                <span className="truncate">{plan.roomTitle || 'اتاق جلسه'}</span>
+                              </div>
+                              <div className="text-[11px] text-[#94a3b8] font-mono">
+                                شناسه: <span className="text-[#f1f5f9]">{plan.roomFriendlyId}</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 text-[11px] text-[#cbd5e1]">
+                                <FaChalkboardTeacher className="text-[#a855f7] shrink-0" size={13} />
+                                <span>استاد:</span>
+                                <strong className="text-[#ffffff] truncate">{plan.teacherName || 'تعیین نشده'}</strong>
+                              </div>
+                              {plan.dabir && (
+                                <div className="text-[11px] text-[#cbd5e1]">
+                                  <span className="text-[#94a3b8]">دبیر علمی: </span>
+                                  <span className="text-[#ffffff]">{plan.dabir}</span>
+                                </div>
+                              )}
+                            </div>
+                            <div className="absolute top-full right-6 sm:right-1/2 sm:translate-x-1/2 -mt-px border-4 border-transparent border-t-[#1e293b]" />
+                          </div>
+                        </div>
                       </td>
-                      <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                        {timing.canStart ? (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const teachersArr = plan.teacherName ? [{ name: plan.teacherName }] : [];
-                              handleStart(
-                                plan.roomFriendlyId,
-                                plan.id,
-                                plan.title,
-                                teachersArr,
-                                plan.dabir || null,
-                                true,
-                                true
-                              );
-                            }}
-                            className="px-4 py-2 bg-[#0284c7] hover:bg-[#0369a1] text-[#ffffff] font-bold text-xs rounded-xl transition shadow-xs hover:shadow active:scale-95 flex items-center justify-center gap-1.5 mx-auto cursor-pointer"
-                            title="شروع جلسه آنلاین"
-                          >
-                            <FaSignInAlt size={12} />
-                            <span>شروع جلسه</span>
-                          </button>
-                        ) : (
-                          <span
-                            className="inline-flex items-center gap-1 text-[11px] text-[#6b7280] bg-[#f3f4f6] border border-[#e5e7eb] px-2.5 py-1.5 rounded-xl font-medium"
-                            title="دکمه شروع ۵ ساعت قبل از آغاز جلسه فعال خواهد شد"
-                          >
-                            <span>فعال‌سازی ۵ ساعت قبل از پخش</span>
+
+                      {/* زمان باقی مانده تا شروع + تاریخ شمسی */}
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <div className="flex flex-col">
+                          <span className={`text-xs font-bold inline-flex items-center gap-1.5 ${
+                            timing.isOngoing ? 'text-[#059669]' : 'text-[#0284c7]'
+                          }`}>
+                            {timing.isOngoing && (
+                              <span className="w-2 h-2 rounded-full bg-[#10b981] animate-ping shrink-0" />
+                            )}
+                            <span>{timing.remainingText}</span>
                           </span>
-                        )}
+                          <span className="text-[11px] text-[#6b7280] font-mono mt-0.5">
+                            {timing.dateStr}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* عملیات: دکمه شروع همیشه در دسترس */}
+                      <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const teachersArr = plan.teacherName ? [{ name: plan.teacherName }] : [];
+                            handleStart(
+                              plan.roomFriendlyId,
+                              plan.id,
+                              plan.title,
+                              teachersArr,
+                              plan.dabir || null,
+                              true,
+                              true
+                            );
+                          }}
+                          className="px-4 py-2 bg-[#0284c7] hover:bg-[#0369a1] text-[#ffffff] font-bold text-xs rounded-xl transition shadow-xs hover:shadow active:scale-95 flex items-center justify-center gap-1.5 mx-auto cursor-pointer"
+                          title="شروع جلسه آنلاین"
+                        >
+                          <FaSignInAlt size={12} />
+                          <span>شروع جلسه</span>
+                        </button>
                       </td>
                     </tr>
                   );
@@ -537,6 +628,29 @@ const HomePage = () => {
               </tbody>
             </table>
           </div>
+
+          {/* دکمه مشاهده بیشتر (expand) */}
+          {activeUpcomingPlans.length > 3 && (
+            <div className="mt-4 pt-3 border-t border-[#f3f4f6] text-center">
+              <button
+                type="button"
+                onClick={() => setIsUpcomingExpanded(prev => !prev)}
+                className="inline-flex items-center gap-2 px-5 py-2 bg-[#f8fafc] hover:bg-[#eff6ff] text-[#2563eb] border border-[#dbeafe] rounded-2xl font-bold text-xs transition cursor-pointer shadow-xs hover:shadow active:scale-95"
+              >
+                {isUpcomingExpanded ? (
+                  <>
+                    <FaChevronUp size={12} />
+                    <span>نمایش کمتر (بستن)</span>
+                  </>
+                ) : (
+                  <>
+                    <FaChevronDown size={12} />
+                    <span>مشاهده بیشتر ({activeUpcomingPlans.length - 3} جلسه دیگر)</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
         </div>
       )}
 

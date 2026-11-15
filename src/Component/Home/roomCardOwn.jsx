@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FaSignInAlt, FaCalendarPlus, FaPaintBrush, FaSpinner, FaEdit, FaUsers, FaSyncAlt, FaVideo } from 'react-icons/fa';
 import { GetRoomCalendarActivity } from '../../api/GetRooms';
-import { RefreshRoomSpentMinutes, GetAdminMeetings } from '../../api/AdminAPI';
+import { RefreshRoomSpentMinutes, GetAdminMeetings, SetRoomMetadata } from '../../api/AdminAPI';
 import RoomCardMiniCalander from './RoomCardMiniCalander';
 import RoomRecordingsModal from './RoomRecordingsModal';
 import { EndMeet } from '../../api/StartNewMeeting';
@@ -94,6 +94,11 @@ const RoomCardOwn = ({
                         return acc + (dur || 0);
                     }, 0);
                     setSpentMinutes(totalMins);
+                    try {
+                        await SetRoomMetadata(targetFid || targetId, "spent_minutes", String(totalMins), 140);
+                    } catch (metaErr) {
+                        console.warn("SetRoomMetadata spent_minutes fallback failed:", metaErr);
+                    }
                 }
             } catch (fallbackErr) {
                 console.error("Fallback meetings calculation error:", fallbackErr);
