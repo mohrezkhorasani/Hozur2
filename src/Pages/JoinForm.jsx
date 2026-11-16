@@ -29,7 +29,7 @@ import {
   BaseURLFiles
 } from '../api/apiNeed';
 import EmojiIcon from '../Component/EmojiIcon';
-import { combinePath } from '../Tools/tools';
+import { combinePath, getMeetingDateTime } from '../Tools/tools';
 import { GetRoomMetadata } from '../api/AdminAPI';
 
 // Helper to read a cookie by name
@@ -322,48 +322,10 @@ function JoinForm() {
   // --- Next Session String Formatting ---
   useEffect(() => {
     if (meet?.nextMeet) {
-      const nextMeetDate = new Date(meet.nextMeet);
-      const now = new Date();
-
-      const nextUTCDate = new Date(Date.UTC(
-        nextMeetDate.getUTCFullYear(),
-        nextMeetDate.getUTCMonth(),
-        nextMeetDate.getUTCDate()
-      ));
-
-      const nowUTCDate = new Date(Date.UTC(
-        now.getUTCFullYear(),
-        now.getUTCMonth(),
-        now.getUTCDate()
-      ));
-
-      let dateString = '';
-      if (nextUTCDate.getTime() === nowUTCDate.getTime()) {
-        dateString = 'امروز';
-      } else {
-        const daysDifference = Math.ceil((nextUTCDate - nowUTCDate) / (1000 * 60 * 60 * 24));
-        if (daysDifference === 1) {
-          dateString = 'فردا';
-        } else if (daysDifference > 0 && daysDifference <= 30) {
-          dateString = new Intl.DateTimeFormat('fa-IR', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-          }).format(nextMeetDate);
-        }
-      }
-
-      if (dateString) {
-        const timeString = nextMeetDate.toLocaleTimeString('fa-IR', {
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: false,
-          timeZone: 'UTC'
-        });
-        setNextSessionInfo(`${dateString} ساعت ${timeString}`);
-      } else {
-        setNextSessionInfo('');
-      }
+      const formatted = getMeetingDateTime(meet.nextMeet);
+      setNextSessionInfo(formatted || '');
+    } else {
+      setNextSessionInfo('');
     }
   }, [meet]);
 

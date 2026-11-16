@@ -5,7 +5,7 @@ import { RefreshRoomSpentMinutes, GetAdminMeetings, SetRoomMetadata } from '../.
 import RoomCardMiniCalander from './RoomCardMiniCalander';
 import RoomRecordingsModal from './RoomRecordingsModal';
 import { EndMeet } from '../../api/StartNewMeeting';
-import { findNextPlan } from '../../Tools/tools';
+import { findNextPlan, formatPersianDateTime } from '../../Tools/tools';
 import NextMeetingBadge from '../NextMeetBadge';
 
 const RoomCardOwn = ({
@@ -387,7 +387,7 @@ const RoomCardOwn = ({
                                                 >
                                                     <span className="text-sm font-medium text-[#636363]">{plan.title}</span>
                                                     <span className="text-xs text-gray-400">
-                                                        📅 {plan.startAt ? new Date(plan.startAt).toLocaleDateString('fa-IR') : ''}
+                                                        📅 {plan.startAt ? formatPersianDateTime(plan.startAt) : ''}
                                                     </span>
                                                 </button>
                                             ))}

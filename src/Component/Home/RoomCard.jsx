@@ -1,4 +1,4 @@
-import { SVG_ROOMCARD_WAVE, timeAgo } from "../../Tools/tools";
+import { SVG_ROOMCARD_WAVE, timeAgo, getMeetingDateTime, parseUtcDate } from "../../Tools/tools";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEye, faUsers, faBuilding, faCopy, faInfoCircle } from '@fortawesome/free-solid-svg-icons';
 import EmojiIcon from "../EmojiIcon";
@@ -19,57 +19,9 @@ export default function RoomCard({ i, isRoomLive, live = null, joinButton = true
   // Determine if there's an upcoming session and format its details
   let nextSessionInfo = null;
   if (i.nextMeet) {
-    const nextMeetDate = new Date(i.nextMeet);
-    const now = new Date();
-
-    // Create UTC dates for comparison (to avoid timezone issues)
-    const nextUTCDate = new Date(Date.UTC(
-      nextMeetDate.getUTCFullYear(),
-      nextMeetDate.getUTCMonth(),
-      nextMeetDate.getUTCDate()
-    ));
-
-    const nowUTCDate = new Date(Date.UTC(
-      now.getUTCFullYear(),
-      now.getUTCMonth(),
-      now.getUTCDate()
-    ));
-
-    let dateString = '';
-
-    if (nextUTCDate.getTime() === nowUTCDate.getTime()) {
-      dateString = 'امروز';
-    } else {
-      const daysDifference = Math.ceil((nextUTCDate - nowUTCDate) / (1000 * 60 * 60 * 24));
-
-      if (daysDifference === 1) {
-        dateString = 'فردا';
-      } else if (daysDifference < 0) {
-        i.nextMeet = null;
-        nextSessionInfo = null;
-      } else if (daysDifference > 30) {
-        i.nextMeet = null;
-        nextSessionInfo = null;
-      } else {
-        // Convert to Persian date
-        const persianDate = new Intl.DateTimeFormat('fa-IR', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
-        }).format(nextMeetDate);
-        dateString = persianDate;
-      }
-    }
-
-    if (i.nextMeet) {
-      // Use UTC time (same as input)
-      const timeString = nextMeetDate.toLocaleTimeString('fa-IR', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-        timeZone: 'UTC'
-      });
-      nextSessionInfo = `${dateString} ساعت ${timeString}`;
+    const meetDate = parseUtcDate(i.nextMeet);
+    if (meetDate && (meetDate.getTime() - Date.now()) > (-3 * 3600 * 1000)) {
+      nextSessionInfo = getMeetingDateTime(i.nextMeet);
     }
   }
 

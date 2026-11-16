@@ -23,7 +23,7 @@ import FooterUpper from "@/Component/FooterUpper";
 import HeaderStickTop from "../Component/HeaderStickTop";
 import { fetchRoomLive, fetchRooms } from "@/api/GetRooms.jsx"; // مسیر دلخواه تو پروژه
 import { startNewMeet, VerifyToken } from "@/api/StartNewMeeting";
-import { timeAgo, formatPersianDateTime } from "@/Tools/tools";
+import { timeAgo, formatPersianDateTime, parseUtcDate } from "@/Tools/tools";
 import Cookies from 'js-cookie';
 import { Navigate, useNavigate, useLocation, Outlet } from 'react-router-dom';
 import useFetch from "../Tools/Hooks/UseFetchHook";
@@ -86,8 +86,8 @@ const HomePage = () => {
   const getPlanTimingInfo = (startDateStr) => {
     if (!startDateStr) return { remainingText: '-', dateStr: '-', isOngoing: false };
     const now = new Date();
-    const start = new Date(startDateStr);
-    if (isNaN(start.getTime())) return { remainingText: '-', dateStr: '-', isOngoing: false };
+    const start = parseUtcDate(startDateStr);
+    if (!start) return { remainingText: '-', dateStr: '-', isOngoing: false };
 
     const diffMs = start.getTime() - now.getTime();
     const diffMins = Math.round(diffMs / 60000);
@@ -144,19 +144,26 @@ const HomePage = () => {
       });
     }
 
-    // Filter check: room must have Type 1 or 2, and Status 100
+    // Strict filter: room Type MUST be 1 (ROOM_NORMAL) or 2 (ROOM_CREATED_BY_ADMIN)
     const isRoomEligible = (roomObj, planObj) => {
-      if (roomObj) {
-        const rType = roomObj.type !== undefined ? roomObj.type : roomObj.Type;
-        const rStatus = roomObj.status !== undefined ? roomObj.status : roomObj.Status;
-        if (rType !== undefined && rType !== null && rType !== 1 && rType !== 2) return false;
-        if (rStatus !== undefined && rStatus !== null && rStatus !== 100) return false;
-      }
+      if (!roomObj) return false;
+
+      const rType = Number(roomObj.type !== undefined ? roomObj.type : roomObj.Type);
+      // Strictly type 1 or 2
+      if (rType !== 1 && rType !== 2) return false;
+
+      const rStatus = Number(roomObj.status !== undefined ? roomObj.status : roomObj.Status);
+      if (rStatus !== 100 && rStatus !== 1) return false;
+
       if (planObj) {
+        const pType = Number(planObj.type !== undefined ? planObj.type : planObj.Type);
+        if (pType === -99 || pType === 99) return false;
+
         const pRoomType = planObj.roomType !== undefined ? planObj.roomType : planObj.RoomType;
-        const pRoomStatus = planObj.roomStatus !== undefined ? planObj.roomStatus : planObj.RoomStatus;
-        if (pRoomType !== undefined && pRoomType !== null && pRoomType !== 0 && pRoomType !== 1 && pRoomType !== 2) return false;
-        if (pRoomStatus !== undefined && pRoomStatus !== null && pRoomStatus !== 0 && pRoomStatus !== 100) return false;
+        if (pRoomType !== undefined && pRoomType !== null) {
+          const prt = Number(pRoomType);
+          if (prt !== 1 && prt !== 2) return false;
+        }
       }
       return true;
     };
@@ -164,22 +171,22 @@ const HomePage = () => {
     // 1. Add plans from upcomingPlans (if loaded from API)
     if (Array.isArray(upcomingPlans)) {
       upcomingPlans.forEach(p => {
-        if (p && p.id) {
+        if (p && (p.id || p.planId)) {
+          const planId = p.id || p.planId;
           const fid = String(p.roomFriendlyId || p.roomID || '').toLowerCase().trim();
           const numId = String(p.roomId || '').trim();
           const matchingRoom = (fid && roomsLookup.get(fid)) || (numId && roomsLookup.get(numId)) || null;
 
           // فقط جلسات پیش‌رو مربوط به گروه‌های اکانت فعلی؛ اتاق‌های غیر نباید نمایش داده شوند
           if (!matchingRoom) return;
-
           if (!isRoomEligible(matchingRoom, p)) return;
 
-          plansMap.set(String(p.id), {
-            id: p.id,
+          plansMap.set(String(planId), {
+            id: planId,
             title: p.title || 'جلسه بدون عنوان',
             roomFriendlyId: p.roomFriendlyId || p.roomID || matchingRoom.friendlyID || matchingRoom.roomID,
             roomTitle: matchingRoom.title || matchingRoom.Title || p.roomTitle || '',
-            teacherName: p.teacherName || (typeof p.teacher === 'string' ? p.teacher : p.teacher?.name) || '',
+            teacherName: p.teacherName || (typeof p.teacher === 'string' ? p.teacher : p.teacher?.name) || p.teachers || '',
             dabir: p.dabir || null,
             startDate: p.startDate || p.startAt,
             roomObj: matchingRoom
@@ -192,13 +199,16 @@ const HomePage = () => {
     if (Array.isArray(rooms)) {
       rooms.forEach(r => {
         if (!r) return;
-        if (!isRoomEligible(r, null)) return; // Exclude test rooms
+        if (!isRoomEligible(r, null)) return; // Exclude test rooms / non-eligible rooms
 
         const plans = r.planJSONs || r.PlanJSONs || r.plan || [];
         if (Array.isArray(plans)) {
           plans.forEach(p => {
             const pId = p.id || p.ID;
             const start = p.startAt || p.startDate || p.StartAt || p.StartDate;
+            const pType = Number(p.type !== undefined ? p.type : p.Type);
+            if (pType === -99 || pType === 99) return;
+
             if (pId && start) {
               const teacherStr = typeof p.teacher === 'string'
                 ? p.teacher
@@ -226,14 +236,18 @@ const HomePage = () => {
     const now = new Date();
     const list = Array.from(plansMap.values()).filter(plan => {
       if (!plan.startDate) return false;
-      const start = new Date(plan.startDate);
-      if (isNaN(start.getTime())) return false;
+      const start = parseUtcDate(plan.startDate);
+      if (!start) return false;
       // Not expired: start is in future or started less than 3 hours ago (active session window)
       return (start.getTime() - now.getTime()) > (-3 * 3600 * 1000);
     });
 
     // 4. Sort ascending by startDate
-    list.sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+    list.sort((a, b) => {
+      const da = parseUtcDate(a.startDate);
+      const db = parseUtcDate(b.startDate);
+      return (da?.getTime() || 0) - (db?.getTime() || 0);
+    });
     return list;
   }, [upcomingPlans, rooms]);
 
@@ -248,8 +262,8 @@ const HomePage = () => {
     if (!plans || !Array.isArray(plans)) return [];
     const now = new Date();
     return plans.filter(plan => {
-      const planDate = new Date(plan.startAt);
-      return planDate > now;
+      const planDate = parseUtcDate(plan.startAt || plan.startDate);
+      return planDate && planDate.getTime() > now.getTime();
     });
   };
   const handleDayClick = (meetings, day, month, year) => {
@@ -514,7 +528,7 @@ const HomePage = () => {
             </span>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto lg:overflow-visible min-h-[160px]">
             <table className="w-full text-right text-sm">
               <thead>
                 <tr className="bg-[#f9fafb] text-[#4b5563] text-xs font-bold border-b border-[#e5e7eb]">
@@ -525,10 +539,10 @@ const HomePage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#f3f4f6]">
-                {(isUpcomingExpanded ? activeUpcomingPlans : activeUpcomingPlans.slice(0, 3)).map((plan) => {
+                {(isUpcomingExpanded ? activeUpcomingPlans : activeUpcomingPlans.slice(0, 3)).map((plan, index) => {
                   const timing = getPlanTimingInfo(plan.startDate);
                   return (
-                    <tr key={plan.id} className="hover:bg-[#f9fafb] transition">
+                    <tr key={plan.id} className="relative hover:z-50 hover:bg-[#f9fafb] transition">
                       {/* عنوان جلسه با محدودیت دو خط، سه نقطه و پاپ‌اور شناور روی هاور */}
                       <td className="py-3.5 px-4 font-bold text-[#1f2937] max-w-xs sm:max-w-md">
                         <div className="relative group/title inline-block w-full">
@@ -540,10 +554,18 @@ const HomePage = () => {
                           </p>
 
                           {/* پنجره عنوان کامل بالای موس/المان */}
-                          <div className="pointer-events-none absolute bottom-full right-0 mb-2 w-72 sm:w-80 p-3 bg-[#0f172a] text-[#f8fafc] text-xs font-medium rounded-2xl shadow-2xl border border-[#334155] opacity-0 group-hover/title:opacity-100 transition-all duration-200 z-40 leading-relaxed text-right">
+                          <div
+                            className={`pointer-events-none absolute right-0 w-72 sm:w-80 p-3 bg-[#0f172a] text-[#f8fafc] text-xs font-medium rounded-2xl shadow-2xl border border-[#334155] opacity-0 group-hover/title:opacity-100 transition-all duration-200 z-50 leading-relaxed text-right ${
+                              index === 0 ? 'top-full mt-2' : 'bottom-full mb-2'
+                            }`}
+                          >
                             <div className="text-[10px] text-[#38bdf8] font-bold mb-1">عنوان کامل جلسه:</div>
                             <div className="break-words font-semibold">{plan.title}</div>
-                            <div className="absolute top-full right-6 -mt-px border-4 border-transparent border-t-[#0f172a]" />
+                            {index === 0 ? (
+                              <div className="absolute bottom-full right-6 -mb-px border-4 border-transparent border-b-[#0f172a]" />
+                            ) : (
+                              <div className="absolute top-full right-6 -mt-px border-4 border-transparent border-t-[#0f172a]" />
+                            )}
                           </div>
                         </div>
                       </td>
@@ -559,7 +581,13 @@ const HomePage = () => {
                           </div>
 
                           {/* پاپ‌اور شناور اطلاعات گروه و استاد در بالای دکمه */}
-                          <div className="pointer-events-none absolute bottom-full right-0 sm:right-1/2 sm:translate-x-1/2 mb-2 w-64 p-3.5 bg-[#1e293b] text-[#ffffff] rounded-2xl shadow-2xl border border-[#334155] opacity-0 group-hover/group:opacity-100 group-hover/group:pointer-events-auto transition-all duration-200 z-30 transform group-hover/group:-translate-y-1">
+                          <div
+                            className={`pointer-events-none absolute right-0 sm:right-1/2 sm:translate-x-1/2 w-64 p-3.5 bg-[#1e293b] text-[#ffffff] rounded-2xl shadow-2xl border border-[#334155] opacity-0 group-hover/group:opacity-100 group-hover/group:pointer-events-auto transition-all duration-200 z-50 transform ${
+                              index === 0
+                                ? 'top-full mt-2 group-hover/group:translate-y-1'
+                                : 'bottom-full mb-2 group-hover/group:-translate-y-1'
+                            }`}
+                          >
                             <div className="text-xs space-y-2 text-right" dir="rtl">
                               <div className="flex items-center gap-1.5 border-b border-[#334155] pb-2 text-[#38bdf8] font-black">
                                 <FaUsers size={13} />
@@ -580,7 +608,11 @@ const HomePage = () => {
                                 </div>
                               )}
                             </div>
-                            <div className="absolute top-full right-6 sm:right-1/2 sm:translate-x-1/2 -mt-px border-4 border-transparent border-t-[#1e293b]" />
+                            {index === 0 ? (
+                              <div className="absolute bottom-full right-6 sm:right-1/2 sm:translate-x-1/2 -mb-px border-4 border-transparent border-b-[#1e293b]" />
+                            ) : (
+                              <div className="absolute top-full right-6 sm:right-1/2 sm:translate-x-1/2 -mt-px border-4 border-transparent border-t-[#1e293b]" />
+                            )}
                           </div>
                         </div>
                       </td>
