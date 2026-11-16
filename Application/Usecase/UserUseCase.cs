@@ -4918,17 +4918,20 @@ namespace Application.Usecase
         private IBBBGetMeetings bbb { get; }
         private readonly IMediator _mediator;
         private readonly IConfiguration _configuration;
+        private readonly IMemoryCache? _memoryCache;
 
         public BotNewPlanRoomUseCase(IDBContext repository,
             IConfiguration configuration,
             IBBBGetMeetings bbb,
-            IMediator mediator)
+            IMediator mediator,
+            IMemoryCache? memoryCache = null)
         {
             _db = repository;
             _configuration = configuration;
             _commonMethods = new CommonMethods(configuration, repository, hosting);
             this.bbb = bbb;
             _mediator = mediator;
+            _memoryCache = memoryCache;
         }
 
         public async Task handleAsync(BotNewPlanRoomRequest message,
@@ -5081,6 +5084,158 @@ namespace Application.Usecase
                     bannerPresentationURL = Statics.CombinePath(Statics.URLFiles, fileLink);
                 }
 
+                var trimmedTitle = message.Title.Trim();
+                var nowUtc = DateTime.UtcNow;
+
+                // 1. Check if an upcoming meeting with the exact same subject already exists in database
+                var existingPlan = _db.RoomTBLPlanTBLs
+                    .Include(p => p.RoomTBL)
+                    .Where(p => p.IDRoomTBL == room.ID
+                             && p.Title != null
+                             && p.Title.Trim() == trimmedTitle
+                             && p.StartDate.HasValue
+                             && p.StartDate.Value > nowUtc
+                             && (p.Status == MainEntity_Status.Enabled || p.Status == MainEntity_Status.MEETING_STARTED_LATER))
+                    .OrderByDescending(p => p.StartDate)
+                    .FirstOrDefault();
+
+                if (existingPlan == null)
+                {
+                    existingPlan = _db.RoomTBLPlanTBLs
+                        .Include(p => p.RoomTBL)
+                        .Where(p => p.Title != null
+                                 && p.Title.Trim() == trimmedTitle
+                                 && p.StartDate.HasValue
+                                 && p.StartDate.Value > nowUtc
+                                 && (p.Status == MainEntity_Status.Enabled || p.Status == MainEntity_Status.MEETING_STARTED_LATER))
+                        .OrderByDescending(p => p.StartDate)
+                        .FirstOrDefault();
+                }
+
+                if (existingPlan != null)
+                {
+                    bool hasNewBanner = message.Banner != null && message.Banner.Length > 0;
+                    bool hasNewPresentation = !message.IsBannerAndPresentationSame && message.BannerPresentation != null && message.BannerPresentation.Length > 0;
+
+                    bool isDateIdentical = existingPlan.StartDate.HasValue && Math.Abs((existingPlan.StartDate.Value - utcDateTime).TotalSeconds) < 60;
+                    bool isTeachersIdentical = string.Equals((existingPlan.Teachers ?? "").Trim(), (teachersSummary ?? "").Trim(), StringComparison.Ordinal);
+                    bool isDabirIdentical = string.Equals((existingPlan.Dabir ?? "").Trim(), (dabirClean ?? "").Trim(), StringComparison.Ordinal);
+                    bool isRoomIdentical = existingPlan.IDRoomTBL == room.ID;
+
+                    // If all information is completely identical, do NOT update; return duplicate status (409 Conflict)
+                    if (!hasNewBanner && !hasNewPresentation && isDateIdentical && isTeachersIdentical && isDabirIdentical && isRoomIdentical)
+                    {
+                        var (dupTehranDate, dupTehranTime, dupTehranFormatted) = PlanTimeHelper.ToTehranJalaliStrings(existingPlan.StartDate.Value);
+                        var dupTehranDt = PlanTimeHelper.ToTehranDateTime(existingPlan.StartDate.Value);
+
+                        outputPort.Handle(new GenericResponse<BotNewPlanRoomResponse>(new BotNewPlanRoomResponse
+                        {
+                            Message = "جلسه با این موضوع و مشخصات از قبل در سامانه وجود دارد (تکراری است) و نیازی به تغییر ندارد",
+                            Status = 409,
+                            Data = new
+                            {
+                                PlanID = existingPlan.ID,
+                                RoomFriendlyID = existingPlan.RoomTBL?.FriendlyID ?? room.FriendlyID,
+                                Title = existingPlan.Title,
+                                Teachers = existingPlan.Teachers,
+                                TeachersJson = teachersJson,
+                                Dabir = existingPlan.Dabir,
+                                StartDateUtc = existingPlan.StartDate,
+                                StartDate = dupTehranDt,
+                                Date = dupTehranDate,
+                                Time = dupTehranTime,
+                                StartDateJalali = dupTehranDate,
+                                StartTimeTehran = dupTehranTime,
+                                StartAtTehran = dupTehranFormatted,
+                                IsDuplicate = true,
+                                Explain = existingPlan.Explain
+                            }
+                        }));
+                        return;
+                    }
+
+                    // Information has changed -> Update existing record
+                    var originalRoomId = existingPlan.IDRoomTBL;
+                    var originalRoomFriendlyId = existingPlan.RoomTBL?.FriendlyID;
+
+                    existingPlan.IDRoomTBL = room.ID;
+                    existingPlan.Title = trimmedTitle;
+                    existingPlan.StartDate = utcDateTime;
+                    existingPlan.Teachers = teachersSummary;
+                    existingPlan.Dabir = dabirClean;
+                    if (!string.IsNullOrWhiteSpace(bannerPresentationURL))
+                    {
+                        existingPlan.PresentationFileURL = bannerPresentationURL;
+                    }
+
+                    // Record exact update timestamp in Explain
+                    var updateTimeUtc = DateTime.UtcNow;
+                    var (updDate, updTime, updFormatted) = PlanTimeHelper.ToTehranJalaliStrings(updateTimeUtc);
+                    existingPlan.Explain = $"به‌روزرسانی در تاریخ {updDate} ساعت {updTime} (UTC: {updateTimeUtc:yyyy-MM-ddTHH:mm:ssZ})";
+
+                    if (!string.IsNullOrWhiteSpace(bannerURL))
+                    {
+                        var slide = _db.SlideshowTBL.FirstOrDefault(s => s.Href == $"/rooms/{room.FriendlyID}/join" && s.Name == existingPlan.Title)
+                            ?? _db.SlideshowTBL.FirstOrDefault(s => s.Name == existingPlan.Title);
+                        if (slide != null)
+                        {
+                            slide.Path = bannerURL.Replace(Statics.URLFiles, "");
+                            slide.DateExpire = existingPlan.StartDate.Value.AddHours(5);
+                            slide.Href = $"/rooms/{room.FriendlyID}/join";
+                        }
+                        else
+                        {
+                            _db.SlideshowTBL.Add(new SlideshowTBL
+                            {
+                                DateExpire = existingPlan.StartDate.Value.AddHours(5),
+                                Href = $"/rooms/{room.FriendlyID}/join",
+                                Name = existingPlan.Title,
+                                Path = bannerURL.Replace(Statics.URLFiles, ""),
+                                Position = 2,
+                                Type = MainEntity_Types.Normal,
+                                Status = MainEntity_Status.Enabled
+                            });
+                        }
+                    }
+
+                    _db.RoomTBLPlanTBLs.Update(existingPlan);
+                    _db.SaveChanges();
+
+                    // Invalidate caches: both plans cache and public rooms cache
+                    await InvalidatePlanAndRoomCaches(room.ID, room.FriendlyID, originalRoomId, originalRoomFriendlyId);
+
+                    var (tehranDate, tehranTime, tehranFormatted) = PlanTimeHelper.ToTehranJalaliStrings(utcDateTime);
+                    var tehranDt = PlanTimeHelper.ToTehranDateTime(utcDateTime);
+
+                    outputPort.Handle(new GenericResponse<BotNewPlanRoomResponse>(new BotNewPlanRoomResponse
+                    {
+                        Message = "جلسه از قبل وجود داشت و اطلاعات جدید با موفقیت به‌روزرسانی شد",
+                        Status = 200,
+                        Data = new
+                        {
+                            PlanID = existingPlan.ID,
+                            RoomFriendlyID = room.FriendlyID,
+                            Title = existingPlan.Title,
+                            Teachers = existingPlan.Teachers,
+                            TeachersJson = teachersJson,
+                            Dabir = existingPlan.Dabir,
+                            StartDateUtc = utcDateTime,
+                            StartDate = tehranDt,
+                            Date = tehranDate,
+                            Time = tehranTime,
+                            StartDateJalali = tehranDate,
+                            StartTimeTehran = tehranTime,
+                            StartAtTehran = tehranFormatted,
+                            BannerURL = bannerURL,
+                            MatchedTeachers = matchedTeachers,
+                            IsUpdated = true,
+                            Explain = existingPlan.Explain
+                        }
+                    }));
+                    return;
+                }
+
+                // If not found in database, insert brand new plan
                 var plan = new RoomTBLPlanTBL
                 {
                     IDRoomTBL = room.ID,
@@ -5089,8 +5244,9 @@ namespace Application.Usecase
                     Type = MainEntity_Types.PLAN_WITH_CERT,
                     Teachers = teachersSummary,
                     Dabir = dabirClean,
-                    Title = message.Title.Trim(),
+                    Title = trimmedTitle,
                     PresentationFileURL = bannerPresentationURL,
+                    DateInsert = DateTime.UtcNow
                 };
 
                 _db.RoomTBLPlanTBLs.Add(plan);
@@ -5111,14 +5267,11 @@ namespace Application.Usecase
 
                 _db.SaveChanges();
 
-                await _mediator.Publish(new PlanUpdateEvent
-                {
-                    FriendlyID = room.FriendlyID,
-                    Action = "create"
-                });
+                // Invalidate caches for new plan
+                await InvalidatePlanAndRoomCaches(room.ID, room.FriendlyID, null, null);
 
-                var (tehranDate, tehranTime, tehranFormatted) = PlanTimeHelper.ToTehranJalaliStrings(utcDateTime);
-                var tehranDt = PlanTimeHelper.ToTehranDateTime(utcDateTime);
+                var (newTehranDate, newTehranTime, newTehranFormatted) = PlanTimeHelper.ToTehranJalaliStrings(utcDateTime);
+                var newTehranDt = PlanTimeHelper.ToTehranDateTime(utcDateTime);
 
                 outputPort.Handle(new GenericResponse<BotNewPlanRoomResponse>(new BotNewPlanRoomResponse
                 {
@@ -5133,12 +5286,12 @@ namespace Application.Usecase
                         TeachersJson = teachersJson,
                         Dabir = plan.Dabir,
                         StartDateUtc = utcDateTime,
-                        StartDate = tehranDt,
-                        Date = tehranDate,
-                        Time = tehranTime,
-                        StartDateJalali = tehranDate,
-                        StartTimeTehran = tehranTime,
-                        StartAtTehran = tehranFormatted,
+                        StartDate = newTehranDt,
+                        Date = newTehranDate,
+                        Time = newTehranTime,
+                        StartDateJalali = newTehranDate,
+                        StartTimeTehran = newTehranTime,
+                        StartAtTehran = newTehranFormatted,
                         BannerURL = bannerURL,
                         MatchedTeachers = matchedTeachers
                     }
@@ -5152,6 +5305,59 @@ namespace Application.Usecase
                     Message = "خطای غیرمنتظره در سرور: " + e.Message,
                     Status = 500
                 }));
+            }
+        }
+
+        private async Task InvalidatePlanAndRoomCaches(long roomId, string roomFriendlyId, long? originalRoomId, string? originalRoomFriendlyId)
+        {
+            try
+            {
+                if (_memoryCache != null)
+                {
+                    _memoryCache.Remove($"HekmatShobeList{roomFriendlyId}");
+                    _memoryCache.Remove("PlanRoomPublic");
+                    _memoryCache.Remove("LatestMeetings");
+                    if (!string.IsNullOrWhiteSpace(originalRoomFriendlyId) && originalRoomFriendlyId != roomFriendlyId)
+                    {
+                        _memoryCache.Remove($"HekmatShobeList{originalRoomFriendlyId}");
+                    }
+                }
+
+                // Invalidate and rebuild plan caches
+                await _mediator.Publish(new PlanUpdateEvent
+                {
+                    FriendlyID = roomFriendlyId,
+                    Action = "update"
+                });
+
+                // Invalidate public and all rooms caches
+                await _mediator.Publish(new RoomUpdatedEvent
+                {
+                    RoomId = roomId,
+                    Action = "update"
+                });
+
+                if (originalRoomId.HasValue && originalRoomId.Value != roomId)
+                {
+                    if (!string.IsNullOrWhiteSpace(originalRoomFriendlyId))
+                    {
+                        await _mediator.Publish(new PlanUpdateEvent
+                        {
+                            FriendlyID = originalRoomFriendlyId,
+                            Action = "update"
+                        });
+                    }
+
+                    await _mediator.Publish(new RoomUpdatedEvent
+                    {
+                        RoomId = originalRoomId.Value,
+                        Action = "update"
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                Statics.Log("BotNewPlanRoomUseCase.CacheInvalidation", ex.Message);
             }
         }
     }

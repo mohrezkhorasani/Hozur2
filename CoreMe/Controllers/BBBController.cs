@@ -922,9 +922,25 @@ namespace CoreMe.Controllers
         }
 
         [HttpPost("/api/bot/NewPlanRoom")]
+        [HttpPost("/bot/NewPlanRoom")]
         [HttpPost("/user/BotNewPlanRoom")]
-        public async Task<IActionResult> BotNewPlanRoom([FromForm] BotNewPlanRoomViewModel vm)
+        public async Task<IActionResult> BotNewPlanRoom([FromForm] BotNewPlanRoomViewModel? vm)
         {
+            if (vm == null || (string.IsNullOrWhiteSpace(vm.Title) && Request.HasJsonContentType()))
+            {
+                try
+                {
+                    using var reader = new System.IO.StreamReader(Request.Body);
+                    var body = await reader.ReadToEndAsync();
+                    if (!string.IsNullOrWhiteSpace(body))
+                    {
+                        vm = Newtonsoft.Json.JsonConvert.DeserializeObject<BotNewPlanRoomViewModel>(body);
+                    }
+                }
+                catch { }
+            }
+            vm ??= new BotNewPlanRoomViewModel();
+
             var head = HttpContext.GetGeneralHeaders();
             string secret = vm.Secret ?? "";
             if (string.IsNullOrWhiteSpace(secret))
@@ -962,6 +978,12 @@ namespace CoreMe.Controllers
             var presenter = _BotNewPlanRoomResponse ?? HttpContext.RequestServices.GetRequiredService<ApiPresenter<BotNewPlanRoomResponse>>();
 
             await usecase.handleAsync(req, presenter);
+
+            if (presenter.jsonContentResult.obj is BaseParentResponce bpr && bpr.Status >= 100 && bpr.Status < 600)
+            {
+                presenter.jsonContentResult.StatusCode = bpr.Status;
+            }
+
             return presenter.jsonContentResult;
         }
 
