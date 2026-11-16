@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { formatPersianDate, getMeetingDateTime } from "../../Tools/tools";
+import { formatPersianDate, isPlanDeleted } from "../../Tools/tools";
 
 export const MeetingMenu = ({ planList }) => {
   const [showAll, setShowAll] = useState(false);
 
-  const displayData = showAll ? planList : planList?.slice(0, 3);
-  console.log("planList",displayData)
+  const validPlans = (planList || []).filter(item => !isPlanDeleted(item));
+  const displayData = showAll ? validPlans : validPlans.slice(0, 3);
+
   return (
     <div className="bg-[#ffffff] rounded-2xl shadow-sm border border-[#f3f4f6] overflow-hidden mt-7">
       <div className="bg-gradient-to-r from-[#0b3f32] to-[#0a352a] px-5 py-4">
@@ -20,8 +21,10 @@ export const MeetingMenu = ({ planList }) => {
       <div className="divide-y divide-[#f3f4f6]">
         {displayData && displayData.length > 0 ? (
           displayData.map((item) => {
-            const { time, date, prettDate } = formatPersianDate(item.startAt);
-            const isPast = new Date(item.startAt) < new Date();
+            const rawUtc = item.startAtUtc || item.startAt;
+            const { time, date, prettDate } = formatPersianDate(rawUtc);
+            const isPast = rawUtc ? (new Date(rawUtc) < new Date()) : false;
+            const displayTime = (time && time !== '-') ? time : (item.time || item.startTimeTehran || '-');
 
             return (
               <a
@@ -62,7 +65,7 @@ export const MeetingMenu = ({ planList }) => {
                         {prettDate === 'امروز' ? 'امروز' :
                           prettDate === 'فردا' ? 'فردا' :
                             prettDate === 'پس فردا' ? 'پس فردا' :
-                              prettDate} ساعت {time}  
+                              prettDate} ساعت {displayTime}  
                       </span>
                     </span>
                   </div>
@@ -77,7 +80,7 @@ export const MeetingMenu = ({ planList }) => {
         )}
       </div>
 
-      {planList?.length > 3 && (
+      {validPlans?.length > 3 && (
         <div className="p-4 bg-[#f9fafb] border-t border-[#f3f4f6]">
           <button
             onClick={() => setShowAll(!showAll)}

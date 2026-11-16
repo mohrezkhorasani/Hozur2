@@ -24,7 +24,7 @@ import FooterUpper from "@/Component/FooterUpper";
 import HeaderStickTop from "../Component/HeaderStickTop";
 import { fetchRoomLive, fetchRooms } from "@/api/GetRooms.jsx"; // مسیر دلخواه تو پروژه
 import { startNewMeet } from "@/api/StartNewMeeting";
-import { timeAgo } from "@/Tools/tools";
+import { timeAgo, isPlanDeleted } from "@/Tools/tools";
 import Cookies from 'js-cookie';
 import { getSlideshows } from "../api/GetRooms";
 import { Navigate, useNavigate, useLocation, Outlet } from 'react-router-dom';
@@ -73,7 +73,7 @@ const HomeGuest = () => {
       setIsLoadingShoab(false)
       const plans = await GetPlanRoomPublic()
       console.log(plans.data)
-      setPlanList(plans.data)
+      setPlanList((plans?.data || []).filter(p => !isPlanDeleted(p)))
       setIsPlanListLoading(false)
 
       const data = await fetchRoomsPublic();

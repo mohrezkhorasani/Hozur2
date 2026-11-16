@@ -190,12 +190,23 @@ export function isFutureDate(utcInput) {
 }
 
 /**
+ * Checks whether a plan is deleted (Type -400 or Status -400).
+ */
+export function isPlanDeleted(plan) {
+  if (!plan) return true;
+  const pType = Number(plan.type !== undefined ? plan.type : plan.Type);
+  const pStatus = Number(plan.status !== undefined ? plan.status : plan.Status);
+  return pType === -400 || pStatus === -400;
+}
+
+/**
  * Finds the nearest future plan from an array of plans.
  */
 export function findNextPlan(plans) {
   if (!plans || !Array.isArray(plans) || plans.length === 0) return null;
 
   const futurePlans = plans
+    .filter(p => !isPlanDeleted(p))
     .map(p => ({ plan: p, date: parseUtcDate(p.startAt || p.startDate || p.StartAt || p.StartDate) }))
     .filter(item => item.date && item.date.getTime() > Date.now())
     .sort((a, b) => a.date.getTime() - b.date.getTime());

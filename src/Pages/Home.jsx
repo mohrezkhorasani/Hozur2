@@ -23,7 +23,7 @@ import FooterUpper from "@/Component/FooterUpper";
 import HeaderStickTop from "../Component/HeaderStickTop";
 import { fetchRoomLive, fetchRooms } from "@/api/GetRooms.jsx"; // مسیر دلخواه تو پروژه
 import { startNewMeet, VerifyToken } from "@/api/StartNewMeeting";
-import { timeAgo, formatPersianDateTime, parseUtcDate } from "@/Tools/tools";
+import { timeAgo, formatPersianDateTime, parseUtcDate, isPlanDeleted } from "@/Tools/tools";
 import Cookies from 'js-cookie';
 import { Navigate, useNavigate, useLocation, Outlet } from 'react-router-dom';
 import useFetch from "../Tools/Hooks/UseFetchHook";
@@ -144,54 +144,48 @@ const HomePage = () => {
       });
     }
 
-    // Strict filter: room Type MUST be 1 (ROOM_NORMAL) or 2 (ROOM_CREATED_BY_ADMIN)
-    const isRoomEligible = (roomObj, planObj) => {
-      if (!roomObj) return false;
-
-      const rType = Number(roomObj.type !== undefined ? roomObj.type : roomObj.Type);
-      // Strictly type 1 or 2
-      if (rType !== 1 && rType !== 2) return false;
-
-      const rStatus = Number(roomObj.status !== undefined ? roomObj.status : roomObj.Status);
-      if (rStatus !== 100 && rStatus !== 1) return false;
-
-      if (planObj) {
-        const pType = Number(planObj.type !== undefined ? planObj.type : planObj.Type);
-        if (pType === -99 || pType === 99) return false;
-
-        const pRoomType = planObj.roomType !== undefined ? planObj.roomType : planObj.RoomType;
-        if (pRoomType !== undefined && pRoomType !== null) {
-          const prt = Number(pRoomType);
-          if (prt !== 1 && prt !== 2) return false;
-        }
-      }
-      return true;
+    // Helper: room Type MUST be 1 (ROOM_NORMAL) or 2 (ROOM_CREATED_BY_ADMIN)
+    const isRoomTypeEligible = (typeVal) => {
+      if (typeVal === undefined || typeVal === null || isNaN(typeVal)) return true;
+      const n = Number(typeVal);
+      return n === 1 || n === 2;
     };
 
     // 1. Add plans from upcomingPlans (if loaded from API)
     if (Array.isArray(upcomingPlans)) {
       upcomingPlans.forEach(p => {
-        if (p && (p.id || p.planId)) {
-          const planId = p.id || p.planId;
-          const fid = String(p.roomFriendlyId || p.roomID || '').toLowerCase().trim();
-          const numId = String(p.roomId || '').trim();
-          const matchingRoom = (fid && roomsLookup.get(fid)) || (numId && roomsLookup.get(numId)) || null;
+        if (!p || (!p.id && !p.planId)) return;
+        const planId = p.id || p.planId;
 
-          // فقط جلسات پیش‌رو مربوط به گروه‌های اکانت فعلی؛ اتاق‌های غیر نباید نمایش داده شوند
-          if (!matchingRoom) return;
-          if (!isRoomEligible(matchingRoom, p)) return;
+        // Exclude deleted plans (-400) and test/ignored (-99, 99)
+        if (isPlanDeleted(p)) return;
+        const pType = Number(p.type !== undefined ? p.type : p.Type);
+        if (pType === -99 || pType === 99) return;
 
-          plansMap.set(String(planId), {
-            id: planId,
-            title: p.title || 'جلسه بدون عنوان',
-            roomFriendlyId: p.roomFriendlyId || p.roomID || matchingRoom.friendlyID || matchingRoom.roomID,
-            roomTitle: matchingRoom.title || matchingRoom.Title || p.roomTitle || '',
-            teacherName: p.teacherName || (typeof p.teacher === 'string' ? p.teacher : p.teacher?.name) || p.teachers || '',
-            dabir: p.dabir || null,
-            startDate: p.startDate || p.startAt,
-            roomObj: matchingRoom
-          });
+        const fid = String(p.roomFriendlyId || p.roomID || '').toLowerCase().trim();
+        const numId = String(p.roomId || '').trim();
+        const matchingRoom = (fid && roomsLookup.get(fid)) || (numId && roomsLookup.get(numId)) || null;
+
+        if (matchingRoom) {
+          const rType = matchingRoom.type !== undefined ? matchingRoom.type : matchingRoom.Type;
+          if (!isRoomTypeEligible(rType)) return;
+          const rStatus = Number(matchingRoom.status !== undefined ? matchingRoom.status : matchingRoom.Status);
+          if (rStatus !== 100 && rStatus !== 1) return;
+        } else {
+          const pRoomType = p.roomType !== undefined ? p.roomType : p.RoomType;
+          if (pRoomType !== undefined && pRoomType !== null && !isRoomTypeEligible(pRoomType)) return;
         }
+
+        plansMap.set(String(planId), {
+          id: planId,
+          title: p.title || 'جلسه بدون عنوان',
+          roomFriendlyId: p.roomFriendlyId || p.roomID || (matchingRoom ? (matchingRoom.friendlyID || matchingRoom.roomID) : ''),
+          roomTitle: (matchingRoom ? (matchingRoom.title || matchingRoom.Title) : '') || p.roomTitle || 'اتاق جلسه',
+          teacherName: p.teacherName || (typeof p.teacher === 'string' ? p.teacher : p.teacher?.name) || p.teachers || '',
+          dabir: p.dabir || null,
+          startDate: p.startDate || p.startAt,
+          roomObj: matchingRoom
+        });
       });
     }
 
@@ -199,33 +193,36 @@ const HomePage = () => {
     if (Array.isArray(rooms)) {
       rooms.forEach(r => {
         if (!r) return;
-        if (!isRoomEligible(r, null)) return; // Exclude test rooms / non-eligible rooms
+        const rType = r.type !== undefined ? r.type : r.Type;
+        if (!isRoomTypeEligible(rType)) return;
+        const rStatus = Number(r.status !== undefined ? r.status : r.Status);
+        if (rStatus !== 100 && rStatus !== 1) return;
 
         const plans = r.planJSONs || r.PlanJSONs || r.plan || [];
         if (Array.isArray(plans)) {
           plans.forEach(p => {
             const pId = p.id || p.ID;
-            const start = p.startAt || p.startDate || p.StartAt || p.StartDate;
+            if (!pId) return;
+            if (isPlanDeleted(p)) return;
             const pType = Number(p.type !== undefined ? p.type : p.Type);
             if (pType === -99 || pType === 99) return;
 
-            if (pId && start) {
+            const start = p.startAt || p.startDate || p.StartAt || p.StartDate;
+            if (start && !plansMap.has(String(pId))) {
               const teacherStr = typeof p.teacher === 'string'
                 ? p.teacher
                 : (p.teacher?.name || (Array.isArray(p.teachers) ? p.teachers.map(t => typeof t === 'string' ? t : t.name).filter(Boolean).join('، ') : ''));
 
-              if (!plansMap.has(String(pId))) {
-                plansMap.set(String(pId), {
-                  id: pId,
-                  title: p.title || p.Title || 'جلسه بدون عنوان',
-                  roomFriendlyId: r.friendlyID || r.friendlyId || r.roomID || r.RoomID,
-                  roomTitle: r.title || r.Title || r.friendlyID,
-                  teacherName: teacherStr || '',
-                  dabir: p.dabir || p.Dabir || null,
-                  startDate: start,
-                  roomObj: r
-                });
-              }
+              plansMap.set(String(pId), {
+                id: pId,
+                title: p.title || p.Title || 'جلسه بدون عنوان',
+                roomFriendlyId: r.friendlyID || r.friendlyId || r.roomID || r.RoomID,
+                roomTitle: r.title || r.Title || r.friendlyID,
+                teacherName: teacherStr || '',
+                dabir: p.dabir || p.Dabir || null,
+                startDate: start,
+                roomObj: r
+              });
             }
           });
         }
@@ -262,6 +259,7 @@ const HomePage = () => {
     if (!plans || !Array.isArray(plans)) return [];
     const now = new Date();
     return plans.filter(plan => {
+      if (isPlanDeleted(plan)) return false;
       const planDate = parseUtcDate(plan.startAt || plan.startDate);
       return planDate && planDate.getTime() > now.getTime();
     });
@@ -510,7 +508,7 @@ const HomePage = () => {
 
       {/* سکشن جلسات پیش رو */}
       {activeUpcomingPlans && activeUpcomingPlans.length > 0 && (
-        <div className="mb-10 bg-[#ffffff] rounded-3xl border border-[#e5e7eb] shadow-sm p-5 sm:p-6 text-right">
+        <div className="mb-10 bg-[#ffffff] rounded-3xl border border-[#e5e7eb] shadow-sm p-5 sm:p-6 text-right relative overflow-visible">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-5 pb-4 border-b border-[#f3f4f6]">
             <div className="flex items-center gap-3">
               <span className="p-2.5 bg-[#eff6ff] text-[#2563eb] rounded-2xl border border-[#bfdbfe]">
@@ -528,7 +526,7 @@ const HomePage = () => {
             </span>
           </div>
 
-          <div className="overflow-x-auto lg:overflow-visible min-h-[160px]">
+          <div className="overflow-visible min-h-[220px] pb-6">
             <table className="w-full text-right text-sm">
               <thead>
                 <tr className="bg-[#f9fafb] text-[#4b5563] text-xs font-bold border-b border-[#e5e7eb]">
@@ -542,10 +540,10 @@ const HomePage = () => {
                 {(isUpcomingExpanded ? activeUpcomingPlans : activeUpcomingPlans.slice(0, 3)).map((plan, index) => {
                   const timing = getPlanTimingInfo(plan.startDate);
                   return (
-                    <tr key={plan.id} className="relative hover:z-50 hover:bg-[#f9fafb] transition">
+                    <tr key={plan.id} className="relative hover:z-[70] hover:bg-[#f9fafb] transition">
                       {/* عنوان جلسه با محدودیت دو خط، سه نقطه و پاپ‌اور شناور روی هاور */}
-                      <td className="py-3.5 px-4 font-bold text-[#1f2937] max-w-xs sm:max-w-md">
-                        <div className="relative group/title inline-block w-full">
+                      <td className="py-3.5 px-4 font-bold text-[#1f2937] max-w-xs sm:max-w-md relative hover:z-[80]">
+                        <div className="relative group/title inline-block w-full hover:z-[90]">
                           <p
                             className="line-clamp-2 text-ellipsis overflow-hidden text-xs sm:text-sm font-bold text-[#1f2937] leading-relaxed cursor-help hover:text-[#0284c7] transition"
                             title={plan.title}
@@ -555,7 +553,7 @@ const HomePage = () => {
 
                           {/* پنجره عنوان کامل بالای موس/المان */}
                           <div
-                            className={`pointer-events-none absolute right-0 w-72 sm:w-80 p-3 bg-[#0f172a] text-[#f8fafc] text-xs font-medium rounded-2xl shadow-2xl border border-[#334155] opacity-0 group-hover/title:opacity-100 transition-all duration-200 z-50 leading-relaxed text-right ${
+                            className={`pointer-events-none absolute right-0 w-72 sm:w-80 p-3 bg-[#0f172a] text-[#f8fafc] text-xs font-medium rounded-2xl shadow-2xl border border-[#334155] opacity-0 group-hover/title:opacity-100 transition-all duration-200 z-[100] leading-relaxed text-right ${
                               index === 0 ? 'top-full mt-2' : 'bottom-full mb-2'
                             }`}
                           >
@@ -571,8 +569,8 @@ const HomePage = () => {
                       </td>
 
                       {/* گروه / اتاق با هاور زیبا شامل مشخصات اتاق، شناسه و نام استاد */}
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        <div className="relative inline-block group/group">
+                      <td className="py-3.5 px-4 whitespace-nowrap relative hover:z-[80]">
+                        <div className="relative inline-block group/group hover:z-[90]">
                           <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#f1f5f9] hover:bg-[#e2e8f0] text-[#334155] rounded-xl font-bold text-xs cursor-pointer transition border border-[#cbd5e1]/60 shadow-2xs">
                             <FaUsers className="text-[#64748b] shrink-0" size={13} />
                             <span className="max-w-[130px] sm:max-w-[180px] truncate">
@@ -582,7 +580,7 @@ const HomePage = () => {
 
                           {/* پاپ‌اور شناور اطلاعات گروه و استاد در بالای دکمه */}
                           <div
-                            className={`pointer-events-none absolute right-0 sm:right-1/2 sm:translate-x-1/2 w-64 p-3.5 bg-[#1e293b] text-[#ffffff] rounded-2xl shadow-2xl border border-[#334155] opacity-0 group-hover/group:opacity-100 group-hover/group:pointer-events-auto transition-all duration-200 z-50 transform ${
+                            className={`pointer-events-none absolute right-0 sm:right-1/2 sm:translate-x-1/2 w-64 p-3.5 bg-[#1e293b] text-[#ffffff] rounded-2xl shadow-2xl border border-[#334155] opacity-0 group-hover/group:opacity-100 group-hover/group:pointer-events-auto transition-all duration-200 z-[100] transform ${
                               index === 0
                                 ? 'top-full mt-2 group-hover/group:translate-y-1'
                                 : 'bottom-full mb-2 group-hover/group:-translate-y-1'

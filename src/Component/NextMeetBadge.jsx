@@ -1,9 +1,9 @@
 // src/components/RoomCard/NextMeetingBadge.jsx
 import React from 'react';
-import { formatPersianDateTime } from '../Tools/tools';
+import { formatPersianDateTime, isPlanDeleted } from '../Tools/tools';
 
 const NextMeetingBadge = ({ plan }) => {
-    if (!plan) return null;
+    if (!plan || isPlanDeleted(plan)) return null;
 
     const hasTitle = plan.title && plan.title.trim() !== '';
     const hasTeacher = plan.teacher && plan.teacher.trim() !== '';
