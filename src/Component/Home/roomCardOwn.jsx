@@ -44,44 +44,66 @@ const RoomCardOwn = ({
     const abortControllerRef = useRef(null);
     const [currentCalendarMonth, setCurrentCalendarMonth] = useState(null);
     const [currentCalendarYear, setCurrentCalendarYear] = useState(null);
-    const [spentMinutes, setSpentMinutes] = useState(room.spentMinutes ?? room.SpentMinutes ?? 0);
+    const getCachedSpentMinutes = (r) => {
+        const val = r.spentMinutes ?? r.SpentMinutes;
+        if (val !== undefined && val !== null && Number(val) > 0) return Number(val);
+        const fid = r.roomID || r.RoomID || r.friendlyID || r.friendlyId;
+        if (fid) {
+            const saved = localStorage.getItem(`room_spent_${fid}`);
+            if (saved !== null && !isNaN(parseInt(saved, 10)) && parseInt(saved, 10) > 0) {
+                return parseInt(saved, 10);
+            }
+        }
+        return val !== undefined && val !== null ? Number(val) : 0;
+    };
+
+    const [spentMinutes, setSpentMinutes] = useState(() => getCachedSpentMinutes(room));
     const [isRefreshingMinutes, setIsRefreshingMinutes] = useState(false);
     const [isRecordingsModalOpen, setIsRecordingsModalOpen] = useState(false);
 
     useEffect(() => {
-        setSpentMinutes(room.spentMinutes ?? room.SpentMinutes ?? 0);
-    }, [room.spentMinutes, room.SpentMinutes]);
+        const current = getCachedSpentMinutes(room);
+        setSpentMinutes(current);
+        const fid = room.roomID || room.RoomID || room.friendlyID || room.friendlyId;
+        if (fid && current > 0) {
+            localStorage.setItem(`room_spent_${fid}`, String(current));
+        }
+    }, [room.spentMinutes, room.SpentMinutes, room.roomID, room.RoomID, room.friendlyID, room.friendlyId]);
 
     const handleRefreshSpentMinutes = async (e) => {
         e.stopPropagation();
         if (isRefreshingMinutes) return;
         setIsRefreshingMinutes(true);
+        const targetFid = String(room.friendlyID || room.friendlyId || room.roomID || room.RoomID || '').trim();
+        const targetNumId = String(room.id || room.ID || '').trim();
+        const targetId = targetFid || targetNumId;
+
         try {
-            const targetId = room.roomID || room.RoomID || room.friendlyID || room.friendlyId;
-            const res = await RefreshRoomSpentMinutes(targetId);
-            if (res && res.data && res.data.spentMinutes !== undefined) {
-                setSpentMinutes(res.data.spentMinutes);
-            } else if (res && res.spentMinutes !== undefined) {
-                setSpentMinutes(res.spentMinutes);
-            }
-        } catch (err) {
-            console.warn("RefreshRoomSpentMinutes endpoint 404/error, falling back to meetings calculation:", err);
+            let savedMins = null;
             try {
-                const targetFid = String(room.friendlyID || room.friendlyId || room.roomID || room.RoomID || '').trim().toLowerCase();
-                const targetNumId = String(room.id || room.ID || '').trim();
+                const res = await RefreshRoomSpentMinutes(targetId);
+                if (res && res.data && res.data.spentMinutes !== undefined) {
+                    savedMins = res.data.spentMinutes;
+                } else if (res && res.spentMinutes !== undefined) {
+                    savedMins = res.spentMinutes;
+                }
+            } catch (apiErr) {
+                console.warn("RefreshRoomSpentMinutes endpoint error, falling back to client calculation:", apiErr);
+            }
+
+            if (savedMins === null || savedMins === undefined) {
                 const mRes = await GetAdminMeetings(1, 100, "", null, null, null, { roomFriendlyId: targetFid });
                 if (mRes) {
                     const items = mRes.items || (Array.isArray(mRes.data) ? mRes.data : []);
-                    // Strictly filter meetings to this room only!
                     const roomMeetings = items.filter(m => {
                         if (m.type === -99) return false;
                         const mFid = String(m.roomFriendlyID || m.roomFriendlyId || m.friendlyID || m.friendlyId || '').trim().toLowerCase();
                         const mNumId = String(m.roomId || m.RoomId || m.roomID || '').trim();
-                        if (targetFid && mFid && mFid === targetFid) return true;
+                        if (targetFid && mFid && mFid.toLowerCase() === targetFid.toLowerCase()) return true;
                         if (targetNumId && mNumId && mNumId === targetNumId) return true;
                         return false;
                     });
-                    const totalMins = roomMeetings.reduce((acc, m) => {
+                    savedMins = roomMeetings.reduce((acc, m) => {
                         let dur = m.durationMinutes;
                         if (dur === undefined || dur === null) {
                             if (m.dateInsert && m.endDate) {
@@ -91,18 +113,28 @@ const RoomCardOwn = ({
                                 dur = 0;
                             }
                         }
+                        if (dur > 1440) dur = 120; // Cap abnormal/unclosed sessions
                         return acc + (dur || 0);
                     }, 0);
-                    setSpentMinutes(totalMins);
-                    try {
-                        await SetRoomMetadata(targetFid || targetId, "spent_minutes", String(totalMins), 140);
-                    } catch (metaErr) {
-                        console.warn("SetRoomMetadata spent_minutes fallback failed:", metaErr);
-                    }
                 }
-            } catch (fallbackErr) {
-                console.error("Fallback meetings calculation error:", fallbackErr);
             }
+
+            if (savedMins !== null && savedMins !== undefined) {
+                setSpentMinutes(savedMins);
+                room.spentMinutes = savedMins;
+                room.SpentMinutes = savedMins;
+                if (targetFid) {
+                    localStorage.setItem(`room_spent_${targetFid}`, String(savedMins));
+                }
+                // Persist to database via SetRoomMetadata as well to guarantee DB sync
+                try {
+                    await SetRoomMetadata(targetFid || targetId, "spent_minutes", String(savedMins), 140);
+                } catch (metaErr) {
+                    console.warn("SetRoomMetadata spent_minutes failed:", metaErr);
+                }
+            }
+        } catch (err) {
+            console.error("handleRefreshSpentMinutes error:", err);
         } finally {
             setIsRefreshingMinutes(false);
         }
