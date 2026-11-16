@@ -846,7 +846,11 @@ namespace Application.Services
                 .Select(m => new { m.DateInsert, EndDate = m.EndDate.Value })
                 .ToListAsync();
 
-            int totalMinutes = meetings.Sum(m => (int)(m.EndDate - m.DateInsert).TotalMinutes);
+            int totalMinutes = meetings.Sum(m =>
+            {
+                var mins = (int)(m.EndDate - m.DateInsert).TotalMinutes;
+                return mins > 1440 ? 120 : mins;
+            });
 
             var existingMeta = room.RoomMetaTBLs?.FirstOrDefault(m => m.Key == "spent_minutes")
                 ?? await _db.RoomMetaTBLs.FirstOrDefaultAsync(m => m.IDRoomTBL == room.ID && m.Key == "spent_minutes");
@@ -855,6 +859,7 @@ namespace Application.Services
             {
                 existingMeta.Value = totalMinutes.ToString();
                 existingMeta.UpdatedAt = DateTime.Now;
+                existingMeta.Status = MainEntity_Status.Enabled;
             }
             else
             {
