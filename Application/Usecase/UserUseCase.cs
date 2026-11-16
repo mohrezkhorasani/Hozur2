@@ -1639,7 +1639,7 @@ namespace Application.Usecase
                             e.DateInsert,
                             e.Type,
                             e.Status,
-                            plan = e.RoomTBLPlanTBLs.OrderBy(e => e.StartDate).ToList(),
+                            plan = e.RoomTBLPlanTBLs.Where(p => (int)p.Status != -400 && (int)p.Type != -400 && p.Type != MainEntity_Types.PLAN_DELETED).OrderBy(e => e.StartDate).ToList(),
                             e.OwnerTBL,
                             isAdmin = _commonMethods.VerifyAdminAccessOfRoom(e, message.GeneralHeaders.UserTBL),
 
@@ -1679,17 +1679,19 @@ namespace Application.Usecase
                             },
                             LastMeet = room.LastMeet,
                             SpentMinutes = parsedSpent,
-                            NextMeet = room.plan.Where(e => e.StartDate > DateTime.UtcNow).OrderBy(e => e.StartDate).Select(e => e.StartDate).FirstOrDefault(),
+                            NextMeet = room.plan.Where(e => (int)e.Status != -400 && (int)e.Type != -400 && e.Type != MainEntity_Types.PLAN_DELETED && e.StartDate > DateTime.UtcNow).OrderBy(e => e.StartDate).Select(e => e.StartDate).FirstOrDefault(),
                             Avatar = room.Avatar,
                             IsAdmin = room.isAdmin,
                             WaitingMembersCount = room.WaitingMembersCount,
-                            PlanJSONs = room.plan.Any() ? room.plan.Select(r => new MiniPlanJSON
+                            PlanJSONs = room.plan.Where(r => (int)r.Status != -400 && (int)r.Type != -400 && r.Type != MainEntity_Types.PLAN_DELETED).Any() ? room.plan.Where(r => (int)r.Status != -400 && (int)r.Type != -400 && r.Type != MainEntity_Types.PLAN_DELETED).Select(r => new MiniPlanJSON
                             {
                                 Id = r.ID,
-                                StartAt = r.StartDate,
+                                StartAt = r.StartDate.HasValue ? DateTime.SpecifyKind(r.StartDate.Value, DateTimeKind.Utc) : null,
                                 Teacher = r.Teachers,
                                 Dabir = r.Dabir,
-                                Title = r.Title
+                                Title = r.Title,
+                                Type = (int)r.Type,
+                                Status = (int)r.Status
                             }).ToList() : [],
                         };
                     }).OrderByDescending(e => e.NextMeet).ThenBy(e => e.LastMeet).ToList();
@@ -1790,7 +1792,7 @@ namespace Application.Usecase
                             e.DateInsert,
                             e.Type,
                             e.Status,
-                            plan = e.RoomTBLPlanTBLs.OrderBy(p => p.StartDate).ToList(),
+                            plan = e.RoomTBLPlanTBLs.Where(p => (int)p.Status != -400 && (int)p.Type != -400 && p.Type != MainEntity_Types.PLAN_DELETED).OrderBy(p => p.StartDate).ToList(),
                             e.OwnerTBL,
                             Meetings = e.MeetingTBLs.Select(m => new
                             {
@@ -1822,7 +1824,7 @@ namespace Application.Usecase
                             .FirstOrDefault()?.DateInsert ?? room.DateInsert,
                         //Count = room.Meetings.Count(m => m.Participants
                         //    .Count(p => p.Type != MainEntity_Types.USER_TEACHER) > 1),
-                        NextMeet = room.plan.Where(e => e.StartDate > DateTime.UtcNow).OrderBy(e => e.StartDate).Select(e => e.StartDate).FirstOrDefault(),
+                        NextMeet = room.plan.Where(e => (int)e.Status != -400 && (int)e.Type != -400 && e.Type != MainEntity_Types.PLAN_DELETED && e.StartDate > DateTime.UtcNow).OrderBy(e => e.StartDate).Select(e => e.StartDate).FirstOrDefault(),
                         Type = (int)room.Type,
                         Status = (int)room.Status,
                         Owner = new MiniUserJSON
@@ -1943,18 +1945,20 @@ namespace Application.Usecase
                     IsAdmin = e.IDOwnerTBL == id || e.RoomTBLToUserTBLs.Any(r => r.UUIDParticipatorTBL == uuid && r.Type==MainEntity_Types.ROOMTOUSER_ADMIN),
                     Type = (int)e.Type,
                     Status = (int)e.Status,
-                    NextMeet = e.RoomTBLPlanTBLs.Where(p => p.StartDate > DateTime.UtcNow).OrderBy(p => p.StartDate).Select(p => p.StartDate).FirstOrDefault(),
-                    LatestTitle = e.RoomTBLPlanTBLs.Where(p => p.StartDate > DateTime.UtcNow).OrderBy(p => p.StartDate).Select(p => p.Title).FirstOrDefault() ?? "",
+                    NextMeet = e.RoomTBLPlanTBLs.Where(p => (int)p.Status != -400 && (int)p.Type != -400 && p.Type != MainEntity_Types.PLAN_DELETED && p.StartDate > DateTime.UtcNow).OrderBy(p => p.StartDate).Select(p => p.StartDate).FirstOrDefault(),
+                    LatestTitle = e.RoomTBLPlanTBLs.Where(p => (int)p.Status != -400 && (int)p.Type != -400 && p.Type != MainEntity_Types.PLAN_DELETED && p.StartDate > DateTime.UtcNow).OrderBy(p => p.StartDate).Select(p => p.Title).FirstOrDefault() ?? "",
                     Avatar = e.Avatar,
                     Logo = e.Logo,
                     CoverImage = e.RoomMetaTBLs.Where(m => m.Key == "image_cover" && m.Status == MainEntity_Status.Enabled).Select(m => m.Value).FirstOrDefault(),
-                    NextPlan = e.RoomTBLPlanTBLs.Where(p => p.StartDate > DateTime.UtcNow).OrderBy(p => p.StartDate).Select(p => new MiniPlanJSON
+                    NextPlan = e.RoomTBLPlanTBLs.Where(p => (int)p.Status != -400 && (int)p.Type != -400 && p.Type != MainEntity_Types.PLAN_DELETED && p.StartDate > DateTime.UtcNow).OrderBy(p => p.StartDate).Select(p => new MiniPlanJSON
                     {
                         Dabir = p.Dabir,
                         Id = p.ID,
-                        StartAt = p.StartDate,
+                        StartAt = p.StartDate.HasValue ? DateTime.SpecifyKind(p.StartDate.Value, DateTimeKind.Utc) : null,
                         Title = p.Title,
-                        Teacher = p.Teachers
+                        Teacher = p.Teachers,
+                        Type = (int)p.Type,
+                        Status = (int)p.Status
                     }).FirstOrDefault(),
 
                     Owner = new MiniUserJSON
@@ -5095,7 +5099,8 @@ namespace Application.Usecase
                              && p.Title.Trim() == trimmedTitle
                              && p.StartDate.HasValue
                              && p.StartDate.Value > nowUtc
-                             && (p.Status == MainEntity_Status.Enabled || p.Status == MainEntity_Status.MEETING_STARTED_LATER))
+                             && (p.Status == MainEntity_Status.Enabled || p.Status == MainEntity_Status.MEETING_STARTED_LATER)
+                             && (int)p.Status != -400 && (int)p.Type != -400 && p.Type != MainEntity_Types.PLAN_DELETED)
                     .OrderByDescending(p => p.StartDate)
                     .FirstOrDefault();
 
@@ -5107,7 +5112,8 @@ namespace Application.Usecase
                                  && p.Title.Trim() == trimmedTitle
                                  && p.StartDate.HasValue
                                  && p.StartDate.Value > nowUtc
-                                 && (p.Status == MainEntity_Status.Enabled || p.Status == MainEntity_Status.MEETING_STARTED_LATER))
+                                 && (p.Status == MainEntity_Status.Enabled || p.Status == MainEntity_Status.MEETING_STARTED_LATER)
+                                 && (int)p.Status != -400 && (int)p.Type != -400 && p.Type != MainEntity_Types.PLAN_DELETED)
                         .OrderByDescending(p => p.StartDate)
                         .FirstOrDefault();
                 }
@@ -5618,6 +5624,7 @@ namespace Application.Usecase
                     {
                         var list = _db.RoomTBLPlanTBLs.Where(e => e.IDRoomTBL == room.ID
                                     && (e.Status == MainEntity_Status.Enabled || e.Status == MainEntity_Status.MEETING_STARTED_LATER)
+                                    && (int)e.Status != -400 && (int)e.Type != -400 && e.Type != MainEntity_Types.PLAN_DELETED
                         ).Include(e => e.RoomTBL)
                             .ToList();
 
@@ -5698,7 +5705,8 @@ namespace Application.Usecase
 
                     var list = _db.RoomTBLPlanTBLs
                         .Where(e => e.StartDate.HasValue && e.StartDate.Value > DateTime.UtcNow && e.RoomTBL.IsPublicRoom
-                        && (e.Status == MainEntity_Status.Enabled || e.Status == MainEntity_Status.MEETING_STARTED_LATER)).Include(e => e.RoomTBL).ThenInclude(e => e.OwnerTBL)
+                        && (e.Status == MainEntity_Status.Enabled || e.Status == MainEntity_Status.MEETING_STARTED_LATER)
+                        && (int)e.Status != -400 && (int)e.Type != -400 && e.Type != MainEntity_Types.PLAN_DELETED).Include(e => e.RoomTBL).ThenInclude(e => e.OwnerTBL)
                         .ToList();
 
                     cachedData = list.OrderBy(e => e.StartDate).Select(e => PlanTimeHelper.MapToMiniPlanJSON(e)).ToList();
@@ -5777,16 +5785,20 @@ namespace Application.Usecase
                     // Data not in cache, retrieve from database
                     Statics.Log("GetLatestMeetingsUseCase", "Cache miss - retrieving from database");
 
-                    var list = _db.RoomTBLPlanTBLs.Where(e => e.StartDate.HasValue && !string.IsNullOrEmpty(e.Title) && !string.IsNullOrEmpty(e.Teachers) && e.StartDate.Value <= DateTime.UtcNow && e.RoomTBL.IsPublicRoom)
+                    var list = _db.RoomTBLPlanTBLs.Where(e => e.StartDate.HasValue && !string.IsNullOrEmpty(e.Title) && !string.IsNullOrEmpty(e.Teachers) && e.StartDate.Value <= DateTime.UtcNow && e.RoomTBL.IsPublicRoom
+                        && (e.Status == MainEntity_Status.Enabled || e.Status == MainEntity_Status.MEETING_STARTED_LATER)
+                        && (int)e.Status != -400 && (int)e.Type != -400 && e.Type != MainEntity_Types.PLAN_DELETED)
                         .Include(e => e.RoomTBL).ThenInclude(e => e.OwnerTBL)
                         .ToList();
 
                     cachedData = list.OrderByDescending(e => e.StartDate).Select(e => new MiniPlanJSON
                     {
                         Id = e.ID,
-                        StartAt = e.StartDate,
+                        StartAt = e.StartDate.HasValue ? DateTime.SpecifyKind(e.StartDate.Value, DateTimeKind.Utc) : null,
                         Teacher = e.Teachers,
                         Title = e.Title,
+                        Type = (int)e.Type,
+                        Status = (int)e.Status,
                         RoomJSON = new MiniRoomJSON
                         {
                             RoomID = e.RoomTBL.FriendlyID,

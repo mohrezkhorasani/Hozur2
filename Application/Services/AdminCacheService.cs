@@ -281,7 +281,8 @@ namespace Application.Services
         {
             var list = await _db.RoomTBLPlanTBLs
                 .Where(e => e.StartDate.HasValue && e.StartDate.Value > DateTime.UtcNow && e.RoomTBL.IsPublicRoom
-                    && (e.Status == MainEntity_Status.Enabled || e.Status == MainEntity_Status.MEETING_STARTED_LATER))
+                    && (e.Status == MainEntity_Status.Enabled || e.Status == MainEntity_Status.MEETING_STARTED_LATER)
+                    && (int)e.Status != -400 && (int)e.Type != -400 && e.Type != MainEntity_Types.PLAN_DELETED)
                 .Include(e => e.RoomTBL).ThenInclude(e => e.OwnerTBL)
                 .ToListAsync();
 
@@ -299,7 +300,9 @@ namespace Application.Services
         {
             var list = await _db.RoomTBLPlanTBLs
                 .Where(e => e.StartDate.HasValue && !string.IsNullOrEmpty(e.Title) && !string.IsNullOrEmpty(e.Teachers)
-                    && e.StartDate.Value <= DateTime.UtcNow && e.RoomTBL.IsPublicRoom)
+                    && e.StartDate.Value <= DateTime.UtcNow && e.RoomTBL.IsPublicRoom
+                    && (e.Status == MainEntity_Status.Enabled || e.Status == MainEntity_Status.MEETING_STARTED_LATER)
+                    && (int)e.Status != -400 && (int)e.Type != -400 && e.Type != MainEntity_Types.PLAN_DELETED)
                 .Include(e => e.RoomTBL).ThenInclude(e => e.OwnerTBL)
                 .ToListAsync();
 
@@ -384,7 +387,9 @@ namespace Application.Services
             if (room == null) return;
 
             var list = await _db.RoomTBLPlanTBLs
-                .Where(e => e.IDRoomTBL == room.ID && (e.Status == MainEntity_Status.Enabled || e.Status == MainEntity_Status.MEETING_STARTED_LATER))
+                .Where(e => e.IDRoomTBL == room.ID
+                    && (e.Status == MainEntity_Status.Enabled || e.Status == MainEntity_Status.MEETING_STARTED_LATER)
+                    && (int)e.Status != -400 && (int)e.Type != -400 && e.Type != MainEntity_Types.PLAN_DELETED)
                 .Include(e => e.RoomTBL)
                 .ToListAsync();
 

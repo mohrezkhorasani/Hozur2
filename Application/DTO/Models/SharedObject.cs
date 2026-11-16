@@ -137,6 +137,8 @@ namespace Application.DTO.Models
         public string? StartDateJalali { get; set; }
         public string? StartTimeTehran { get; set; }
         public string? StartAtTehran { get; set; }
+        public int Type { get; set; }
+        public int Status { get; set; }
         public MiniRoomJSON RoomJSON { get; set; }
     }
     public class RevokedTokenJSON

@@ -923,23 +923,29 @@ namespace Application.Services
                 .Where(p => p.StartDate != null &&
                             p.StartDate >= DateTime.UtcNow.AddHours(-3) &&
                             !string.IsNullOrWhiteSpace(p.Title) &&
-                            p.Status == MainEntity_Status.Enabled &&
+                            (p.Status == MainEntity_Status.Enabled || p.Status == MainEntity_Status.MEETING_STARTED_LATER) &&
+                            (int)p.Status != -400 &&
+                            (int)p.Type != -400 &&
+                            p.Type != MainEntity_Types.PLAN_DELETED &&
                             p.Type != MainEntity_Types.MEET_IGNORE &&
                             (int)p.Type != -99 &&
                             p.RoomTBL != null &&
                             ((int)p.RoomTBL.Type == 1 || (int)p.RoomTBL.Type == 2) &&
                             (int)p.RoomTBL.Status == 100);
 
-            // فقط جلسات پیش‌رو مربوط به گروه‌ها و اتاق‌های اکانت فعلی
-            var accessibleRoomFids = _db.RoomTBLToUserTBLs
-                .Where(r => (r.UUIDParticipatorTBL == user.UUID || (r.ParticipatorTBL != null && r.ParticipatorTBL.ID == user.ID)) &&
-                            r.Status != MainEntity_Status.Deactive &&
-                            r.Status != MainEntity_Status.Delete)
-                .Select(r => r.FriendlyIDRoomTBL ?? r.FriendlyID)
-                .Distinct();
+            if (!IsSuperAdmin(user))
+            {
+                // فقط جلسات پیش‌رو مربوط به گروه‌ها و اتاق‌های اکانت فعلی برای کاربران عادی
+                var accessibleRoomFids = _db.RoomTBLToUserTBLs
+                    .Where(r => (r.UUIDParticipatorTBL == user.UUID || (r.ParticipatorTBL != null && r.ParticipatorTBL.ID == user.ID)) &&
+                                r.Status != MainEntity_Status.Deactive &&
+                                r.Status != MainEntity_Status.Delete)
+                    .Select(r => r.FriendlyIDRoomTBL ?? r.FriendlyID)
+                    .Distinct();
 
-            query = query.Where(p => p.RoomTBL != null &&
-                (p.RoomTBL.IDOwnerTBL == user.ID || accessibleRoomFids.Contains(p.RoomTBL.FriendlyID)));
+                query = query.Where(p => p.RoomTBL != null &&
+                    (p.RoomTBL.IDOwnerTBL == user.ID || accessibleRoomFids.Contains(p.RoomTBL.FriendlyID) || p.RoomTBL.IsPublicRoom));
+            }
 
             var plans = await query
                 .OrderBy(p => p.StartDate)

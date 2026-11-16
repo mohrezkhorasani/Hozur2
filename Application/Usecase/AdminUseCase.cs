@@ -2437,7 +2437,7 @@ namespace Application.Usecase
 
 
 
-                            plan = e.RoomTBLPlanTBLs.OrderBy(p => p.StartDate).ToList(),
+                            plan = e.RoomTBLPlanTBLs.Where(p => (int)p.Status != -400 && (int)p.Type != -400 && p.Type != MainEntity_Types.PLAN_DELETED).OrderBy(p => p.StartDate).ToList(),
 
 
 

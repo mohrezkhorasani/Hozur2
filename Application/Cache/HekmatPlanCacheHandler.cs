@@ -38,7 +38,7 @@ namespace Application.Cache.Handlers
 
             var list = _db.RoomTBLPlanTBLs.Where(e => e.IDRoomTBL == room.ID
             && (e.Status == MainEntity_Status.Enabled || e.Status == MainEntity_Status.MEETING_STARTED_LATER)
-
+            && (int)e.Status != -400 && (int)e.Type != -400 && e.Type != MainEntity_Types.PLAN_DELETED
             )
                 .ToList();
 
@@ -62,7 +62,7 @@ namespace Application.Cache.Handlers
 
             var list = _db.RoomTBLPlanTBLs.Where(e => e.StartDate.HasValue && e.StartDate.Value > DateTime.UtcNow && e.RoomTBL.IsPublicRoom
             && (e.Status == MainEntity_Status.Enabled || e.Status == MainEntity_Status.MEETING_STARTED_LATER)
-
+            && (int)e.Status != -400 && (int)e.Type != -400 && e.Type != MainEntity_Types.PLAN_DELETED
             ).Include(e => e.RoomTBL).ThenInclude(e => e.RoomTBLPlanTBLs)
                 .Include(e => e.RoomTBL).ThenInclude(e => e.OwnerTBL)
                 .ToList();
@@ -88,7 +88,7 @@ namespace Application.Cache.Handlers
             var list = _db.RoomTBLPlanTBLs.Where(e => e.StartDate.HasValue && !string.IsNullOrEmpty(e.Title) && !string.IsNullOrEmpty(e.Teachers) &&
             e.StartDate.Value <= DateTime.UtcNow && e.RoomTBL.IsPublicRoom
             && (e.Status == MainEntity_Status.Enabled || e.Status == MainEntity_Status.MEETING_STARTED_LATER)
-
+            && (int)e.Status != -400 && (int)e.Type != -400 && e.Type != MainEntity_Types.PLAN_DELETED
             ).Include(e => e.RoomTBL).ThenInclude(e => e.RoomTBLPlanTBLs).Include(e=>e.RoomTBL).ThenInclude(e=>e.OwnerTBL)
                 .ToList();
 

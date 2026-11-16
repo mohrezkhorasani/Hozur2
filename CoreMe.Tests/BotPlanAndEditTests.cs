@@ -3,6 +3,7 @@ using Application.DTO;
 using Application.DTO.Generals;
 using Application.Interface.IUsecase;
 using Application.Interfaces;
+using Application.Services;
 using Application.Usecase;
 using CacheHandler.Events;
 using Domain.Entity;
@@ -464,6 +465,139 @@ namespace CoreMe.Tests
 
             var plans = await db.RoomTBLPlanTBLs.ToListAsync();
             Assert.Equal(2, plans.Count);
+        }
+
+        [Fact]
+        public async Task GetUpcomingPlansAsync_ExcludesDeletedPlans_WithTypeOrStatusMinus400()
+        {
+            var db = CreateInMemoryContext();
+            var fakeBbb = new FakeBBBGetMeetings();
+
+            var adminUser = new UserTBL
+            {
+                ID = 21360,
+                Username = "mohrez",
+                Type = MainEntity_Types.USER_ADMINSTRATOR,
+                UUID = "uuid-mohrez"
+            };
+            db.UserTBLs.Add(adminUser);
+
+            var room = new RoomTBL
+            {
+                ID = 14,
+                FriendlyID = "ibf-phb-0yp-whu",
+                Title = "نشست علمی قم",
+                Type = MainEntity_Types.ROOM_NORMAL,
+                Status = MainEntity_Status.Enabled,
+                IDOwnerTBL = 21319
+            };
+            db.RoomTBLs.Add(room);
+
+            // Active valid plan
+            var validPlan = new RoomTBLPlanTBL
+            {
+                ID = 150211,
+                IDRoomTBL = 14,
+                Title = "فلسفه نبوت",
+                Teachers = "محمدرضا مصطفی پور",
+                StartDate = DateTime.UtcNow.AddDays(1),
+                Status = MainEntity_Status.Enabled,
+                Type = MainEntity_Types.PLAN_WITH_CERT
+            };
+
+            // Deleted plan by status -400
+            var deletedByStatusPlan = new RoomTBLPlanTBL
+            {
+                ID = 150212,
+                IDRoomTBL = 14,
+                Title = "پلن حذف شده با استاتوس -۴۰۰",
+                Teachers = "استاد تست",
+                StartDate = DateTime.UtcNow.AddDays(2),
+                Status = MainEntity_Status.Delete, // -400
+                Type = MainEntity_Types.PLAN_WITH_CERT
+            };
+
+            // Deleted plan by type -400
+            var deletedByTypePlan = new RoomTBLPlanTBL
+            {
+                ID = 150213,
+                IDRoomTBL = 14,
+                Title = "پلن حذف شده با تایپ -۴۰۰",
+                Teachers = "استاد تست ۲",
+                StartDate = DateTime.UtcNow.AddDays(3),
+                Status = MainEntity_Status.Enabled,
+                Type = MainEntity_Types.PLAN_DELETED // -400
+            };
+
+            db.RoomTBLPlanTBLs.AddRange(validPlan, deletedByStatusPlan, deletedByTypePlan);
+            await db.SaveChangesAsync();
+
+            var service = new AdminMeetingService(db, fakeBbb);
+            var result = await service.GetUpcomingPlansAsync(adminUser);
+
+            Assert.NotNull(result);
+            Assert.Single(result);
+            Assert.Equal(150211, result[0].PlanId);
+            Assert.DoesNotContain(result, p => p.PlanId == 150212);
+            Assert.DoesNotContain(result, p => p.PlanId == 150213);
+        }
+
+        [Fact]
+        public async Task BotNewPlanRoom_DoesNotMatchDeletedPlan_EvenIfSameTitle()
+        {
+            var db = CreateInMemoryContext();
+            var mediator = new MockMediator();
+            var config = CreateConfiguration();
+            var fakeBbb = new FakeBBBGetMeetings();
+
+            var room = new RoomTBL
+            {
+                ID = 14,
+                FriendlyID = "ibf-phb-0yp-whu",
+                Title = "نشست علمی قم",
+                Type = MainEntity_Types.ROOM_NORMAL,
+                Status = MainEntity_Status.Enabled,
+                IDOwnerTBL = 21319
+            };
+            db.RoomTBLs.Add(room);
+
+            // Existing deleted plan with the same title
+            var deletedPlan = new RoomTBLPlanTBL
+            {
+                ID = 150214,
+                IDRoomTBL = 14,
+                Title = "فلسفه نبوت از منظر علامه طباطبائی",
+                Teachers = "محمدرضا مصطفی پور",
+                StartDate = DateTime.UtcNow.AddDays(1),
+                Status = MainEntity_Status.Delete, // -400
+                Type = MainEntity_Types.PLAN_WITH_CERT
+            };
+            db.RoomTBLPlanTBLs.Add(deletedPlan);
+            await db.SaveChangesAsync();
+
+            var usecase = new BotNewPlanRoomUseCase(db, config, fakeBbb, mediator);
+            var output = new MockOutputPort<GenericResponse<BotNewPlanRoomResponse>>();
+
+            var req = new BotNewPlanRoomRequest
+            {
+                FriendlyID = "ibf-phb-0yp-whu",
+                Title = "فلسفه نبوت از منظر علامه طباطبائی",
+                Teachers = "محمدرضا مصطفی پور",
+                Date = "1405/08/26",
+                Time = "19:30",
+                Secret = "xXxxXxXXxXXxXxTokenSecret@1239988mfaMgfo"
+            };
+
+            await usecase.handleAsync(req, output);
+
+            Assert.NotNull(output.Result);
+            Assert.Equal(200, output.Result.data.Status);
+            // Must have inserted a new plan with message "تنظیم شد", not updated the deleted one
+            Assert.Contains("تنظیم شد", output.Result.data.Message);
+
+            var activePlans = await db.RoomTBLPlanTBLs.Where(p => (int)p.Status != -400).ToListAsync();
+            Assert.Single(activePlans);
+            Assert.NotEqual(150214, activePlans[0].ID);
         }
     }
 }

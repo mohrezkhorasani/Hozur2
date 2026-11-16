@@ -80,6 +80,8 @@ namespace Application.General
                 Title = p.Title,
                 Teacher = p.Teachers,
                 Dabir = p.Dabir,
+                Type = (int)p.Type,
+                Status = (int)p.Status,
                 RoomJSON = p.RoomTBL != null ? new MiniRoomJSON
                 {
                     RoomID = p.RoomTBL.FriendlyID,

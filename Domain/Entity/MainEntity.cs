@@ -75,6 +75,7 @@ namespace Domain.Entity
         //Plan
         PLAN_NORMAL=14,
         PLAN_WITH_CERT = 15,
+        PLAN_DELETED = -400,
 
         //Meetings
         MEET_IGNORE = -99,
