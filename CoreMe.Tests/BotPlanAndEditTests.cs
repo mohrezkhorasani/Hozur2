@@ -270,14 +270,14 @@ namespace CoreMe.Tests
             Assert.Equal(15, plan.StartDate.Value.Hour);
             Assert.Equal(0, plan.StartDate.Value.Minute);
 
-            // Moment of GET: must be Tehran time and date
+            // Moment of GET: formatted strings in Tehran, DateTime in UTC
             var mapped = PlanTimeHelper.MapToMiniPlanJSON(plan);
             Assert.Equal("1405/08/17", mapped.Date);
             Assert.Equal("18:30", mapped.Time);
             Assert.Equal("1405/08/17 18:30", mapped.StartAtTehran);
             Assert.NotNull(mapped.StartAt);
-            Assert.Equal(18, mapped.StartAt.Value.Hour);
-            Assert.Equal(30, mapped.StartAt.Value.Minute);
+            Assert.Equal(15, mapped.StartAt.Value.Hour);
+            Assert.Equal(0, mapped.StartAt.Value.Minute);
             Assert.Equal(15, mapped.StartAtUtc.Value.Hour);
         }
 

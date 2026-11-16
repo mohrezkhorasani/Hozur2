@@ -1679,7 +1679,7 @@ namespace Application.Usecase
                             },
                             LastMeet = room.LastMeet,
                             SpentMinutes = parsedSpent,
-                            NextMeet = room.plan.Any(e => e.StartDate > DateTime.Now) ? room.plan.Where(e => e.StartDate > DateTime.Now).First().StartDate : null,
+                            NextMeet = room.plan.Where(e => e.StartDate > DateTime.UtcNow).OrderBy(e => e.StartDate).Select(e => e.StartDate).FirstOrDefault(),
                             Avatar = room.Avatar,
                             IsAdmin = room.isAdmin,
                             WaitingMembersCount = room.WaitingMembersCount,
@@ -1788,6 +1788,8 @@ namespace Application.Usecase
                             e.Avatar,
                             e.Title,
                             e.DateInsert,
+                            e.Type,
+                            e.Status,
                             plan = e.RoomTBLPlanTBLs.OrderBy(p => p.StartDate).ToList(),
                             e.OwnerTBL,
                             Meetings = e.MeetingTBLs.Select(m => new
@@ -1820,9 +1822,9 @@ namespace Application.Usecase
                             .FirstOrDefault()?.DateInsert ?? room.DateInsert,
                         //Count = room.Meetings.Count(m => m.Participants
                         //    .Count(p => p.Type != MainEntity_Types.USER_TEACHER) > 1),
-                        NextMeet = room.plan.Any(e => e.StartDate > DateTime.Now)
-                            ? room.plan.Where(e => e.StartDate > DateTime.Now).First().StartDate
-                            : DateTime.MaxValue,
+                        NextMeet = room.plan.Where(e => e.StartDate > DateTime.UtcNow).OrderBy(e => e.StartDate).Select(e => e.StartDate).FirstOrDefault(),
+                        Type = (int)room.Type,
+                        Status = (int)room.Status,
                         Owner = new MiniUserJSON
                         {
                             UID = room.OwnerTBL.UUID,
@@ -1839,14 +1841,14 @@ namespace Application.Usecase
                         LatestTitle = room.Meetings != null && room.Meetings.Count() > 0
                             ? room.Meetings.OrderByDescending(e => e.ID).First().Title
                             : "",
-                        NextPlan = room.plan.Any(e => e.StartDate > DateTime.Now) ? room.plan.Where(e => e.StartDate > DateTime.Now).Select(e => new MiniPlanJSON
+                        NextPlan = room.plan.Where(e => e.StartDate > DateTime.UtcNow).OrderBy(e => e.StartDate).Select(e => new MiniPlanJSON
                         {
                             Dabir = e.Dabir,
                             Id = e.ID,
                             StartAt = e.StartDate,
                             Title = e.Title,
                             Teacher = e.Teachers
-                        }).First() : null,
+                        }).FirstOrDefault(),
                         //CountPartis = room.Meetings
                         //    .SelectMany(m => m.Participants)
                         //    .Where(p => p.Type != MainEntity_Types.USER_TEACHER)
@@ -1861,7 +1863,7 @@ namespace Application.Usecase
                         //    .Where(k => !string.IsNullOrWhiteSpace(k))
                         //    .Distinct()
                         //    .Count()
-                    }).OrderBy(e => e.NextMeet).ThenBy(e => e.LastMeet).ToList();
+                    }).OrderBy(e => e.NextMeet == null ? 1 : 0).ThenBy(e => e.NextMeet).ThenBy(e => e.LastMeet).ToList();
 
                     // ذخیره در کش
                     _cache.Set(cacheKey, result, cacheEntryOptions);
@@ -1939,19 +1941,21 @@ namespace Application.Usecase
                     IsSubscribed= e.IsSubscribed,
                     Title = e.Title,
                     IsAdmin = e.IDOwnerTBL == id || e.RoomTBLToUserTBLs.Any(r => r.UUIDParticipatorTBL == uuid && r.Type==MainEntity_Types.ROOMTOUSER_ADMIN),
-                    NextMeet = e.RoomTBLPlanTBLs.Any(e => e.StartDate > DateTime.Now) ? e.RoomTBLPlanTBLs.Where(e => e.StartDate > DateTime.Now).First().StartDate : DateTime.MaxValue,
-                    LatestTitle = e.RoomTBLPlanTBLs.Any(e => e.StartDate > DateTime.Now) ? e.RoomTBLPlanTBLs.Where(e => e.StartDate > DateTime.Now).First().Title : "",
+                    Type = (int)e.Type,
+                    Status = (int)e.Status,
+                    NextMeet = e.RoomTBLPlanTBLs.Where(p => p.StartDate > DateTime.UtcNow).OrderBy(p => p.StartDate).Select(p => p.StartDate).FirstOrDefault(),
+                    LatestTitle = e.RoomTBLPlanTBLs.Where(p => p.StartDate > DateTime.UtcNow).OrderBy(p => p.StartDate).Select(p => p.Title).FirstOrDefault() ?? "",
                     Avatar = e.Avatar,
                     Logo = e.Logo,
                     CoverImage = e.RoomMetaTBLs.Where(m => m.Key == "image_cover" && m.Status == MainEntity_Status.Enabled).Select(m => m.Value).FirstOrDefault(),
-                    NextPlan = e.RoomTBLPlanTBLs.Any(e => e.StartDate > DateTime.Now) ? e.RoomTBLPlanTBLs.Where(e => e.StartDate > DateTime.Now).Select(e => new MiniPlanJSON
+                    NextPlan = e.RoomTBLPlanTBLs.Where(p => p.StartDate > DateTime.UtcNow).OrderBy(p => p.StartDate).Select(p => new MiniPlanJSON
                     {
-                        Dabir = e.Dabir,
-                        Id = e.ID,
-                        StartAt = e.StartDate,
-                        Title = e.Title,
-                        Teacher = e.Teachers
-                    }).First() : null,
+                        Dabir = p.Dabir,
+                        Id = p.ID,
+                        StartAt = p.StartDate,
+                        Title = p.Title,
+                        Teacher = p.Teachers
+                    }).FirstOrDefault(),
 
                     Owner = new MiniUserJSON
                     {

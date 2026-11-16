@@ -925,6 +925,7 @@ namespace Application.Services
                             !string.IsNullOrWhiteSpace(p.Title) &&
                             p.Status == MainEntity_Status.Enabled &&
                             p.Type != MainEntity_Types.MEET_IGNORE &&
+                            (int)p.Type != -99 &&
                             p.RoomTBL != null &&
                             ((int)p.RoomTBL.Type == 1 || (int)p.RoomTBL.Type == 2) &&
                             (int)p.RoomTBL.Status == 100);
@@ -957,7 +958,7 @@ namespace Application.Services
                     Title = p.Title,
                     Teachers = p.Teachers,
                     Dabir = p.Dabir,
-                    StartDate = p.StartDate,
+                    StartDate = p.StartDate.HasValue ? DateTime.SpecifyKind(p.StartDate.Value, DateTimeKind.Utc) : null,
                     JalaliDate = tehranDate,
                     Time = tehranTime,
                     Type = (int)p.Type,

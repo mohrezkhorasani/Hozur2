@@ -115,7 +115,12 @@ Statics.bbb = new Application.General.BBBConfig
 
 
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new Application.General.SystemTextJsonUtcDateTimeConverter());
+        options.JsonSerializerOptions.Converters.Add(new Application.General.SystemTextJsonNullableUtcDateTimeConverter());
+    });
 builder.Services.AddMediatR(cfg =>
 {
     cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly());

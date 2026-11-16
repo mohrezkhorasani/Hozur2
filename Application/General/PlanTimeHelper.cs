@@ -70,7 +70,7 @@ namespace Application.General
             return new MiniPlanJSON
             {
                 Id = p.ID,
-                StartAt = tehranDt ?? p.StartDate,
+                StartAt = utcDt ?? p.StartDate,
                 StartAtUtc = utcDt,
                 Date = dateStr,
                 Time = timeStr,

@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Application.General;
+using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using System;
@@ -19,7 +20,8 @@ namespace Presenter
                 Formatting.None, new JsonSerializerSettings
                 {
                     NullValueHandling = NullValueHandling.Include,
-                    ContractResolver = new CamelCasePropertyNamesContractResolver()
+                    ContractResolver = new CamelCasePropertyNamesContractResolver(),
+                    Converters = new List<JsonConverter> { new NewtonsoftUtcDateTimeConverter() }
                 });
         }
     }
