@@ -840,7 +840,7 @@ namespace Application.Services
 
             var meetings = await _db.MeetingTBLs
                 .Where(m => (m.RoomFriendlyID == room.FriendlyID || (m.RoomTBL != null && m.RoomTBL.FriendlyID == room.FriendlyID)) &&
-                            (int)m.Type != -99 &&
+                            ((int)m.Type == 100 || (int)m.Type == 101) &&
                             m.EndDate != null &&
                             m.EndDate > m.DateInsert)
                 .Select(m => new { m.DateInsert, EndDate = m.EndDate.Value })

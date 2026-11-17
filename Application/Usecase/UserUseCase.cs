@@ -1647,7 +1647,7 @@ namespace Application.Usecase
                             WaitingMembersCount = e.RoomTBLToUserTBLs.Count(r => r.Status == MainEntity_Status.IsWaiting),
                             LastMeet = e.MeetingTBLs.OrderByDescending(m => m.DateInsert).Select(m => (DateTime?)m.DateInsert).FirstOrDefault(),
                             SpentMinutesStr = e.RoomMetaTBLs.Where(m => m.Key == "spent_minutes").Select(m => m.Value).FirstOrDefault(),
-                            CalculatedSpent = e.MeetingTBLs.Where(m => (int)m.Type != -99 && m.EndDate != null && m.EndDate > m.DateInsert).Sum(m => (int?)EF.Functions.DateDiffMinute(m.DateInsert, m.EndDate.Value)) ?? 0,
+                            CalculatedSpent = e.MeetingTBLs.Where(m => ((int)m.Type == 100 || (int)m.Type == 101) && m.EndDate != null && m.EndDate > m.DateInsert).Sum(m => (int?)EF.Functions.DateDiffMinute(m.DateInsert, m.EndDate.Value)) ?? 0,
                         })
                         .ToListAsync();
 

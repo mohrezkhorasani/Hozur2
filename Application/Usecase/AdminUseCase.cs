@@ -2442,8 +2442,7 @@ namespace Application.Usecase
 
 
                             e.OwnerTBL,
-
-
+                            SpentMinutesStr = e.RoomMetaTBLs.Where(m => m.Key == "spent_minutes").Select(m => m.Value).FirstOrDefault(),
 
                             Meetings = e.MeetingTBLs.Select(m => new
 
@@ -2562,6 +2561,7 @@ namespace Application.Usecase
 
 
                             .FirstOrDefault()?.DateInsert ?? room.DateInsert,
+                        SpentMinutes = !string.IsNullOrEmpty(room.SpentMinutesStr) && int.TryParse(room.SpentMinutesStr, out var sm) ? sm : 0,
 
 
 
