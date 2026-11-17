@@ -277,20 +277,7 @@ const HomePage = () => {
   const loadRooms = async () => {
     try {
       const data = await fetchRooms();
-      const enriched = Array.isArray(data) ? data.map(r => {
-        const val = r.spentMinutes ?? r.SpentMinutes;
-        const fid = r.roomID || r.RoomID;
-        if (fid && (val === undefined || val === null || val === 0)) {
-          const cached = localStorage.getItem(`room_spent_${fid}`);
-          if (cached && !isNaN(parseInt(cached, 10)) && parseInt(cached, 10) > 0) {
-            return { ...r, spentMinutes: parseInt(cached, 10) };
-          }
-        } else if (fid && val > 0) {
-          localStorage.setItem(`room_spent_${fid}`, String(val));
-        }
-        return r;
-      }) : data;
-      setRooms(enriched);
+      setRooms(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error(err);
       setRooms([]);

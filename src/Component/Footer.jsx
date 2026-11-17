@@ -1,4 +1,5 @@
 import React from 'react';
+import { APP_VERSION } from '../version';
 
 const Footer = () => {
   return (
@@ -61,10 +62,15 @@ const Footer = () => {
           </div>
         </div>
 
-        {/* خط جداکننده و کپی‌رایت */}
-        <div className="border-t border-gray-800 mt-8 pt-6 text-center text-gray-500 text-sm">
-          <p>© {new Date().getFullYear()} تمامی حقوق مادی و معنوی این سایت متعلق به مجمع عالی حکمت اسلامی می باشد.
-.</p>
+        {/* خط جداکننده، کپی‌رایت و شماره نسخه */}
+        <div className="border-t border-gray-800 mt-8 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-gray-400 text-xs sm:text-sm">
+          <p className="text-center sm:text-right">
+            © {new Date().getFullYear()} تمامی حقوق مادی و معنوی این سایت متعلق به مجمع عالی حکمت اسلامی می‌باشد.
+          </p>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/70 border border-emerald-800/60 text-xs font-mono text-emerald-300 shadow-inner select-none" dir="ltr">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span>نسخه {APP_VERSION}</span>
+          </div>
         </div>
       </div>
     </footer>

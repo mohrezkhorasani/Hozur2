@@ -44,31 +44,18 @@ const RoomCardOwn = ({
     const abortControllerRef = useRef(null);
     const [currentCalendarMonth, setCurrentCalendarMonth] = useState(null);
     const [currentCalendarYear, setCurrentCalendarYear] = useState(null);
-    const getCachedSpentMinutes = (r) => {
-        const val = r.spentMinutes ?? r.SpentMinutes;
-        if (val !== undefined && val !== null && Number(val) > 0) return Number(val);
-        const fid = r.roomID || r.RoomID || r.friendlyID || r.friendlyId;
-        if (fid) {
-            const saved = localStorage.getItem(`room_spent_${fid}`);
-            if (saved !== null && !isNaN(parseInt(saved, 10)) && parseInt(saved, 10) > 0) {
-                return parseInt(saved, 10);
-            }
-        }
+    const getSpentMinutesFromRoom = (r) => {
+        const val = r?.spentMinutes ?? r?.SpentMinutes;
         return val !== undefined && val !== null ? Number(val) : 0;
     };
 
-    const [spentMinutes, setSpentMinutes] = useState(() => getCachedSpentMinutes(room));
+    const [spentMinutes, setSpentMinutes] = useState(() => getSpentMinutesFromRoom(room));
     const [isRefreshingMinutes, setIsRefreshingMinutes] = useState(false);
     const [isRecordingsModalOpen, setIsRecordingsModalOpen] = useState(false);
 
     useEffect(() => {
-        const current = getCachedSpentMinutes(room);
-        setSpentMinutes(current);
-        const fid = room.roomID || room.RoomID || room.friendlyID || room.friendlyId;
-        if (fid && current > 0) {
-            localStorage.setItem(`room_spent_${fid}`, String(current));
-        }
-    }, [room.spentMinutes, room.SpentMinutes, room.roomID, room.RoomID, room.friendlyID, room.friendlyId]);
+        setSpentMinutes(getSpentMinutesFromRoom(room));
+    }, [room?.spentMinutes, room?.SpentMinutes]);
 
     const handleRefreshSpentMinutes = async (e) => {
         e.stopPropagation();
@@ -96,7 +83,8 @@ const RoomCardOwn = ({
                 if (mRes) {
                     const items = mRes.items || (Array.isArray(mRes.data) ? mRes.data : []);
                     const roomMeetings = items.filter(m => {
-                        if (m.type === -99) return false;
+                        // Only count valid meetings with Type == 100 or 101
+                        if (m.type !== 100 && m.type !== 101) return false;
                         const mFid = String(m.roomFriendlyID || m.roomFriendlyId || m.friendlyID || m.friendlyId || '').trim().toLowerCase();
                         const mNumId = String(m.roomId || m.RoomId || m.roomID || '').trim();
                         if (targetFid && mFid && mFid.toLowerCase() === targetFid.toLowerCase()) return true;
@@ -123,9 +111,6 @@ const RoomCardOwn = ({
                 setSpentMinutes(savedMins);
                 room.spentMinutes = savedMins;
                 room.SpentMinutes = savedMins;
-                if (targetFid) {
-                    localStorage.setItem(`room_spent_${targetFid}`, String(savedMins));
-                }
                 // Persist to database via SetRoomMetadata as well to guarantee DB sync
                 try {
                     await SetRoomMetadata(targetFid || targetId, "spent_minutes", String(savedMins), 140);
