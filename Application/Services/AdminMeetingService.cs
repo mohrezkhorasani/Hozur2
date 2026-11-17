@@ -6,7 +6,9 @@ using Application.DTO;
 using Application.General;
 using Application.Interface.IInfrastructure;
 using Application.Interfaces;
+using CacheHandler.Events;
 using Domain.Entity;
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 
 namespace Application.Services
@@ -62,11 +64,13 @@ namespace Application.Services
     {
         private readonly IDBContext _db;
         private readonly IBBBGetMeetings? _bbb;
+        private readonly IMediator? _mediator;
 
-        public AdminMeetingService(IDBContext db, IBBBGetMeetings? bbb = null)
+        public AdminMeetingService(IDBContext db, IBBBGetMeetings? bbb = null, IMediator? mediator = null)
         {
             _db = db;
             _bbb = bbb;
+            _mediator = mediator;
         }
 
         public bool IsSuperAdmin(UserTBL user)
@@ -877,6 +881,23 @@ namespace Application.Services
             }
 
             await _db.SaveChangesAsync();
+
+            if (_mediator != null)
+            {
+                try
+                {
+                    await _mediator.Publish(new RoomUpdatedEvent
+                    {
+                        RoomId = room.ID,
+                        Action = "update"
+                    });
+                }
+                catch (Exception ex)
+                {
+                    Statics.Log("RecalculateRoomSpentMinutesAsync.CacheInvalidation", ex.Message);
+                }
+            }
+
             return totalMinutes;
         }
 

@@ -918,6 +918,12 @@ namespace CoreMe.Controllers
             req.GeneralHeaders = HttpContext.GetGeneralHeaders();
 
             await _INewPlanRoomUseCase.handleAsync(req, _NewPlanRoomResponse);
+
+            if (_NewPlanRoomResponse.jsonContentResult.obj is BaseParentResponce bpr && bpr.Status >= 100 && bpr.Status < 600)
+            {
+                _NewPlanRoomResponse.jsonContentResult.StatusCode = bpr.Status;
+            }
+
             return _NewPlanRoomResponse.jsonContentResult;
         }
 

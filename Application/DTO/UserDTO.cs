@@ -480,6 +480,7 @@ namespace Application.DTO
 
     public class NewPlanRoomResponse : BaseParentResponce
     {
+        public object? Data { get; set; }
     }
     #endregion
 

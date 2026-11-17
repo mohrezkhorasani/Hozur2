@@ -599,5 +599,151 @@ namespace CoreMe.Tests
             Assert.Single(activePlans);
             Assert.NotEqual(150214, activePlans[0].ID);
         }
+
+        [Fact]
+        public async Task NewPlanRoom_WhenDuplicateUpcomingMeeting_Returns409Conflict_AndDoesNotUpdate()
+        {
+            using var db = CreateInMemoryContext();
+            var config = CreateConfiguration();
+            var mediator = new MockMediator();
+            var fakeBbb = new FakeBBBGetMeetings();
+
+            var user = new UserTBL
+            {
+                ID = 50,
+                UUID = "user-test-uuid",
+                Username = "adminuser",
+                Type = MainEntity_Types.USER_ADMIN,
+                Status = MainEntity_Status.Enabled
+            };
+            db.UserTBLs.Add(user);
+
+            var room = new RoomTBL
+            {
+                ID = 30,
+                FriendlyID = "room-user-dup-test",
+                Title = "اتاق تست کاربر",
+                IDOwnerTBL = user.ID,
+                Status = MainEntity_Status.Enabled,
+                IsPublicRoom = true
+            };
+            db.RoomTBLs.Add(room);
+
+            var futureDate = DateTime.UtcNow.AddDays(5);
+            var initialPlan = new RoomTBLPlanTBL
+            {
+                IDRoomTBL = room.ID,
+                Title = "فلسفه دین",
+                Teachers = "دکتر مصطفی پور",
+                Dabir = "دبیر نشست",
+                StartDate = futureDate,
+                Status = MainEntity_Status.Enabled,
+                Type = MainEntity_Types.PLAN_WITH_CERT,
+                Explain = "ثبت اولیه"
+            };
+            db.RoomTBLPlanTBLs.Add(initialPlan);
+            await db.SaveChangesAsync();
+
+            var usecase = new NewPlanRoomUseCase(db, config, fakeBbb, mediator);
+            var output = new MockOutputPort<GenericResponse<NewPlanRoomResponse>>();
+
+            var duplicateRequest = new NewPlanRoomRequest
+            {
+                FriendlyID = "room-user-dup-test",
+                Title = "فلسفه دین",
+                Teacher = "دکتر مصطفی پور",
+                Dabir = "دبیر نشست",
+                StartDate = futureDate,
+                GeneralHeaders = new Application.DTO.Generals.GeneralHeaders
+                {
+                    UserTBL = user
+                }
+            };
+
+            await usecase.handleAsync(duplicateRequest, output);
+
+            Assert.NotNull(output.Result);
+            Assert.Equal(409, output.Result.data.Status);
+            Assert.Contains("تکراری", output.Result.data.Message);
+
+            var plans = await db.RoomTBLPlanTBLs.ToListAsync();
+            Assert.Single(plans);
+            Assert.Equal("ثبت اولیه", plans[0].Explain);
+        }
+
+        [Fact]
+        public async Task NewPlanRoom_WhenUpcomingMeetingExists_WithChangedDetails_UpdatesRecord_AndSetsExplainWithTimestamp()
+        {
+            using var db = CreateInMemoryContext();
+            var config = CreateConfiguration();
+            var mediator = new MockMediator();
+            var fakeBbb = new FakeBBBGetMeetings();
+
+            var user = new UserTBL
+            {
+                ID = 51,
+                UUID = "user-test-uuid-2",
+                Username = "adminuser2",
+                Type = MainEntity_Types.USER_ADMIN,
+                Status = MainEntity_Status.Enabled
+            };
+            db.UserTBLs.Add(user);
+
+            var room = new RoomTBL
+            {
+                ID = 31,
+                FriendlyID = "room-user-update-test",
+                Title = "اتاق تست کاربر ۲",
+                IDOwnerTBL = user.ID,
+                Status = MainEntity_Status.Enabled,
+                IsPublicRoom = true
+            };
+            db.RoomTBLs.Add(room);
+
+            var initialDate = DateTime.UtcNow.AddDays(5);
+            var initialPlan = new RoomTBLPlanTBL
+            {
+                IDRoomTBL = room.ID,
+                Title = "کلام اسلامی",
+                Teachers = "دکتر رضایی",
+                Dabir = "مهندس محمدی",
+                StartDate = initialDate,
+                Status = MainEntity_Status.Enabled,
+                Type = MainEntity_Types.PLAN_WITH_CERT,
+                Explain = "ثبت اولیه"
+            };
+            db.RoomTBLPlanTBLs.Add(initialPlan);
+            await db.SaveChangesAsync();
+
+            var usecase = new NewPlanRoomUseCase(db, config, fakeBbb, mediator);
+            var output = new MockOutputPort<GenericResponse<NewPlanRoomResponse>>();
+
+            var updatedDate = DateTime.UtcNow.AddDays(6);
+            var updateRequest = new NewPlanRoomRequest
+            {
+                FriendlyID = "room-user-update-test",
+                Title = "کلام اسلامی",
+                Teacher = "دکتر رضایی",
+                Dabir = "مهندس محمدی (دبیر علمی)",
+                StartDate = updatedDate,
+                GeneralHeaders = new Application.DTO.Generals.GeneralHeaders
+                {
+                    UserTBL = user
+                }
+            };
+
+            await usecase.handleAsync(updateRequest, output);
+
+            Assert.NotNull(output.Result);
+            Assert.Equal(200, output.Result.data.Status);
+            Assert.Contains("به‌روزرسانی", output.Result.data.Message);
+
+            var plans = await db.RoomTBLPlanTBLs.ToListAsync();
+            Assert.Single(plans);
+            Assert.Equal(initialPlan.ID, plans[0].ID);
+            Assert.Equal(updatedDate, plans[0].StartDate);
+            Assert.Contains("به‌روزرسانی در تاریخ", plans[0].Explain);
+            Assert.Contains("UTC:", plans[0].Explain);
+        }
     }
 }
