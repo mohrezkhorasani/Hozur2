@@ -1090,3 +1090,20 @@ export async function GetRecordingTracks(recordId) {
     const json = await res.json();
     return json;
 }
+
+export async function InquiryServerRecordings({ meetId = '', recordId = '', state = '', getAll = false } = {}) {
+    const params = new URLSearchParams();
+    if (meetId) params.append("meetId", meetId.trim());
+    if (recordId) params.append("recordId", recordId.trim());
+    if (state) params.append("state", state.trim());
+    if (getAll) params.append("getAll", "true");
+
+    const url = combinePath(BaseURL, `/admin/recordings/inquiry?${params.toString()}`);
+    const res = await fetch(url, {
+        method: "GET",
+        headers: NormalHeaderAPI
+    });
+    if (!res.ok) throw new Error("Failed to inquiry server recordings");
+    const json = await res.json();
+    return json;
+}

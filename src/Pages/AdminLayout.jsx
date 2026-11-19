@@ -58,6 +58,7 @@ const AdminLayout = () => {
     { id: 24, name: "پشتیبان‌گیری", icon: <FaDatabase />, path: "/adminlay/backup", category: "تنظیمات", color: "from-red-500 to-red-600" },
     { id: 25, name: "لاگ‌های سیستم", icon: <FaDatabase />, path: "/adminlay/logs", category: "ابزارها", color: "from-orange-500 to-orange-600" },
     { id: 26, name: "مدیریت کش", icon: <FaCloud />, path: "/adminlay/cache", category: "ابزارها", color: "from-teal-500 to-teal-600" },
+    { id: 29, name: "استعلام ضبط‌های سرور (BBB)", icon: <FaSearch />, path: "/adminlay/recordings-inquiry", category: "ابزارها", color: "from-rose-500 to-red-600" },
   ];
 
   // Get unique categories

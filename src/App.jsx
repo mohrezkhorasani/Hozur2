@@ -36,6 +36,7 @@ import PaymentManagement from './Pages/tools/PaymentManagement';
 import UserMeetingLogsList from './Pages/Profile/UserMeetingLogsList';
 import RoomDetail from './Pages/RoomDetail';
 import CacheManagement from './Pages/Adminlay/CacheManagement';
+import RecordingsInquiry from './Pages/Adminlay/RecordingsInquiry';
 import { ToastProvider } from './Tools/ToastProvider';
 
 function App() {
@@ -100,9 +101,11 @@ function App() {
               <Route element={<BaseLayout />}>
                 <Route path="/adminlay" element={<AdminLayout />}>
                   <Route path="cache" element={<CacheManagement />} />
+                  <Route path="recordings-inquiry" element={<RecordingsInquiry />} />
                 </Route>
                 <Route path="/admin" element={<AdminLayout />}>
                   <Route path="cache" element={<CacheManagement />} />
+                  <Route path="recordings-inquiry" element={<RecordingsInquiry />} />
                 </Route>
               </Route>
             </Route>
