@@ -70,6 +70,8 @@ namespace Application.DTO
         public bool? RecordingPublished { get; set; }
         public int? DurationMinutes { get; set; }
         public bool HasRecording { get; set; }
+        public double? PollAverageScore { get; set; }
+        public int PollVotesCount { get; set; }
     }
 
     public class AdminMeetingRoomOptionDTO

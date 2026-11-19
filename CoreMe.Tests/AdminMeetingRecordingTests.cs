@@ -161,7 +161,7 @@ namespace CoreMe.Tests
             var meeting = new MeetingTBL
             {
                 ID = 1001,
-                MeetID = "meet-random-1001",
+                MeetID = "rec-guid-12345",
                 Title = "جلسه ضبط شده آزمایشی",
                 RoomFriendlyID = room.FriendlyID,
                 RoomTBL = room,

@@ -378,6 +378,8 @@ namespace Application.Services
                 .ToListAsync();
 
             var meetIds = meetings.Select(m => m.id).ToList();
+            var meetCodes = meetings.Select(m => m.meetID).Where(x => !string.IsNullOrEmpty(x)).ToList();
+
             var mediaLogs = await _db.MeetingLogTBLs
                 .Where(l => meetIds.Contains(l.IDMeetingTBL) &&
                        (l.Key == MeetingLogTBL.KEY_SOUND || l.Key == "VOICE_URL" ||
@@ -388,8 +390,40 @@ namespace Application.Services
                 .OrderByDescending(l => l.ID)
                 .ToListAsync();
 
+            var pollVotes = await _db.MeetPollQuizAnsTBLToUserMeetTBLs
+                .Where(v =>
+                    (v.Status == MainEntity_Status.Default || v.Status == MainEntity_Status.LOG_NORMAL || v.Status == MainEntity_Status.Succedd) &&
+                    v.UserTBLToMeetingTBL != null &&
+                    meetCodes.Contains(v.UserTBLToMeetingTBL.MeetID) &&
+                    v.MeetPollQuizAnsTBL != null &&
+                    v.MeetPollQuizAnsTBL.QuizTBL != null &&
+                    (int)v.MeetPollQuizAnsTBL.QuizTBL.Type == 625 &&
+                    v.MeetPollQuizAnsTBL.QuizTBL.Status != MainEntity_Status.Delete &&
+                    v.MeetPollQuizAnsTBL.Score >= 0)
+                .Select(v => new
+                {
+                    MeetID = v.UserTBLToMeetingTBL.MeetID,
+                    MeetingID = v.UserTBLToMeetingTBL.MeetingTBL != null ? (long?)v.UserTBLToMeetingTBL.MeetingTBL.ID : null,
+                    PollID = v.MeetPollQuizAnsTBL.QuizTBL.ID,
+                    PollMeetingID = v.MeetPollQuizAnsTBL.QuizTBL.IDMeetingTBL,
+                    Score = v.MeetPollQuizAnsTBL.Score
+                })
+                .ToListAsync();
+
             var items = meetings.Select(m =>
             {
+                var meetingVotes = pollVotes
+                    .Where(v => v.MeetID == m.meetID &&
+                                (v.PollMeetingID == null || v.PollMeetingID == m.id))
+                    .ToList();
+
+                double? pollAvg = null;
+                int pollVotesCount = meetingVotes.Count;
+                if (pollVotesCount > 0)
+                {
+                    pollAvg = Math.Round(meetingVotes.Average(x => (double)x.Score), 1);
+                }
+
                 var voiceLog = mediaLogs.FirstOrDefault(l => l.IDMeetingTBL == m.id && (l.Key == MeetingLogTBL.KEY_SOUND || l.Key == "VOICE_URL"));
                 var videoLog = mediaLogs.FirstOrDefault(l => l.IDMeetingTBL == m.id && (l.Key == MeetingLogTBL.KEY_VIDEO || l.Key == "VIDEO_URL"));
                 var reportLog = mediaLogs.FirstOrDefault(l => l.IDMeetingTBL == m.id && (l.Key == MeetingLogTBL.KEY_REPORT || l.Key == "REPORT_URL"));
@@ -459,7 +493,9 @@ namespace Application.Services
                     RecordingDownloadable = recDownloadable,
                     RecordingPublished = recPublished,
                     DurationMinutes = (m.endDate.HasValue && m.endDate.Value > m.dateInsert) ? (int?)(int)(m.endDate.Value - m.dateInsert).TotalMinutes : null,
-                    HasRecording = m.isRecorded || !string.IsNullOrWhiteSpace(recPlaybackUrl) || !string.IsNullOrWhiteSpace(recRecordId)
+                    HasRecording = m.isRecorded || !string.IsNullOrWhiteSpace(recPlaybackUrl) || !string.IsNullOrWhiteSpace(recRecordId),
+                    PollAverageScore = pollAvg,
+                    PollVotesCount = pollVotesCount
                 };
             }).ToList();
 
@@ -527,30 +563,22 @@ namespace Application.Services
                 response.Settings.LastUpdated = recordLog.DateInsert;
             }
 
-            // 2. Query BBB Recordings
+            // 2. Query BBB Recordings - فقط و فقط رکوردهایی که شناسه آن‌ها با MeetID جلسه یکسان است
             var bbbRecordings = new List<RecordingInfo>();
             if (_bbb != null)
             {
-                // Try with MeetID
+                // Try with MeetID (both as meetingId and as recordId)
                 if (!string.IsNullOrWhiteSpace(meeting.MeetID))
                 {
                     var recs = await _bbb.GetRecordingsAsync(meetingId: meeting.MeetID);
                     if (recs != null && recs.Count > 0)
                         bbbRecordings.AddRange(recs);
-                }
 
-                // If none or room has different BBB_MeetID, try with room.BBB_MeetID
-                if (meeting.RoomTBL != null && !string.IsNullOrWhiteSpace(meeting.RoomTBL.BBB_MeetID) &&
-                    meeting.RoomTBL.BBB_MeetID != meeting.MeetID)
-                {
-                    var recs = await _bbb.GetRecordingsAsync(meetingId: meeting.RoomTBL.BBB_MeetID);
-                    if (recs != null && recs.Count > 0)
+                    if (bbbRecordings.Count == 0)
                     {
-                        foreach (var r in recs)
-                        {
-                            if (!bbbRecordings.Any(existing => existing.RecordID == r.RecordID))
-                                bbbRecordings.Add(r);
-                        }
+                        var recsById = await _bbb.GetRecordingsAsync(recordId: meeting.MeetID);
+                        if (recsById != null && recsById.Count > 0)
+                            bbbRecordings.AddRange(recsById);
                     }
                 }
 
@@ -561,6 +589,51 @@ namespace Application.Services
                     if (recs != null && recs.Count > 0)
                         bbbRecordings.AddRange(recs);
                 }
+
+                // If queried via room BBB_MeetID, ONLY keep recordings whose RecordID or MeetingID matches this meeting's MeetID
+                if (bbbRecordings.Count == 0 && meeting.RoomTBL != null && !string.IsNullOrWhiteSpace(meeting.RoomTBL.BBB_MeetID))
+                {
+                    var roomRecs = await _bbb.GetRecordingsAsync(meetingId: meeting.RoomTBL.BBB_MeetID);
+                    if (roomRecs != null && roomRecs.Count > 0)
+                    {
+                        var matched = roomRecs.Where(r =>
+                            (!string.IsNullOrWhiteSpace(meeting.MeetID) && (r.RecordID.Equals(meeting.MeetID, StringComparison.OrdinalIgnoreCase) || r.MeetingID.Equals(meeting.MeetID, StringComparison.OrdinalIgnoreCase))) ||
+                            (!string.IsNullOrWhiteSpace(savedRecordId) && r.RecordID.Equals(savedRecordId, StringComparison.OrdinalIgnoreCase))
+                        ).ToList();
+
+                        bbbRecordings.AddRange(matched);
+                    }
+                }
+
+                // Strict filter: ONLY recordings that match this meeting's MeetID or savedRecordId
+                if (!string.IsNullOrWhiteSpace(meeting.MeetID) || !string.IsNullOrWhiteSpace(savedRecordId))
+                {
+                    bbbRecordings = bbbRecordings.Where(r =>
+                        (!string.IsNullOrWhiteSpace(meeting.MeetID) && (r.RecordID.Equals(meeting.MeetID, StringComparison.OrdinalIgnoreCase) || r.MeetingID.Equals(meeting.MeetID, StringComparison.OrdinalIgnoreCase))) ||
+                        (!string.IsNullOrWhiteSpace(savedRecordId) && r.RecordID.Equals(savedRecordId, StringComparison.OrdinalIgnoreCase))
+                    ).ToList();
+                }
+            }
+
+            // اگر رکوردی در پاسخ BBB یافت نشد ولی جلسه دارای MeetID معتبر است، لینک مستقیم پخش را تناسب بده
+            if (bbbRecordings.Count == 0 && !string.IsNullOrWhiteSpace(meeting.MeetID) && meeting.MeetID.Length > 10)
+            {
+                string canonicalPlayback = $"https://vc.hekmateislami.com/playback/presentation/2.3/{meeting.MeetID}";
+                bbbRecordings.Add(new RecordingInfo
+                {
+                    RecordID = meeting.MeetID,
+                    MeetingID = meeting.MeetID,
+                    Name = meeting.Title ?? meeting.RoomTBL?.Title ?? "ضبط جلسه در سامانه پخش",
+                    Published = true,
+                    State = "published",
+                    StartTime = meeting.DateInsert,
+                    EndTime = meeting.EndDate ?? meeting.DateInsert,
+                    PlaybackFormat = "presentation",
+                    PlaybackUrl = canonicalPlayback,
+                    LengthMinutes = meeting.EndDate.HasValue && meeting.EndDate.Value > meeting.DateInsert
+                        ? (int)(meeting.EndDate.Value - meeting.DateInsert).TotalMinutes
+                        : 0
+                });
             }
 
             // 3. Map recordings
@@ -1178,6 +1251,10 @@ namespace Application.Services
 
                 string mTeacherName = m.Teacher?.GetName() ?? m.RoomTBLPlanTBL?.Teachers ?? "تعیین نشده";
 
+                string? derivedPlayback = !string.IsNullOrWhiteSpace(m.MeetID)
+                    ? $"https://vc.hekmateislami.com/playback/presentation/2.3/{m.MeetID}"
+                    : null;
+
                 list.Add(new AdminMeetingItemDTO
                 {
                     Id = m.ID,
@@ -1192,6 +1269,8 @@ namespace Application.Services
                     DurationMinutes = dur,
                     IsRecorded = true,
                     HasRecording = true,
+                    RecordingPlaybackUrl = derivedPlayback,
+                    VideoUrl = derivedPlayback,
                     Status = (int)m.Status,
                     Type = (int)m.Type
                 });

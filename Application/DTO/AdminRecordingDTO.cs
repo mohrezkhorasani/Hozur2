@@ -44,9 +44,24 @@ namespace Application.DTO
     {
         public long MeetingId { get; set; }
         public string MeetId { get; set; } = string.Empty;
+        public string? MeetingTitle { get; set; }
         public string? RoomFriendlyId { get; set; }
         public string? RoomTitle { get; set; }
         public string? BbbMeetId { get; set; }
+        public string? CreatorName { get; set; }
+        public string? TeacherName { get; set; }
+        public string? OwnerName { get; set; }
+        public DateTime? DateInsert { get; set; }
+        public DateTime? EndDate { get; set; }
+        public string? JalaliDate { get; set; }
+        public int? DurationMinutes { get; set; }
+        public int Status { get; set; }
+        public string? StatusTitle { get; set; }
+        public int Type { get; set; }
+        public int ParticipantsCount { get; set; }
+        public string? VoiceUrl { get; set; }
+        public string? VideoUrl { get; set; }
+        public string? ReportUrl { get; set; }
         public bool HasRecordings { get; set; }
         public List<BBBRecordingItemDTO> Recordings { get; set; } = new List<BBBRecordingItemDTO>();
         public MeetingRecordingSettingsDTO Settings { get; set; } = new MeetingRecordingSettingsDTO();

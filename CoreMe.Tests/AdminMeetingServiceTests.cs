@@ -399,5 +399,176 @@ namespace CoreMe.Tests
             // Verify Creator is populated
             Assert.Contains(result.Items, m => m.Creator != null && m.Creator.Id == superAdmin.ID);
         }
+
+        [Fact]
+        public async Task GetMeetings_CalculatesPollAverageScore_OnlyForType625_AndMatchingOrNullMeetingId()
+        {
+            var db = CreateInMemoryContext(Guid.NewGuid().ToString());
+            SeedSampleData(db);
+
+            // Add MeetPollQuiz data
+            // Poll 1: Type 625 (QUIZ_OPTIONAL), IDMeetingTBL = null (global)
+            var pollGlobal = new MeetPollQuizTBL
+            {
+                ID = 501,
+                Type = MainEntity_Types.QUIZ_OPTIONAL,
+                Status = MainEntity_Status.LOG_NORMAL,
+                Question = "سوال سراسری",
+                IDMeetingTBL = null
+            };
+            var ans1a = new MeetPollQuizAnsTBL { ID = 601, IDQuizTBL = 501, Score = 100, Answer = "عالی", Type = MainEntity_Types.QUIZ_OPTIONAL, Status = MainEntity_Status.LOG_NORMAL };
+            var ans1b = new MeetPollQuizAnsTBL { ID = 602, IDQuizTBL = 501, Score = 60, Answer = "خوب", Type = MainEntity_Types.QUIZ_OPTIONAL, Status = MainEntity_Status.LOG_NORMAL };
+
+            // Poll 2: Type 625, IDMeetingTBL = 1001 (specific to meeting 1001)
+            var pollMeeting1001 = new MeetPollQuizTBL
+            {
+                ID = 502,
+                Type = MainEntity_Types.QUIZ_OPTIONAL,
+                Status = MainEntity_Status.LOG_NORMAL,
+                Question = "سوال اختصاصی جلسه ۱۰۰۱",
+                IDMeetingTBL = 1001
+            };
+            var ans2a = new MeetPollQuizAnsTBL { ID = 603, IDQuizTBL = 502, Score = 80, Answer = "خیلی خوب", Type = MainEntity_Types.QUIZ_OPTIONAL, Status = MainEntity_Status.LOG_NORMAL };
+
+            // Poll 3: Type 626 (QUIZ_INPUT), IDMeetingTBL = 1001 -> MUST BE IGNORED
+            var pollInput = new MeetPollQuizTBL
+            {
+                ID = 503,
+                Type = MainEntity_Types.QUIZ_INPUT,
+                Status = MainEntity_Status.LOG_NORMAL,
+                Question = "متن آزاد",
+                IDMeetingTBL = 1001
+            };
+            var ans3a = new MeetPollQuizAnsTBL { ID = 604, IDQuizTBL = 503, Score = 10, Answer = "متن", Type = MainEntity_Types.QUIZ_INPUT, Status = MainEntity_Status.LOG_NORMAL };
+
+            // Poll 4: Type 625, IDMeetingTBL = 1002 -> MUST BE IGNORED for meeting 1001
+            var pollMeeting1002 = new MeetPollQuizTBL
+            {
+                ID = 504,
+                Type = MainEntity_Types.QUIZ_OPTIONAL,
+                Status = MainEntity_Status.LOG_NORMAL,
+                Question = "سوال جلسه ۱۰۰۲",
+                IDMeetingTBL = 1002
+            };
+            var ans4a = new MeetPollQuizAnsTBL { ID = 605, IDQuizTBL = 504, Score = 20, Answer = "ضعیف", Type = MainEntity_Types.QUIZ_OPTIONAL, Status = MainEntity_Status.LOG_NORMAL };
+
+            db.MeetPollQuizTBLs.AddRange(pollGlobal, pollMeeting1001, pollInput, pollMeeting1002);
+            db.MeetPollQuizAnsTBLs.AddRange(ans1a, ans1b, ans2a, ans3a, ans4a);
+
+            // UserTBLToMeetingTBL records
+            var userMeet1 = new UserTBLToMeetingTBL
+            {
+                ID = 701,
+                MeetID = "meet-1001-uuid",
+                UUID = "uuid-superadmin",
+                UserNickName = "کاربر ۱",
+                TokenJWT = "jwt-701",
+                UserMeetID = "um-701",
+                Status = MainEntity_Status.LOG_NORMAL,
+                Type = MainEntity_Types.USER_VIEWER
+            };
+            var userMeet2 = new UserTBLToMeetingTBL
+            {
+                ID = 702,
+                MeetID = "meet-1001-uuid",
+                UUID = "uuid-owner",
+                UserNickName = "کاربر ۲",
+                TokenJWT = "jwt-702",
+                UserMeetID = "um-702",
+                Status = MainEntity_Status.LOG_NORMAL,
+                Type = MainEntity_Types.USER_VIEWER
+            };
+            var userMeet3 = new UserTBLToMeetingTBL
+            {
+                ID = 703,
+                MeetID = "meet-1001-uuid",
+                UUID = "uuid-admin",
+                UserNickName = "کاربر ۳",
+                TokenJWT = "jwt-703",
+                UserMeetID = "um-703",
+                Status = MainEntity_Status.LOG_NORMAL,
+                Type = MainEntity_Types.USER_VIEWER
+            };
+
+            db.UserTBLToMeetingTBLs.AddRange(userMeet1, userMeet2, userMeet3);
+
+            // Votes
+            // Vote 1: User 1 votes for Poll 1 Answer 1a (Score 100) -> COUNTED
+            var v1 = new MeetPollQuizAnsTBLToUserMeetTBL
+            {
+                ID = 801,
+                IDMeetPollQuizAnsTBL = ans1a.ID,
+                MeetPollQuizAnsTBL = ans1a,
+                IDUserTBLToMeetingTBL = userMeet1.ID,
+                UserTBLToMeetingTBL = userMeet1,
+                Status = MainEntity_Status.LOG_NORMAL,
+                Type = MainEntity_Types.QUIZ_OPTIONAL
+            };
+            // Vote 2: User 2 votes for Poll 1 Answer 1b (Score 60) -> COUNTED
+            var v2 = new MeetPollQuizAnsTBLToUserMeetTBL
+            {
+                ID = 802,
+                IDMeetPollQuizAnsTBL = ans1b.ID,
+                MeetPollQuizAnsTBL = ans1b,
+                IDUserTBLToMeetingTBL = userMeet2.ID,
+                UserTBLToMeetingTBL = userMeet2,
+                Status = MainEntity_Status.LOG_NORMAL,
+                Type = MainEntity_Types.QUIZ_OPTIONAL
+            };
+            // Vote 3: User 3 votes for Poll 2 (Meeting 1001 specific) Answer 2a (Score 80) -> COUNTED
+            var v3 = new MeetPollQuizAnsTBLToUserMeetTBL
+            {
+                ID = 803,
+                IDMeetPollQuizAnsTBL = ans2a.ID,
+                MeetPollQuizAnsTBL = ans2a,
+                IDUserTBLToMeetingTBL = userMeet3.ID,
+                UserTBLToMeetingTBL = userMeet3,
+                Status = MainEntity_Status.LOG_NORMAL,
+                Type = MainEntity_Types.QUIZ_OPTIONAL
+            };
+            // Vote 4: User 1 votes for Poll 3 (Type 626 QUIZ_INPUT) -> IGNORED because type != 625
+            var v4 = new MeetPollQuizAnsTBLToUserMeetTBL
+            {
+                ID = 804,
+                IDMeetPollQuizAnsTBL = ans3a.ID,
+                MeetPollQuizAnsTBL = ans3a,
+                IDUserTBLToMeetingTBL = userMeet1.ID,
+                UserTBLToMeetingTBL = userMeet1,
+                Status = MainEntity_Status.LOG_NORMAL,
+                Type = MainEntity_Types.QUIZ_INPUT
+            };
+            // Vote 5: User 2 votes for Poll 4 (Meeting 1002 specific) -> IGNORED because IDMeetingTBL == 1002 != 1001
+            var v5 = new MeetPollQuizAnsTBLToUserMeetTBL
+            {
+                ID = 805,
+                IDMeetPollQuizAnsTBL = ans4a.ID,
+                MeetPollQuizAnsTBL = ans4a,
+                IDUserTBLToMeetingTBL = userMeet2.ID,
+                UserTBLToMeetingTBL = userMeet2,
+                Status = MainEntity_Status.LOG_NORMAL,
+                Type = MainEntity_Types.QUIZ_OPTIONAL
+            };
+
+            db.MeetPollQuizAnsTBLToUserMeetTBLs.AddRange(v1, v2, v3, v4, v5);
+            await db.SaveChangesAsync();
+
+            var service = new AdminMeetingService(db);
+            var superAdmin = await db.UserTBLs.FirstAsync(u => u.Type == MainEntity_Types.USER_ADMINSTRATOR);
+
+            var result = await service.GetMeetingsAsync(superAdmin, page: 1, count: 50);
+
+            Assert.NotNull(result);
+            var m1001 = result.Items.FirstOrDefault(m => m.Id == 1001);
+            Assert.NotNull(m1001);
+            // Votes counted: 100, 60, 80 -> Total: 3 votes, Average: (100 + 60 + 80) / 3 = 80.0
+            Assert.Equal(3, m1001.PollVotesCount);
+            Assert.Equal(80.0, m1001.PollAverageScore);
+
+            // Meeting 1003 has no votes
+            var m1003 = result.Items.FirstOrDefault(m => m.Id == 1003);
+            Assert.NotNull(m1003);
+            Assert.Equal(0, m1003.PollVotesCount);
+            Assert.Null(m1003.PollAverageScore);
+        }
     }
 }

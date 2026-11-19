@@ -6777,7 +6777,7 @@ namespace Application.Usecase
                 var userMeet = _db.UserTBLToMeetingTBLs
                           .Include(e => e.UserTBLToMeetingTBLLogs)
                           .FirstOrDefault(e => e.MeetID == meet.MeetID && e.UUID == user.UUID);
-                if (!user.VerifyUserPermissions("edit_meeting") || userMeet == null || userMeet.Role != "MODERATOR")
+                if (!user.VerifyUserPermissions("edit_meeting") || userMeet == null )
                 {
                     outputPort.Handle(new GenericResponse<UpdatePresentMinToCertOfMeetResponse>(new UpdatePresentMinToCertOfMeetResponse
                     {
