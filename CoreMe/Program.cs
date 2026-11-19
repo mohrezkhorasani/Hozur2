@@ -30,6 +30,18 @@ using BBBConfig = CoreMe.Cofigurations.BBBConfig;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Ensure configuration and content root are loaded from AppContext.BaseDirectory if not found in ContentRootPath
+if (!File.Exists(Path.Combine(builder.Environment.ContentRootPath, "appsettings.json")) &&
+    File.Exists(Path.Combine(AppContext.BaseDirectory, "appsettings.json")))
+{
+    builder.Environment.ContentRootPath = AppContext.BaseDirectory;
+    builder.Configuration
+        .SetBasePath(AppContext.BaseDirectory)
+        .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+        .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true)
+        .AddEnvironmentVariables();
+}
+
 builder.Services.AddAutoMapper(_ => { }, typeof(Program));
 
 builder.Services.AddCors(options =>
@@ -105,12 +117,12 @@ builder.Services.AddCors(options =>
 var bbb = builder.Configuration.GetSection("bbb").Get<BBBConfig>();
 Statics.bbb = new Application.General.BBBConfig
 {
-    AttendPassword = bbb.AttendPassword,
-    ModeratorPassword = bbb.ModeratorPassword,
-    Secret = bbb.Secret,
-    Url = bbb.Url,
-    UrlAPI = bbb.UrlAPI,
-    Last = bbb.Last,
+    AttendPassword = bbb?.AttendPassword ?? "",
+    ModeratorPassword = bbb?.ModeratorPassword ?? "",
+    Secret = bbb?.Secret ?? "",
+    Url = bbb?.Url ?? "",
+    UrlAPI = bbb?.UrlAPI ?? "",
+    Last = bbb?.Last ?? "",
 };
 
 
