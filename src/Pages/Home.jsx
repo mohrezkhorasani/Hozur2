@@ -83,7 +83,16 @@ const HomePage = () => {
   const [isUpcomingExpanded, setIsUpcomingExpanded] = useState(false);
 
   // Helper to determine plan remaining time & Jalali date
-  const getPlanTimingInfo = (startDateStr) => {
+  // «در حال برگزاری» صرفاً از طریق متد getlives تعیین می‌شود و هرگز بر اساس تاریخ محاسبه نخواهد شد
+  const getPlanTimingInfo = (startDateStr, isLive = false) => {
+    const dateFormatted = startDateStr ? formatPersianDateTime(startDateStr) : '-';
+    if (isLive) {
+      return {
+        remainingText: 'در حال برگزاری',
+        dateStr: dateFormatted,
+        isOngoing: true,
+      };
+    }
     if (!startDateStr) return { remainingText: '-', dateStr: '-', isOngoing: false };
     const now = new Date();
     const start = parseUtcDate(startDateStr);
@@ -91,22 +100,14 @@ const HomePage = () => {
 
     const diffMs = start.getTime() - now.getTime();
     const diffMins = Math.round(diffMs / 60000);
-    const dateFormatted = formatPersianDateTime(startDateStr);
 
-    // If started within the past 3 hours: currently live / ongoing
-    if (diffMs <= 0 && diffMs > -3 * 3600 * 1000) {
-      return {
-        remainingText: 'در حال برگزاری',
-        dateStr: dateFormatted,
-        isOngoing: true,
-      };
-    }
-
+    // اگر زنده نیست، هرگز بر اساس تاریخ نباید «در حال برگزاری» باشد
     if (diffMs <= 0) {
       return {
-        remainingText: 'برگزار شده',
+        remainingText: 'در انتظار شروع',
         dateStr: dateFormatted,
         isOngoing: false,
+        isWaiting: true,
       };
     }
 
@@ -124,7 +125,24 @@ const HomePage = () => {
       remainingText = `${Math.max(1, minutes)} دقیقه مانده`;
     }
 
-    return { remainingText, dateStr: dateFormatted, isOngoing: false };
+    return { remainingText, dateStr: dateFormatted, isOngoing: false, isWaiting: false };
+  };
+
+  // Helper to check if a plan's room has started (is live) from getlives (like roomcards do)
+  const isPlanLive = (plan) => {
+    if (!plan || !Array.isArray(roomLive) || roomLive.length === 0) return false;
+    const fid = String(plan.roomFriendlyId || plan.roomObj?.friendlyID || plan.roomObj?.roomID || '').toLowerCase().trim();
+    const bbbId = String(plan.roomObj?.BBB_MeetID || plan.roomObj?.bbbMeetID || '').toLowerCase().trim();
+    const numId = String(plan.roomObj?.id || plan.roomObj?.ID || '').trim();
+
+    return roomLive.some(r => {
+      if (!r) return false;
+      const liveId = String(r.roomID || r.RoomID || '').toLowerCase().trim();
+      const liveBbb = String(r.bbb_MeetID || r.BBB_MeetID || '').toLowerCase().trim();
+      return (fid && (liveId === fid || liveBbb === fid)) ||
+             (bbbId && (liveId === bbbId || liveBbb === bbbId)) ||
+             (numId && liveId === numId);
+    });
   };
 
   // Aggregate upcoming plans from both GetMyUpcomingPlans and rooms' planJSONs
@@ -232,6 +250,7 @@ const HomePage = () => {
     // 3. Filter out plans that are already expired!
     const now = new Date();
     const list = Array.from(plansMap.values()).filter(plan => {
+      if (isPlanLive(plan)) return true;
       if (!plan.startDate) return false;
       const start = parseUtcDate(plan.startDate);
       if (!start) return false;
@@ -239,14 +258,18 @@ const HomePage = () => {
       return (start.getTime() - now.getTime()) > (-3 * 3600 * 1000);
     });
 
-    // 4. Sort ascending by startDate
+    // 4. Sort: Live sessions first, then ascending by startDate
     list.sort((a, b) => {
+      const aLive = isPlanLive(a);
+      const bLive = isPlanLive(b);
+      if (aLive && !bLive) return -1;
+      if (!aLive && bLive) return 1;
       const da = parseUtcDate(a.startDate);
       const db = parseUtcDate(b.startDate);
       return (da?.getTime() || 0) - (db?.getTime() || 0);
     });
     return list;
-  }, [upcomingPlans, rooms]);
+  }, [upcomingPlans, rooms, roomLive]);
 
   const handleFlip = (roomId) => {
     setFlippedCards(prev => ({
@@ -414,8 +437,15 @@ const HomePage = () => {
 
     setIsStartingMeet(roomID); // شروع لودینگ
     try {
+      const isAlreadyLive = Array.isArray(roomLive) && roomLive.some(room => {
+        if (!room) return false;
+        const rId = String(room.roomID || room.RoomID || '').toLowerCase().trim();
+        const rBbb = String(room.bbb_MeetID || room.BBB_MeetID || '').toLowerCase().trim();
+        const target = String(roomID || '').toLowerCase().trim();
+        return (rId && rId === target) || (rBbb && rBbb === target);
+      });
 
-      if (roomLive.some(room => room.roomID === roomID)) {
+      if (isAlreadyLive) {
         const data = await joinMeeting(roomID, user.fullname, true);
 
         if (data?.link) {
@@ -536,7 +566,9 @@ const HomePage = () => {
               </thead>
               <tbody className="divide-y divide-[#f3f4f6]">
                 {(isUpcomingExpanded ? activeUpcomingPlans : activeUpcomingPlans.slice(0, 3)).map((plan, index) => {
-                  const timing = getPlanTimingInfo(plan.startDate);
+                  const isStarted = isPlanLive(plan);
+                  const timing = getPlanTimingInfo(plan.startDate, isStarted);
+                  const isStarting = isStartingMeet === plan.roomFriendlyId;
                   return (
                     <tr key={plan.id} className="relative hover:z-[70] hover:bg-[#f9fafb] transition">
                       {/* عنوان جلسه با محدودیت دو خط، سه نقطه و پاپ‌اور شناور روی هاور */}
@@ -617,10 +649,17 @@ const HomePage = () => {
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         <div className="flex flex-col">
                           <span className={`text-xs font-bold inline-flex items-center gap-1.5 ${
-                            timing.isOngoing ? 'text-[#059669]' : 'text-[#0284c7]'
+                            timing.isOngoing
+                              ? 'text-[#059669]'
+                              : timing.isWaiting
+                                ? 'text-[#d97706]'
+                                : 'text-[#0284c7]'
                           }`}>
                             {timing.isOngoing && (
                               <span className="w-2 h-2 rounded-full bg-[#10b981] animate-ping shrink-0" />
+                            )}
+                            {timing.isWaiting && (
+                              <span className="w-2 h-2 rounded-full bg-[#f59e0b] shrink-0" />
                             )}
                             <span>{timing.remainingText}</span>
                           </span>
@@ -630,28 +669,80 @@ const HomePage = () => {
                         </div>
                       </td>
 
-                      {/* عملیات: دکمه شروع همیشه در دسترس */}
+                      {/* عملیات: اگر جلسه شروع شده است، دکمه ورود (نه شروع) - برگرفته از getlives مثل roomcard */}
                       <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const teachersArr = plan.teacherName ? [{ name: plan.teacherName }] : [];
-                            handleStart(
-                              plan.roomFriendlyId,
-                              plan.id,
-                              plan.title,
-                              teachersArr,
-                              plan.dabir || null,
-                              true,
-                              true
-                            );
-                          }}
-                          className="px-4 py-2 bg-[#0284c7] hover:bg-[#0369a1] text-[#ffffff] font-bold text-xs rounded-xl transition shadow-xs hover:shadow active:scale-95 flex items-center justify-center gap-1.5 mx-auto cursor-pointer"
-                          title="شروع جلسه آنلاین"
-                        >
-                          <FaSignInAlt size={12} />
-                          <span>شروع جلسه</span>
-                        </button>
+                        {isStarted ? (
+                          <button
+                            type="button"
+                            disabled={isStarting}
+                            onClick={() => {
+                              const teachersArr = plan.teacherName ? [{ name: plan.teacherName }] : [];
+                              handleStart(
+                                plan.roomFriendlyId,
+                                plan.id,
+                                plan.title,
+                                teachersArr,
+                                plan.dabir || null,
+                                true,
+                                true
+                              );
+                            }}
+                            className={`px-4 py-2 font-bold text-xs rounded-xl transition shadow-xs hover:shadow active:scale-95 flex items-center justify-center gap-1.5 mx-auto cursor-pointer ${
+                              isStarting
+                                ? "bg-[#f3f4f6] text-[#9ca3af] cursor-not-allowed"
+                                : "bg-[#16a34a] hover:bg-[#15803d] text-[#ffffff] ring-2 ring-[#16a34a]/30"
+                            }`}
+                            title="ورود به جلسه آنلاین (در حال برگزاری)"
+                          >
+                            {isStarting ? (
+                              <svg className="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 8.001l-2.707 2.707A9.959 9.959 0 004 20.291z"></path>
+                              </svg>
+                            ) : (
+                              <>
+                                <span className="w-2 h-2 rounded-full bg-[#ffffff] animate-ping shrink-0" />
+                                <FaSignInAlt size={12} />
+                                <span>ورود به جلسه</span>
+                              </>
+                            )}
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={isStarting}
+                            onClick={() => {
+                              const teachersArr = plan.teacherName ? [{ name: plan.teacherName }] : [];
+                              handleStart(
+                                plan.roomFriendlyId,
+                                plan.id,
+                                plan.title,
+                                teachersArr,
+                                plan.dabir || null,
+                                true,
+                                true
+                              );
+                            }}
+                            className={`px-4 py-2 font-bold text-xs rounded-xl transition shadow-xs hover:shadow active:scale-95 flex items-center justify-center gap-1.5 mx-auto cursor-pointer ${
+                              isStarting
+                                ? "bg-[#f3f4f6] text-[#9ca3af] cursor-not-allowed"
+                                : "bg-[#0284c7] hover:bg-[#0369a1] text-[#ffffff]"
+                            }`}
+                            title="شروع جلسه آنلاین"
+                          >
+                            {isStarting ? (
+                              <svg className="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 8.001l-2.707 2.707A9.959 9.959 0 004 20.291z"></path>
+                              </svg>
+                            ) : (
+                              <>
+                                <FaSignInAlt size={12} />
+                                <span>شروع جلسه</span>
+                              </>
+                            )}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );

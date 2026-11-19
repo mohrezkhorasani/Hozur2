@@ -2254,10 +2254,20 @@ const MeetingManagement = () => {
                                                     {item.meetID && (
                                                         <button
                                                             onClick={() => navigate(`/polls/${item.meetID}/report`)}
-                                                            className="p-2 text-purple-600 hover:bg-purple-50 rounded-xl transition"
-                                                            title="گزارش نظرسنجی جلسه"
+                                                            className="relative p-2 text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded-xl transition flex items-center justify-center"
+                                                            title={item.pollAverageScore !== null && item.pollAverageScore !== undefined
+                                                                ? `گزارش نظرسنجی جلسه (میانگین: ${Math.round(item.pollAverageScore)}٪ - ${item.pollVotesCount || 0} رأی)`
+                                                                : "گزارش نظرسنجی جلسه (بدون رأی)"}
                                                         >
                                                             <FaChartBar size={15} />
+                                                            <span
+                                                                className="absolute -top-1 -right-1 bg-purple-600 text-white text-[9px] font-black px-1.5 py-0.2 rounded-full min-w-[18px] text-center shadow-xs"
+                                                                title={item.pollAverageScore !== null && item.pollAverageScore !== undefined
+                                                                    ? `میانگین نظرسنجی: ${Math.round(item.pollAverageScore)}٪ (${item.pollVotesCount || 0} رأی)`
+                                                                    : "بدون رأی"}
+                                                            >
+                                                                {item.pollAverageScore !== null && item.pollAverageScore !== undefined ? Math.round(item.pollAverageScore) : 0}%
+                                                            </span>
                                                         </button>
                                                     )}
 
@@ -2429,6 +2439,21 @@ const MeetingManagement = () => {
                                             )}
                                         </div>
                                     </button>
+                                    {item.meetID && (
+                                        <button
+                                            onClick={() => navigate(`/polls/${item.meetID}/report`)}
+                                            className="px-3 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-xl text-xs transition flex items-center gap-1.5 font-bold"
+                                            title={item.pollAverageScore !== null && item.pollAverageScore !== undefined
+                                                ? `گزارش نظرسنجی جلسه (میانگین: ${Math.round(item.pollAverageScore)}٪ - ${item.pollVotesCount || 0} رأی)`
+                                                : "گزارش نظرسنجی جلسه (بدون رأی)"}
+                                        >
+                                            <FaChartBar size={14} />
+                                            <span>نظرسنجی</span>
+                                            <span className="bg-purple-600 text-white text-[10px] font-black px-1.5 py-0.2 rounded-full shadow-xs">
+                                                {item.pollAverageScore !== null && item.pollAverageScore !== undefined ? Math.round(item.pollAverageScore) : 0}%
+                                            </span>
+                                        </button>
+                                    )}
                                     <button
                                         onClick={() => openAttendeesModal(item)}
                                         className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-xs transition flex items-center gap-1.5 font-bold"
@@ -2978,10 +3003,29 @@ const MeetingManagement = () => {
                                         {selectedMeeting.reportUrl ? 'ثبت شده' : 'ثبت نشده'}
                                     </span>
                                 </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-gray-400">میانگین نظرسنجی:</span>
+                                    <span className={`font-bold ${selectedMeeting.pollAverageScore !== null && selectedMeeting.pollAverageScore !== undefined ? 'text-purple-600' : 'text-gray-400'}`}>
+                                        {selectedMeeting.pollAverageScore !== null && selectedMeeting.pollAverageScore !== undefined
+                                            ? `${Math.round(selectedMeeting.pollAverageScore)}٪ (${selectedMeeting.pollVotesCount || 0} رأی)`
+                                            : 'بدون رأی'}
+                                    </span>
+                                </div>
                             </div>
                         </div>
 
                         <div className="mt-6 flex items-center justify-end gap-2 border-t border-gray-100 pt-4">
+                            {selectedMeeting.meetID && (
+                                <button
+                                    onClick={() => {
+                                        setShowDetailsModal(false);
+                                        navigate(`/polls/${selectedMeeting.meetID}/report`);
+                                    }}
+                                    className="px-4 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+                                >
+                                    <FaChartBar size={13} /> گزارش نظرسنجی
+                                </button>
+                            )}
                             <button
                                 onClick={() => copyJoinLink(selectedMeeting.roomFriendlyID || selectedMeeting.room?.friendlyID)}
                                 className="px-4 py-2 bg-orange-50 hover:bg-orange-100 text-orange-700 rounded-xl text-xs font-bold transition flex items-center gap-1.5"

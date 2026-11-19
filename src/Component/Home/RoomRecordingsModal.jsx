@@ -14,7 +14,8 @@ import {
     FaVolumeUp,
     FaSync,
     FaSortAmountDown,
-    FaSortAmountUp
+    FaSortAmountUp,
+    FaCopy
 } from 'react-icons/fa';
 import { GetAdminMeetings, GetMeetingRecordings, GetRoomRecordings } from '../../api/AdminAPI';
 
@@ -88,6 +89,7 @@ export default function RoomRecordingsModal({ isOpen, onClose, room }) {
     const [sortOrder, setSortOrder] = useState('desc'); // 'desc' = جدیدترین به قدیمی‌ترین, 'asc' = قدیمی‌ترین به جدیدترین
     const [expandedRecordings, setExpandedRecordings] = useState({});
     const [loadingBbbRecs, setLoadingBbbRecs] = useState({});
+    const [copiedId, setCopiedId] = useState(null);
 
     const targetFid = room?.friendlyID || room?.friendlyId || room?.roomID || room?.RoomID || '';
     const targetNumId = room?.id || room?.ID || '';
@@ -125,8 +127,36 @@ export default function RoomRecordingsModal({ isOpen, onClose, room }) {
                 if (targetFid) {
                     const data = await GetRoomRecordings(targetFid);
                     if (!isCancelled && Array.isArray(data)) {
-                        const recordedOnly = data.filter(m => m.isRecorded || m.hasRecording || !!m.recordingPlaybackUrl || !!m.videoUrl || !!m.playbackUrl);
+                        const recordedOnly = data.filter(m => m.isRecorded || m.hasRecording || !!m.recordingPlaybackUrl || !!m.videoUrl || !!m.playbackUrl || !!(m.meetID && String(m.meetID).trim().length > 10));
                         recordedOnly.forEach(item => {
+                            const meetId = String(item.meetID || item.meetId || item.MeetID || '').trim();
+                            item.meetId = meetId;
+                            if (!item.playbackUrl) {
+                                item.playbackUrl = item.recordingPlaybackUrl || item.videoUrl || (meetId && meetId.length > 10 ? `https://vc.hekmateislami.com/playback/presentation/2.3/${meetId}` : null);
+                            }
+                            if (!item.teacherName) {
+                                item.teacherName = item.teacher?.name || item.teacher?.fullname || item.teacherFullname ||
+                                    (Array.isArray(item.teachers) ? item.teachers.map(t => (typeof t === 'string' ? t : t.name)).filter(Boolean).join('، ') : '') ||
+                                    'تعیین نشده';
+                            }
+                            if (!item.startTime || item.startTime === '-') {
+                                const sDate = item.dateInsert ? new Date(item.dateInsert) : (item.startDate ? new Date(item.startDate) : null);
+                                if (sDate && !isNaN(sDate.getTime())) {
+                                    item.startTime = sDate.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit', hour12: false });
+                                }
+                            }
+                            if (!item.endTime || item.endTime === '-') {
+                                const eDate = item.endDate ? new Date(item.endDate) : null;
+                                if (eDate && !isNaN(eDate.getTime())) {
+                                    item.endTime = eDate.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit', hour12: false });
+                                } else if (item.durationMinutes && item.dateInsert) {
+                                    const sDate = new Date(item.dateInsert);
+                                    if (!isNaN(sDate.getTime())) {
+                                        const calculatedEnd = new Date(sDate.getTime() + item.durationMinutes * 60000);
+                                        item.endTime = calculatedEnd.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit', hour12: false });
+                                    }
+                                }
+                            }
                             if (!item.rawDate) {
                                 item.rawDate = getMeetingTimestamp(item);
                             }
@@ -230,7 +260,7 @@ export default function RoomRecordingsModal({ isOpen, onClose, room }) {
                             endTime: endTimeStr,
                             teacherName: teacherName || 'تعیین نشده',
                             durationMinutes: r.lengthMinutes || (start && end ? Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000)) : 0),
-                            playbackUrl: r.playbackUrl || m?.recordingPlaybackUrl || m?.videoUrl || null,
+                            playbackUrl: r.playbackUrl || m?.recordingPlaybackUrl || m?.videoUrl || (recordId && recordId.length > 10 ? `https://vc.hekmateislami.com/playback/presentation/2.3/${recordId}` : null),
                             voiceUrl: m?.voiceUrl || null,
                             isRecorded: true,
                             participantsCount: r.participants || m?.participantsCount || m?.participantCount || 0
@@ -242,7 +272,8 @@ export default function RoomRecordingsModal({ isOpen, onClose, room }) {
                 roomMeetings.forEach(m => {
                     const mId = m.id || m.ID;
                     if (matchedMeetingIds.has(mId)) return;
-                    const hasRecord = m.isRecorded || m.hasRecording || !!m.recordingPlaybackUrl || !!m.videoUrl || !!m.playbackUrl;
+                    const meetId = String(m.meetID || m.MeetID || '').trim();
+                    const hasRecord = m.isRecorded || m.hasRecording || !!m.recordingPlaybackUrl || !!m.videoUrl || !!m.playbackUrl || (meetId && meetId.length > 10);
                     if (!hasRecord) return; // ONLY RECORDED SESSIONS!
 
                     const start = m.dateInsert ? new Date(m.dateInsert) : null;
@@ -259,10 +290,11 @@ export default function RoomRecordingsModal({ isOpen, onClose, room }) {
                         'تعیین نشده';
 
                     const rawTimestamp = start && !isNaN(start.getTime()) ? start.getTime() : 0;
+                    const derivedPlayback = m.recordingPlaybackUrl || m.videoUrl || m.playbackUrl || (meetId && meetId.length > 10 ? `https://vc.hekmateislami.com/playback/presentation/2.3/${meetId}` : null);
 
                     matchedList.push({
                         id: mId,
-                        meetId: m.meetID || m.MeetID,
+                        meetId: meetId,
                         title: m.title || m.Title || 'نشست بدون عنوان',
                         rawDate: rawTimestamp,
                         dateInsert: m.dateInsert || null,
@@ -271,7 +303,7 @@ export default function RoomRecordingsModal({ isOpen, onClose, room }) {
                         endTime: endTimeStr,
                         teacherName: teacherName,
                         durationMinutes: m.durationMinutes || (start && end ? Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000)) : 0),
-                        playbackUrl: m.recordingPlaybackUrl || m.videoUrl || (m.playbackUrl || null),
+                        playbackUrl: derivedPlayback,
                         voiceUrl: m.voiceUrl || null,
                         isRecorded: true,
                         participantsCount: m.participantsCount || m.participantCount || 0
@@ -297,22 +329,77 @@ export default function RoomRecordingsModal({ isOpen, onClose, room }) {
     }, [isOpen, room, targetFid, targetNumId]);
 
     // Handle fetching live recordings for a specific meeting
-    const handleFetchBbbRecordings = async (meetingId) => {
+    const handleFetchBbbRecordings = async (item) => {
+        const meetingId = item?.id;
         if (!meetingId) return;
+
+        // Toggle collapse if already open
+        if (expandedRecordings[meetingId] !== undefined) {
+            setExpandedRecordings(prev => {
+                const next = { ...prev };
+                delete next[meetingId];
+                return next;
+            });
+            return;
+        }
+
+        const targetMeetId = String(item.meetId || item.meetID || item.MeetID || '').trim();
+
         setLoadingBbbRecs(prev => ({ ...prev, [meetingId]: true }));
         try {
             const res = await GetMeetingRecordings(meetingId);
-            const recList = res?.data?.recordings || res?.recordings || [];
+            let recList = res?.data?.recordings || res?.recordings || (Array.isArray(res) ? res : []);
+
+            // STRICT FILTER: فقط و فقط فایل هایی بیاره که ای دیش برابر meetid جلسه انتخابی باشه
+            if (targetMeetId) {
+                recList = recList.filter(r => {
+                    const rId = String(r.recordId || r.recordID || r.RecordID || '').trim();
+                    const mId = String(r.meetingId || r.meetingID || r.MeetingID || '').trim();
+                    return rId === targetMeetId || mId === targetMeetId;
+                });
+            }
+
+            // تناسب آی‌دی با لینک پخش در صورت خالی بودن
+            if (recList.length === 0 && targetMeetId && targetMeetId.length > 10) {
+                recList.push({
+                    recordId: targetMeetId,
+                    meetingId: targetMeetId,
+                    name: item.title || 'ضبط جلسه در سامانه پخش مجازی',
+                    playbackUrl: `https://vc.hekmateislami.com/playback/presentation/2.3/${targetMeetId}`,
+                    playbackFormat: 'presentation',
+                    published: true,
+                    state: 'published'
+                });
+            }
+
+            // اگر دکمه پخش هنوز ست نشده بود، آپدیت شود
+            if (recList.length > 0 && recList[0].playbackUrl && !item.playbackUrl) {
+                setMeetings(prev => prev.map(m => m.id === meetingId ? { ...m, playbackUrl: recList[0].playbackUrl } : m));
+            }
+
             setExpandedRecordings(prev => ({
                 ...prev,
                 [meetingId]: recList
             }));
         } catch (err) {
             console.error(`Failed to fetch recordings for meeting #${meetingId}:`, err);
-            setExpandedRecordings(prev => ({
-                ...prev,
-                [meetingId]: []
-            }));
+            if (targetMeetId && targetMeetId.length > 10) {
+                setExpandedRecordings(prev => ({
+                    ...prev,
+                    [meetingId]: [{
+                        recordId: targetMeetId,
+                        meetingId: targetMeetId,
+                        name: item.title || 'ضبط جلسه در سامانه پخش مجازی',
+                        playbackUrl: `https://vc.hekmateislami.com/playback/presentation/2.3/${targetMeetId}`,
+                        published: true
+                    }]
+                }));
+            } else {
+                setExpandedRecordings(prev => ({
+                    ...prev,
+                    [meetingId]: []
+                }));
+            }
         } finally {
             setLoadingBbbRecs(prev => ({ ...prev, [meetingId]: false }));
         }
@@ -512,12 +599,37 @@ export default function RoomRecordingsModal({ isOpen, onClose, room }) {
                                                     href={item.playbackUrl}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className="px-3.5 py-1.5 bg-[#ef4444] hover:bg-[#dc2626] text-[#ffffff] font-bold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5"
+                                                    className="px-3.5 py-1.5 bg-[#ef4444] hover:bg-[#dc2626] text-[#ffffff] font-bold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+                                                    title="مشاهده مستقیم ضبط جلسه"
                                                 >
                                                     <FaPlay size={10} />
-                                                    <span>مشاهده ضبط جلسه</span>
+                                                    <span>پخش جلسه ضبط‌شده</span>
                                                     <FaExternalLinkAlt size={9} />
                                                 </a>
+                                            )}
+                                            {item.playbackUrl && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        navigator.clipboard?.writeText(item.playbackUrl);
+                                                        setCopiedId(item.id);
+                                                        setTimeout(() => setCopiedId(null), 2000);
+                                                    }}
+                                                    className="px-2.5 py-1.5 bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151] rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                                                    title="کپی لینک بازپخش جهت اشتراک‌گذاری"
+                                                >
+                                                    {copiedId === item.id ? (
+                                                        <>
+                                                            <FaCheckCircle className="text-[#10b981]" size={11} />
+                                                            <span className="text-[#10b981]">کپی شد</span>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <FaCopy size={11} />
+                                                            <span>کپی لینک</span>
+                                                        </>
+                                                    )}
+                                                </button>
                                             )}
                                             {item.voiceUrl && (
                                                 <a
@@ -536,40 +648,70 @@ export default function RoomRecordingsModal({ isOpen, onClose, room }) {
                                         <button
                                             type="button"
                                             disabled={isLoadingThis}
-                                            onClick={() => handleFetchBbbRecordings(item.id)}
+                                            onClick={() => handleFetchBbbRecordings(item)}
                                             className="px-3 py-1.5 bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#4b5563] font-bold text-xs rounded-xl transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                                            title="استعلام آخرین فایل‌های ضبط‌شده از سرور"
+                                            title="استعلام آخرین فایل‌های ضبط‌شده این نشست از سرور"
                                         >
                                             {isLoadingThis ? <FaSpinner className="animate-spin text-[#ef4444]" /> : <FaSync size={11} />}
-                                            <span>{isExpanded ? 'بروزرسانی فایل‌های ضبط' : 'استعلام فایل‌های ضبط سرور'}</span>
+                                            <span>{isExpanded ? 'بستن جزئیات استعلام' : 'استعلام فایل‌های ضبط سرور'}</span>
                                         </button>
                                     </div>
 
                                     {/* Nested Recordings Details */}
                                     {isExpanded && (
                                         <div className="mt-3 p-3 bg-[#f8fafc] rounded-xl border border-[#e2e8f0] text-xs space-y-2">
-                                            <p className="font-bold text-[#334155]">فایل‌های ضبط‌شده در سرور سامانه:</p>
+                                            <div className="flex items-center justify-between">
+                                                <p className="font-bold text-[#334155]">فایل‌های ضبط‌شده استعلام‌شده از سرور:</p>
+                                                {item.meetId && (
+                                                    <span className="text-[10px] text-[#64748b] font-mono">
+                                                        شناسه: {item.meetId}
+                                                    </span>
+                                                )}
+                                            </div>
                                             {bbbRecs.length === 0 ? (
-                                                <p className="text-[#94a3b8] text-[11px]">فایل ضبط‌شده‌ای روی سرور برای این نشست یافت نشد یا هنوز پردازش آن به پایان نرسیده است.</p>
+                                                <p className="text-[#94a3b8] text-[11px]">فایل ضبط‌شده‌ای روی سرور برای شناسه این نشست یافت نشد یا هنوز پردازش آن به پایان نرسیده است.</p>
                                             ) : (
                                                 bbbRecs.map((r, rIdx) => (
                                                     <div key={r.recordId || rIdx} className="flex flex-wrap items-center justify-between gap-2 p-2 bg-[#ffffff] rounded-lg border border-[#e2e8f0]">
                                                         <div>
                                                             <strong className="text-[#0f172a] block">{r.name || `رکورد #${rIdx + 1}`}</strong>
                                                             <span className="text-[10px] text-[#64748b]">
-                                                                مدت: {r.lengthMinutes || '-'} دقیقه | حجم: {r.size ? `${Math.round(r.size / (1024 * 1024))} مگابایت` : '-'}
+                                                                مدت: {r.formattedDuration || (r.lengthMinutes ? `${r.lengthMinutes} دقیقه` : '-')} | حجم: {r.formattedSize || (r.size ? `${Math.round(r.size / (1024 * 1024))} مگابایت` : '-')}
                                                             </span>
+                                                            {r.recordId && (
+                                                                <span className="block text-[10px] text-[#94a3b8] font-mono">
+                                                                    شناسه رکورد: {r.recordId}
+                                                                </span>
+                                                            )}
                                                         </div>
                                                         {r.playbackUrl && (
-                                                            <a
-                                                                href={r.playbackUrl}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className="px-3 py-1 bg-[#10b981] hover:bg-[#059669] text-[#ffffff] font-bold rounded-lg transition flex items-center gap-1"
-                                                            >
-                                                                <FaPlay size={9} />
-                                                                <span>پخش</span>
-                                                            </a>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <a
+                                                                    href={r.playbackUrl}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="px-3 py-1 bg-[#10b981] hover:bg-[#059669] text-[#ffffff] font-bold rounded-lg transition flex items-center gap-1 text-xs"
+                                                                >
+                                                                    <FaPlay size={9} />
+                                                                    <span>پخش</span>
+                                                                </a>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        navigator.clipboard?.writeText(r.playbackUrl);
+                                                                        setCopiedId(r.recordId || `rec-${rIdx}`);
+                                                                        setTimeout(() => setCopiedId(null), 2000);
+                                                                    }}
+                                                                    className="px-2 py-1 bg-[#f1f5f9] hover:bg-[#e2e8f0] text-[#475569] font-bold rounded-lg transition flex items-center gap-1 text-[11px]"
+                                                                    title="کپی لینک مستقیم"
+                                                                >
+                                                                    {copiedId === (r.recordId || `rec-${rIdx}`) ? (
+                                                                        <FaCheckCircle className="text-[#10b981]" size={10} />
+                                                                    ) : (
+                                                                        <FaCopy size={10} />
+                                                                    )}
+                                                                </button>
+                                                            </div>
                                                         )}
                                                     </div>
                                                 ))
