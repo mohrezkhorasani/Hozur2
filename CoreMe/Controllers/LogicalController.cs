@@ -1214,6 +1214,42 @@ namespace CoreMe.Controllers
             }
         }
 
+        [HttpGet("/admin/recordings/inquiry")]
+        [HttpPost("/admin/recordings/inquiry")]
+        public async Task<IActionResult> InquiryOwnerRecordings([FromQuery] string? meetId, [FromQuery] string? recordId, [FromQuery] string? state, [FromQuery] bool getAll = false)
+        {
+            var user = await GetAuthenticatedUserAsync();
+            if (user == null)
+            {
+                return Ok(new { message = "کاربر احراز هویت نشده است", status = 401 });
+            }
+
+            try
+            {
+                var service = new AdminMeetingService(_db, bbb);
+                if (!service.IsSuperAdmin(user))
+                {
+                    return Ok(new { message = "تنها مدیر ارشد (Owner) به این بخش دسترسی دارد", status = 403 });
+                }
+
+                var result = await service.InquiryOwnerRecordingsAsync(meetId, recordId, state, getAll, user);
+                return Ok(new
+                {
+                    message = "ok",
+                    status = 200,
+                    data = result
+                });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Ok(new { message = ex.Message, status = 403 });
+            }
+            catch (Exception ex)
+            {
+                return Ok(new { message = ex.Message, status = 500 });
+            }
+        }
+
         [HttpPost("/admin/meetings/recordings/settings")]
         public async Task<IActionResult> UpdateRecordingSettings([FromBody] UpdateRecordingSettingsRequestDTO req)
         {

@@ -373,5 +373,48 @@ namespace CoreMe.Tests
             Assert.False(item.RecordingDownloadable);
             Assert.True(item.RecordingPublished);
         }
+
+        [Fact]
+        public async Task InquiryOwnerRecordings_WhenNotSuperAdmin_ThrowsUnauthorizedAccessException()
+        {
+            var (db, _, _, unauthorizedUser, _, fakeBbb) = SetupTestData();
+            var service = new AdminMeetingService(db, fakeBbb);
+
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(async () =>
+            {
+                await service.InquiryOwnerRecordingsAsync("rec-guid-12345", null, null, false, unauthorizedUser);
+            });
+        }
+
+        [Fact]
+        public async Task InquiryOwnerRecordings_WhenSuperAdmin_ReturnsMatchingRecordingsAndEnrichesData()
+        {
+            var (db, superAdmin, _, _, meeting, fakeBbb) = SetupTestData();
+            var service = new AdminMeetingService(db, fakeBbb);
+
+            var result = await service.InquiryOwnerRecordingsAsync("rec-guid-12345", null, null, false, superAdmin);
+
+            Assert.NotNull(result);
+            Assert.NotEmpty(result.Recordings);
+            var rec = result.Recordings.First();
+            Assert.Equal("rec-guid-12345", rec.RecordId);
+            Assert.NotNull(rec.MatchedMeeting);
+            Assert.Equal(meeting.ID, rec.MatchedMeeting.Id);
+            Assert.Equal("جلسه ضبط شده آزمایشی", rec.MatchedMeeting.Title);
+            Assert.Equal("https://vc.hekmateislami.com/playback/presentation/2.3/rec-guid-12345", rec.PlaybackUrl);
+        }
+
+        [Fact]
+        public async Task InquiryOwnerRecordings_WhenGetAllTrue_FetchesAllRecordings()
+        {
+            var (db, superAdmin, _, _, _, fakeBbb) = SetupTestData();
+            var service = new AdminMeetingService(db, fakeBbb);
+
+            var result = await service.InquiryOwnerRecordingsAsync(null, null, null, true, superAdmin);
+
+            Assert.NotNull(result);
+            Assert.True(result.IsGetAll);
+            Assert.NotEmpty(result.Recordings);
+        }
     }
 }

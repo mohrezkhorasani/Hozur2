@@ -88,4 +88,38 @@ namespace Application.DTO
         public long MeetingId { get; set; }
         public string RecordId { get; set; } = string.Empty;
     }
+
+    public class MatchedLocalMeetingDTO
+    {
+        public long Id { get; set; }
+        public string MeetId { get; set; } = string.Empty;
+        public string Title { get; set; } = string.Empty;
+        public string RoomFriendlyId { get; set; } = string.Empty;
+        public string RoomTitle { get; set; } = string.Empty;
+        public string TeacherName { get; set; } = string.Empty;
+        public string JalaliDate { get; set; } = string.Empty;
+        public DateTime? DateInsert { get; set; }
+        public DateTime? EndDate { get; set; }
+        public int Status { get; set; }
+        public int Type { get; set; }
+    }
+
+    public class OwnerRecordingInquiryItemDTO : BBBRecordingItemDTO
+    {
+        public string JalaliDate { get; set; } = string.Empty;
+        public string StartTimeStr { get; set; } = string.Empty;
+        public string EndTimeStr { get; set; } = string.Empty;
+        public MatchedLocalMeetingDTO? MatchedMeeting { get; set; }
+    }
+
+    public class OwnerRecordingInquiryResponseDTO
+    {
+        public int TotalCount { get; set; }
+        public string? QueryMeetId { get; set; }
+        public string? QueryRecordId { get; set; }
+        public string? QueryState { get; set; }
+        public bool IsGetAll { get; set; }
+        public DateTime ServerTime { get; set; } = DateTime.UtcNow;
+        public List<OwnerRecordingInquiryItemDTO> Recordings { get; set; } = new List<OwnerRecordingInquiryItemDTO>();
+    }
 }
