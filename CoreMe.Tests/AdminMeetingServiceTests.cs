@@ -570,5 +570,49 @@ namespace CoreMe.Tests
             Assert.Equal(0, m1003.PollVotesCount);
             Assert.Null(m1003.PollAverageScore);
         }
+
+        [Fact]
+        public async Task GetUpcomingPlansAsync_ShouldExcludeAddedByUnPlannedPlans()
+        {
+            var db = CreateInMemoryContext(Guid.NewGuid().ToString());
+            SeedSampleData(db);
+
+            var room = await db.RoomTBLs.FirstAsync(r => r.FriendlyID == "room-owner-fid");
+            var superAdmin = await db.UserTBLs.FirstAsync(u => u.Type == MainEntity_Types.USER_ADMINSTRATOR);
+
+            var normalPlan = new RoomTBLPlanTBL
+            {
+                ID = 901,
+                IDRoomTBL = room.ID,
+                RoomTBL = room,
+                Title = "برنامه عادی آینده",
+                StartDate = DateTime.UtcNow.AddHours(2),
+                Status = MainEntity_Status.Enabled,
+                Type = MainEntity_Types.PLAN_NORMAL,
+                AddedByUnPlanned = false
+            };
+
+            var unPlannedPlan = new RoomTBLPlanTBL
+            {
+                ID = 902,
+                IDRoomTBL = room.ID,
+                RoomTBL = room,
+                Title = "برنامه ایجاد شده خودکار بدون پلن",
+                StartDate = DateTime.UtcNow.AddHours(1),
+                Status = MainEntity_Status.MEETING_STARTED_LATER,
+                Type = MainEntity_Types.PLAN_NORMAL,
+                AddedByUnPlanned = true
+            };
+
+            db.RoomTBLPlanTBLs.AddRange(normalPlan, unPlannedPlan);
+            await db.SaveChangesAsync();
+
+            var service = new AdminMeetingService(db);
+            var upcoming = await service.GetUpcomingPlansAsync(superAdmin);
+
+            Assert.Contains(upcoming, p => p.PlanId == 901);
+            Assert.DoesNotContain(upcoming, p => p.PlanId == 902);
+            Assert.All(upcoming, p => Assert.False(p.AddedByUnPlanned));
+        }
     }
 }
