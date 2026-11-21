@@ -83,7 +83,7 @@ const HomePage = () => {
   const [isUpcomingExpanded, setIsUpcomingExpanded] = useState(false);
 
   // Helper to determine plan remaining time & Jalali date
-  // «در حال برگزاری» صرفاً از طریق متد getlives تعیین می‌شود و هرگز بر اساس تاریخ محاسبه نخواهد شد
+  // «در حال برگزاری» صرفاً از طریق متد getlives تعیین می‌شود و در غیر این صورت چیزی نشان داده نمی‌شود
   const getPlanTimingInfo = (startDateStr, isLive = false) => {
     const dateFormatted = startDateStr ? formatPersianDateTime(startDateStr) : '-';
     if (isLive) {
@@ -93,21 +93,21 @@ const HomePage = () => {
         isOngoing: true,
       };
     }
-    if (!startDateStr) return { remainingText: '-', dateStr: '-', isOngoing: false };
+    if (!startDateStr) return { remainingText: '', dateStr: '-', isOngoing: false };
     const now = new Date();
     const start = parseUtcDate(startDateStr);
-    if (!start) return { remainingText: '-', dateStr: '-', isOngoing: false };
+    if (!start) return { remainingText: '', dateStr: '-', isOngoing: false };
 
     const diffMs = start.getTime() - now.getTime();
     const diffMins = Math.round(diffMs / 60000);
 
-    // اگر زنده نیست، هرگز بر اساس تاریخ نباید «در حال برگزاری» باشد
+    // اگر زنده نیست و زمانش رسیده یا گذشته، طبق دستور چیزی نشان نمی‌دهد
     if (diffMs <= 0) {
       return {
-        remainingText: 'در انتظار شروع',
+        remainingText: '',
         dateStr: dateFormatted,
         isOngoing: false,
-        isWaiting: true,
+        isWaiting: false,
       };
     }
 
@@ -173,6 +173,8 @@ const HomePage = () => {
     if (Array.isArray(upcomingPlans)) {
       upcomingPlans.forEach(p => {
         if (!p || (!p.id && !p.planId)) return;
+        // Exclude unPlanned plans
+        if (p.addedByUnPlanned || p.AddedByUnPlanned) return;
         const planId = p.id || p.planId;
 
         // Exclude deleted plans (-400) and test/ignored (-99, 99)
@@ -221,6 +223,8 @@ const HomePage = () => {
           plans.forEach(p => {
             const pId = p.id || p.ID;
             if (!pId) return;
+            // Exclude unPlanned plans
+            if (p.addedByUnPlanned || p.AddedByUnPlanned) return;
             if (isPlanDeleted(p)) return;
             const pType = Number(p.type !== undefined ? p.type : p.Type);
             if (pType === -99 || pType === 99) return;
@@ -554,7 +558,8 @@ const HomePage = () => {
             </span>
           </div>
 
-          <div className="overflow-visible min-h-[220px] pb-6">
+          {/* Desktop Table View (hidden on mobile, visible on md and up) */}
+          <div className="hidden md:block overflow-visible min-h-[220px] pb-6">
             <table className="w-full text-right text-sm">
               <thead>
                 <tr className="bg-[#f9fafb] text-[#4b5563] text-xs font-bold border-b border-[#e5e7eb]">
@@ -749,6 +754,140 @@ const HomePage = () => {
                 })}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile Card View (visible on small screens < md, hidden on md and up) */}
+          <div className="block md:hidden space-y-3 pb-2">
+            {(isUpcomingExpanded ? activeUpcomingPlans : activeUpcomingPlans.slice(0, 3)).map((plan) => {
+              const isStarted = isPlanLive(plan);
+              const timing = getPlanTimingInfo(plan.startDate, isStarted);
+              const isStarting = isStartingMeet === plan.roomFriendlyId;
+              return (
+                <div
+                  key={plan.id}
+                  className="bg-[#f9fafb] border border-[#e5e7eb] rounded-2xl p-4 flex flex-col gap-3 shadow-2xs hover:shadow-xs transition"
+                >
+                  {/* عنوان جلسه و وضعیت لایو */}
+                  <div className="flex items-start justify-between gap-2">
+                    <h4 className="font-bold text-sm text-[#1f2937] leading-snug line-clamp-2">
+                      {plan.title}
+                    </h4>
+                    {timing.isOngoing && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#dcfce7] text-[#15803d] border border-[#86efac] text-[11px] font-black rounded-full shrink-0">
+                        <span className="w-2 h-2 rounded-full bg-[#16a34a] animate-ping shrink-0" />
+                        در حال برگزاری
+                      </span>
+                    )}
+                  </div>
+
+                  {/* متادیتا: گروه، استاد، تاریخ */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-[#4b5563] pt-1 border-t border-[#f3f4f6]">
+                    <div className="flex items-center gap-1.5 truncate">
+                      <FaUsers className="text-[#64748b] shrink-0" size={13} />
+                      <span className="text-[#6b7280]">گروه:</span>
+                      <span className="font-semibold text-[#1f2937] truncate">
+                        {plan.roomTitle || plan.roomFriendlyId}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 truncate">
+                      <FaChalkboardTeacher className="text-[#a855f7] shrink-0" size={13} />
+                      <span className="text-[#6b7280]">استاد:</span>
+                      <span className="font-semibold text-[#1f2937] truncate">
+                        {plan.teacherName || 'تعیین نشده'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 col-span-full">
+                      <FaClock className="text-[#0284c7] shrink-0" size={13} />
+                      <span className="text-[#6b7280]">زمان:</span>
+                      <span className="font-mono text-[11px] text-[#374151]">
+                        {timing.dateStr}
+                      </span>
+                      {timing.remainingText && !timing.isOngoing && (
+                        <span className="mr-auto font-bold text-[11px] text-[#0284c7] bg-[#e0f2fe] px-2 py-0.5 rounded-md">
+                          {timing.remainingText}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* دکمه عملیات تمام عرض */}
+                  <div className="pt-2">
+                    {isStarted ? (
+                      <button
+                        type="button"
+                        disabled={isStarting}
+                        onClick={() => {
+                          const teachersArr = plan.teacherName ? [{ name: plan.teacherName }] : [];
+                          handleStart(
+                            plan.roomFriendlyId,
+                            plan.id,
+                            plan.title,
+                            teachersArr,
+                            plan.dabir || null,
+                            true,
+                            true
+                          );
+                        }}
+                        className={`w-full py-2.5 px-4 font-bold text-xs rounded-xl transition shadow-xs active:scale-98 flex items-center justify-center gap-2 cursor-pointer ${
+                          isStarting
+                            ? "bg-[#f3f4f6] text-[#9ca3af] cursor-not-allowed"
+                            : "bg-[#16a34a] hover:bg-[#15803d] text-[#ffffff] ring-2 ring-[#16a34a]/30"
+                        }`}
+                      >
+                        {isStarting ? (
+                          <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 8.001l-2.707 2.707A9.959 9.959 0 004 20.291z"></path>
+                          </svg>
+                        ) : (
+                          <>
+                            <span className="w-2 h-2 rounded-full bg-[#ffffff] animate-ping shrink-0" />
+                            <FaSignInAlt size={14} />
+                            <span>ورود به جلسه آنلاین (در حال برگزاری)</span>
+                          </>
+                        )}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={isStarting}
+                        onClick={() => {
+                          const teachersArr = plan.teacherName ? [{ name: plan.teacherName }] : [];
+                          handleStart(
+                            plan.roomFriendlyId,
+                            plan.id,
+                            plan.title,
+                            teachersArr,
+                            plan.dabir || null,
+                            true,
+                            true
+                          );
+                        }}
+                        className={`w-full py-2.5 px-4 font-bold text-xs rounded-xl transition shadow-xs active:scale-98 flex items-center justify-center gap-2 cursor-pointer ${
+                          isStarting
+                            ? "bg-[#f3f4f6] text-[#9ca3af] cursor-not-allowed"
+                            : "bg-[#0284c7] hover:bg-[#0369a1] text-[#ffffff]"
+                        }`}
+                      >
+                        {isStarting ? (
+                          <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 8.001l-2.707 2.707A9.959 9.959 0 004 20.291z"></path>
+                          </svg>
+                        ) : (
+                          <>
+                            <FaSignInAlt size={14} />
+                            <span>شروع جلسه آنلاین</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           {/* دکمه مشاهده بیشتر (expand) */}
