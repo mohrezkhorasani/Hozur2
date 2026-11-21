@@ -1172,6 +1172,7 @@ namespace Application.Usecase
                                 Teachers = string.Join(" ، ", message.Teachers),
                                 Status = MainEntity_Status.MEETING_STARTED_LATER,
                                 Type = (message.Type.HasValue && message.Type.Value == -99) ? MainEntity_Types.MEET_IGNORE : (message.HasCertificate ? MainEntity_Types.PLAN_WITH_CERT : MainEntity_Types.PLAN_NORMAL),
+                                AddedByUnPlanned = true
                             };
                             _db.RoomTBLPlanTBLs.Add(planTBL);
                             await _db.SaveChangesAsync();

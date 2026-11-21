@@ -23,6 +23,7 @@ namespace Domain.Entity
         public bool RequiredToEnterName{get;set;} =false;
         public string? PresentationFileURL { get; set; }
         public DateTime? StartDate { get; set; }
+        public bool AddedByUnPlanned { get; set; } = false;
         public ICollection<MeetingTBL> MeetingTBLs{get;set;}
         public ICollection<MeetingReservationTBL> MeetingReservationTBLs { get;set;}
 

@@ -1020,7 +1020,8 @@ namespace Application.Services
 
             IQueryable<RoomTBLPlanTBL> query = _db.RoomTBLPlanTBLs
                 .Include(p => p.RoomTBL)
-                .Where(p => p.StartDate != null &&
+                .Where(p => !p.AddedByUnPlanned &&
+                            p.StartDate != null &&
                             p.StartDate >= DateTime.UtcNow.AddHours(-3) &&
                             !string.IsNullOrWhiteSpace(p.Title) &&
                             (p.Status == MainEntity_Status.Enabled || p.Status == MainEntity_Status.MEETING_STARTED_LATER) &&
@@ -1069,7 +1070,8 @@ namespace Application.Services
                     Time = tehranTime,
                     Type = (int)p.Type,
                     RoomType = p.RoomTBL != null ? (int)p.RoomTBL.Type : 0,
-                    RoomStatus = p.RoomTBL != null ? (int)p.RoomTBL.Status : 0
+                    RoomStatus = p.RoomTBL != null ? (int)p.RoomTBL.Status : 0,
+                    AddedByUnPlanned = p.AddedByUnPlanned
                 });
             }
 

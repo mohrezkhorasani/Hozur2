@@ -82,6 +82,7 @@ namespace Application.General
                 Dabir = p.Dabir,
                 Type = (int)p.Type,
                 Status = (int)p.Status,
+                AddedByUnPlanned = p.AddedByUnPlanned,
                 RoomJSON = p.RoomTBL != null ? new MiniRoomJSON
                 {
                     RoomID = p.RoomTBL.FriendlyID,

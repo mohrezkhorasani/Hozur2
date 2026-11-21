@@ -139,6 +139,7 @@ namespace Application.DTO.Models
         public string? StartAtTehran { get; set; }
         public int Type { get; set; }
         public int Status { get; set; }
+        public bool AddedByUnPlanned { get; set; } = false;
         public MiniRoomJSON RoomJSON { get; set; }
     }
     public class RevokedTokenJSON

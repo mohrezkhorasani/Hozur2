@@ -109,6 +109,7 @@ namespace Application.DTO
         public int Type { get; set; }
         public int RoomType { get; set; }
         public int RoomStatus { get; set; }
+        public bool AddedByUnPlanned { get; set; } = false;
     }
 
     public class AdminMeetingsResultDTO

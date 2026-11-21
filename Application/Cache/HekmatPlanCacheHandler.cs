@@ -36,7 +36,7 @@ namespace Application.Cache.Handlers
             List<MiniPlanJSON> cachedData = null;
             var room = _db.RoomTBLs.Where(e => e.FriendlyID == notification.FriendlyID).First();
 
-            var list = _db.RoomTBLPlanTBLs.Where(e => e.IDRoomTBL == room.ID
+            var list = _db.RoomTBLPlanTBLs.Where(e => !e.AddedByUnPlanned && e.IDRoomTBL == room.ID
             && (e.Status == MainEntity_Status.Enabled || e.Status == MainEntity_Status.MEETING_STARTED_LATER)
             && (int)e.Status != -400 && (int)e.Type != -400 && e.Type != MainEntity_Types.PLAN_DELETED
             )
@@ -60,7 +60,7 @@ namespace Application.Cache.Handlers
         {
             List<MiniPlanJSON> cachedData = null;
 
-            var list = _db.RoomTBLPlanTBLs.Where(e => e.StartDate.HasValue && e.StartDate.Value > DateTime.UtcNow && e.RoomTBL.IsPublicRoom
+            var list = _db.RoomTBLPlanTBLs.Where(e => !e.AddedByUnPlanned && e.StartDate.HasValue && e.StartDate.Value > DateTime.UtcNow && e.RoomTBL.IsPublicRoom
             && (e.Status == MainEntity_Status.Enabled || e.Status == MainEntity_Status.MEETING_STARTED_LATER)
             && (int)e.Status != -400 && (int)e.Type != -400 && e.Type != MainEntity_Types.PLAN_DELETED
             ).Include(e => e.RoomTBL).ThenInclude(e => e.RoomTBLPlanTBLs)
@@ -85,7 +85,7 @@ namespace Application.Cache.Handlers
         {
             List<MiniPlanJSON> cachedData = null;
 
-            var list = _db.RoomTBLPlanTBLs.Where(e => e.StartDate.HasValue && !string.IsNullOrEmpty(e.Title) && !string.IsNullOrEmpty(e.Teachers) &&
+            var list = _db.RoomTBLPlanTBLs.Where(e => !e.AddedByUnPlanned && e.StartDate.HasValue && !string.IsNullOrEmpty(e.Title) && !string.IsNullOrEmpty(e.Teachers) &&
             e.StartDate.Value <= DateTime.UtcNow && e.RoomTBL.IsPublicRoom
             && (e.Status == MainEntity_Status.Enabled || e.Status == MainEntity_Status.MEETING_STARTED_LATER)
             && (int)e.Status != -400 && (int)e.Type != -400 && e.Type != MainEntity_Types.PLAN_DELETED
