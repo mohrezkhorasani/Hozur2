@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  PROJECT_NAME: "Hozur"
+  PROJECT_NAME: "Hozur Backend"
   MAIN_PROJECT: "CoreMe/CoreMe.csproj"
   TEST_PROJECT: "CoreMe.Tests/CoreMe.Tests.csproj"
   DEPLOY_PATH: 'C:\hekmat'
@@ -20,63 +20,171 @@ env:
   TELEGRAM_CHAT_ID: "-1003492895671"
 
 jobs:
-  # -------------------------------------------------------------
-  # جاب اول: تست، بیلد و کپی به IIS (روی سرور خودتان)
-  # -------------------------------------------------------------
-  build-and-deploy:
+  # =============================================================
+  # جاب ۱: تست‌های واحد (TDD Guard)
+  # =============================================================
+  tests:
     runs-on: self-hosted
-
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Run Tests (TDD Guard)
+      - name: Run Unit Tests
         run: |
-          dotnet test "$env:TEST_PROJECT" -c Release --no-restore
+          Write-Host "Running Unit Tests..."
+          dotnet test "$env:TEST_PROJECT" -c Release
 
-      - name: Publish App
+  # =============================================================
+  # جاب ۲: کامپایل و بیلد پروژه (Build & Publish)
+  # =============================================================
+  build:
+    needs: tests
+    runs-on: self-hosted
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Clean & Publish Backend
         run: |
           if (Test-Path "$env:TEMP_PUBLISH_PATH") {
-              Remove-Item "$env:TEMP_PUBLISH_PATH" -Recurse -Force
+              Remove-Item "$env:TEMP_PUBLISH_PATH" -Recurse -Force -ErrorAction SilentlyContinue
           }
+          Write-Host "Publishing $env:PROJECT_NAME in Release mode..."
           dotnet publish "$env:MAIN_PROJECT" -c Release -o "$env:TEMP_PUBLISH_PATH"
+          
+          # حذف پوشه‌های زبان اضافی ماهواره‌ای (جهت جلوگیری از قفل فایل در IIS)
+          Get-ChildItem -Path "$env:TEMP_PUBLISH_PATH" -Directory -ErrorAction SilentlyContinue | Where-Object {
+              $_.Name -match '^(cs|de|es|fr|it|ja|ko|pl|pt-BR|ru|tr|zh-Hans|zh-Hant)$'
+          } | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+          Write-Host "Build & Publish completed successfully."
 
-      - name: Deploy to IIS
+  # =============================================================
+  # جاب ۳: استقرار در IIS، بکاپ و بررسی سلامت (Deploy & Health Check)
+  # =============================================================
+  deploy:
+    needs: build
+    runs-on: self-hosted
+    steps:
+      - name: Pre-Deploy Backup
+        run: |
+          $backupRoot = "C:\backups\hozur_backend"
+          if (!(Test-Path $backupRoot)) {
+              New-Item -ItemType Directory -Path $backupRoot -Force | Out-Null
+          }
+          $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+          $backupDir = Join-Path $backupRoot "backup_$timestamp"
+          
+          if (Test-Path $env:DEPLOY_PATH) {
+              Write-Host "Creating pre-deploy backup at $backupDir..."
+              Copy-Item -Path "$env:DEPLOY_PATH\*" -Destination $backupDir -Recurse -Force -ErrorAction SilentlyContinue
+              Write-Host "Backup created successfully."
+              
+              # نگهداری فقط ۵ بکاپ آخر جهت بهینه‌سازی فضای دیسک
+              $oldBackups = Get-ChildItem -Path $backupRoot -Directory | Sort-Object CreationTime -Descending | Select-Object -Skip 5
+              foreach ($old in $oldBackups) {
+                  Write-Host "Removing old backup: $($old.FullName)"
+                  Remove-Item -Path $old.FullName -Recurse -Force -ErrorAction SilentlyContinue
+              }
+          }
+
+      - name: Deploy to IIS (Safe Lock Handling & Retry)
         run: |
           $offlineFile = Join-Path $env:DEPLOY_PATH "app_offline.htm"
-          Set-Content -Path $offlineFile -Value "<html><body><h2>Updating $env:PROJECT_NAME...</h2></body></html>" -Encoding UTF8
-          Start-Sleep -Seconds 3
-          Copy-Item -Path "$env:TEMP_PUBLISH_PATH\*" -Destination $env:DEPLOY_PATH -Recurse -Force
-          Remove-Item -Path $offlineFile -Force
+          Set-Content -Path $offlineFile -Value "<html><head><meta charset='utf-8'></head><body><h2>Updating $env:PROJECT_NAME...</h2><p>Please wait a moment.</p></body></html>" -Encoding UTF8
+          
+          Write-Host "Placed app_offline.htm. Waiting 7 seconds for IIS to release file handles..."
+          Start-Sleep -Seconds 7
+          
+          # بستن پروسه‌های معلق احتمالی دات‌نت مرتبط با این مسیر
+          Get-CimInstance Win32_Process -Filter "Name = 'dotnet.exe'" -ErrorAction SilentlyContinue | Where-Object {
+              $_.CommandLine -like "*$env:DEPLOY_PATH*"
+          } | ForEach-Object {
+              Write-Host "Stopping lingering dotnet process (PID: $($_.ProcessId))..."
+              Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
+          }
+          
+          # کپی فایل‌ها با مکانیسم تلاش مجدد (۵ بار تلاش با وقفه ۳ ثانیه‌ای)
+          $maxAttempts = 5
+          $success = $false
+          for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+              try {
+                  Write-Host "Deploying files (Attempt $attempt of $maxAttempts)..."
+                  Get-ChildItem -Path "$env:TEMP_PUBLISH_PATH" | Where-Object { $_.Name -ne "app_offline.htm" } | ForEach-Object {
+                      Copy-Item -Path $_.FullName -Destination $env:DEPLOY_PATH -Recurse -Force -ErrorAction Stop
+                  }
+                  $success = $true
+                  Write-Host "All files deployed successfully!"
+                  break
+              } catch {
+                  Write-Warning "Attempt $attempt failed: $($_.Exception.Message)"
+                  if ($attempt -lt $maxAttempts) {
+                      Write-Host "Waiting 3 seconds before retrying..."
+                      Start-Sleep -Seconds 3
+                  }
+              }
+          }
+          
+          # حذف فایل آفلاین جهت راه‌اندازی مجدد برنامه در IIS
+          if (Test-Path $offlineFile) {
+              Remove-Item -Path $offlineFile -Force -ErrorAction SilentlyContinue
+              Write-Host "Removed app_offline.htm. Application is back online."
+          }
+          
+          if (-not $success) {
+              throw "Deployment copy failed after $maxAttempts attempts."
+          }
+
+      - name: Post-Deploy Warmup & Health Check
+        run: |
+          Write-Host "Waiting 5 seconds for IIS worker process warm-up..."
+          Start-Sleep -Seconds 5
+          try {
+              [System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}
+              $healthUrl = "https://core.hekmateislami.com/user/check-client"
+              Write-Host "Pinging health endpoint: $healthUrl"
+              $res = Invoke-WebRequest -Uri $healthUrl -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop
+              Write-Host "Health Check SUCCESS: HTTP Status $($res.StatusCode)"
+          } catch {
+              Write-Warning "Health check warning: $($_.Exception.Message)"
+          }
 
       - name: Cleanup Temp Publish
         if: always()
         run: |
           if (Test-Path "$env:TEMP_PUBLISH_PATH") {
-              Remove-Item "$env:TEMP_PUBLISH_PATH" -Recurse -Force
+              Remove-Item "$env:TEMP_PUBLISH_PATH" -Recurse -Force -ErrorAction SilentlyContinue
           }
 
-  # -------------------------------------------------------------
-  # جاب دوم: ارسال پیام به تلگرام (روی سرورهای ابری گیتهاب در خارج)
-  # -------------------------------------------------------------
+  # =============================================================
+  # جاب ۴: اطلاع‌رسانی به تلگرام (کلود گیتهاب با متد GET)
+  # =============================================================
   notify:
-    needs: build-and-deploy # منتظر اتمام جاب دیپلوی میماند
-    if: always()            # چه دیپلوی موفق شود چه با خطا متوقف شود، پیام میفرستد
-    runs-on: ubuntu-latest  # روی کلود گیتهاب (اینترنت بدون فیلتر خارج)
+    needs: [tests, build, deploy]
+    if: always()
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Send Telegram Notification via GitHub Cloud
+      - name: Send Rich Telegram Notification via GitHub Cloud (GET)
         run: |
-          STATUS="${{ needs.build-and-deploy.result }}"
-          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          T_RES="${{ needs.tests.result }}"
+          B_RES="${{ needs.build.result }}"
+          D_RES="${{ needs.deploy.result }}"
           
-          if [ "$STATUS" = "success" ]; then
-            ICON="✅"
+          [ "$T_RES" = "success" ] && T_ICON="✅" || T_ICON="❌"
+          [ "$B_RES" = "success" ] && B_ICON="✅" || B_ICON="❌"
+          [ "$D_RES" = "success" ] && D_ICON="✅" || D_ICON="❌"
+          
+          if [ "$D_RES" = "success" ]; then
+            TITLE="🚀 *Deployment Successful!*"
           else
-            ICON="❌"
+            TITLE="⚠️ *Deployment Failed!*"
           fi
           
-          TEXT="$ICON *Deployment $STATUS!*%0A📁 *Project:* ${{ env.PROJECT_NAME }}%0A📝 *Commit:* $COMMIT_MSG"
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          AUTHOR="${{ github.actor }}"
+          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          
+          TEXT="$TITLE%0A%0A📁 *Project:* ${{ env.PROJECT_NAME }}%0A🧪 *Tests:* $T_ICON $T_RES%0A🔨 *Build:* $B_ICON $B_RES%0A📦 *Deploy:* $D_ICON $D_RES%0A%0A📝 *Commit:* $COMMIT_MSG%0A👤 *Author:* $AUTHOR%0A🔗 [View Run]($RUN_URL)"
           
           curl -s -G "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
             --data-urlencode "chat_id=${{ env.TELEGRAM_CHAT_ID }}" \
