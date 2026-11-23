@@ -1,0 +1,78 @@
+name: Generic Frontend (React/Vite) IIS CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - react-app
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PROJECT_NAME: "Hozur Frontend"
+  DEPLOY_PATH: 'C:\hekmat_frontend' # مسیر پوشه ریشه فرانت‌اند در IIS سرور (در صورت تفاوت نام، این مسیر را تغییر دهید)
+  TELEGRAM_CHAT_ID: "-1003492895671"
+
+jobs:
+  # -------------------------------------------------------------
+  # جاب اول: نصب پکیج‌ها، بیلد Vite و کپی به مسیر IIS روی سرور
+  # -------------------------------------------------------------
+  build-and-deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Dependencies
+        run: |
+          npm install
+
+      - name: Build Frontend
+        run: |
+          npm run build
+          # ایجاد فایل index.htm برای سازگاری کامل با IIS
+          Copy-Item -Path "dist\index.html" -Destination "dist\index.htm" -Force
+
+      - name: Deploy to IIS
+        run: |
+          if (!(Test-Path "$env:DEPLOY_PATH")) {
+              New-Item -ItemType Directory -Path "$env:DEPLOY_PATH" -Force
+          }
+          # کپی فایل‌های بیلد شده به پوشه لایو در سرور
+          Copy-Item -Path "dist\*" -Destination $env:DEPLOY_PATH -Recurse -Force
+
+  # -------------------------------------------------------------
+  # جاب دوم: ارسال پیام به تلگرام (روی سرورهای ابری گیتهاب در خارج)
+  # -------------------------------------------------------------
+  notify:
+    needs: build-and-deploy
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Send Telegram Notification via GitHub Cloud
+        run: |
+          STATUS="${{ needs.build-and-deploy.result }}"
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          
+          if [ "$STATUS" = "success" ]; then
+            ICON="✅"
+          else
+            ICON="❌"
+          fi
+          
+          TEXT="$ICON *Deployment $STATUS!*%0A📁 *Project:* ${{ env.PROJECT_NAME }}%0A📝 *Commit:* $COMMIT_MSG"
+          
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d "chat_id=${{ env.TELEGRAM_CHAT_ID }}" \
+            -d "text=$TEXT" \
+            -d "parse_mode=Markdown"
