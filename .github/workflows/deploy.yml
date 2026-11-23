@@ -26,8 +26,10 @@ jobs:
   tests:
     runs-on: self-hosted
     steps:
-      - name: Checkout Code
+      - name: Checkout Code (Fast Shallow Clone)
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1 # فقط آخرین کامیت را دانلود می‌کند نه ۱ گیگابایت تاریخچه گیت را
 
       - name: Run Unit Tests
         run: |
@@ -41,8 +43,10 @@ jobs:
     needs: tests
     runs-on: self-hosted
     steps:
-      - name: Checkout Code
+      - name: Checkout Code (Fast Shallow Clone)
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: Clean & Publish Backend
         run: |
@@ -50,7 +54,8 @@ jobs:
               Remove-Item "$env:TEMP_PUBLISH_PATH" -Recurse -Force -ErrorAction SilentlyContinue
           }
           Write-Host "Publishing $env:PROJECT_NAME in Release mode..."
-          dotnet publish "$env:MAIN_PROJECT" -c Release -o "$env:TEMP_PUBLISH_PATH"
+          # استفاده از no-restore برای افزایش سرعت و عدم دانلود مجدد پکیج‌ها
+          dotnet publish "$env:MAIN_PROJECT" -c Release -o "$env:TEMP_PUBLISH_PATH" --no-restore
           
           # حذف پوشه‌های زبان اضافی ماهواره‌ای (جهت جلوگیری از قفل فایل در IIS)
           Get-ChildItem -Path "$env:TEMP_PUBLISH_PATH" -Directory -ErrorAction SilentlyContinue | Where-Object {
@@ -65,7 +70,7 @@ jobs:
     needs: build
     runs-on: self-hosted
     steps:
-      - name: Pre-Deploy Backup
+      - name: Fast Pre-Deploy Backup
         run: |
           $backupRoot = "C:\backups\hozur_backend"
           if (!(Test-Path $backupRoot)) {
@@ -75,8 +80,9 @@ jobs:
           $backupDir = Join-Path $backupRoot "backup_$timestamp"
           
           if (Test-Path $env:DEPLOY_PATH) {
-              Write-Host "Creating pre-deploy backup at $backupDir..."
-              Copy-Item -Path "$env:DEPLOY_PATH\*" -Destination $backupDir -Recurse -Force -ErrorAction SilentlyContinue
+              Write-Host "Creating fast pre-deploy backup at $backupDir..."
+              # استفاده از robocopy با استثنا کردن پوشه‌های حجیم لاگ و آپلود برای کاهش زمان به ۱ ثانیه
+              robocopy "$env:DEPLOY_PATH" "$backupDir" /E /XD "logs" "temp" "uploads" "App_Data" /R:1 /W:1 /NDL /NFL /NJH /NJS | Out-Null
               Write-Host "Backup created successfully."
               
               # نگهداری فقط ۵ بکاپ آخر جهت بهینه‌سازی فضای دیسک
