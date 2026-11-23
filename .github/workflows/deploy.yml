@@ -1,0 +1,83 @@
+name: Generic .NET IIS CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - CoreMe2
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PROJECT_NAME: "Hozur"
+  MAIN_PROJECT: "CoreMe/CoreMe.csproj"
+  TEST_PROJECT: "CoreMe.Tests/CoreMe.Tests.csproj"
+  DEPLOY_PATH: 'C:\hekmat'
+  TEMP_PUBLISH_PATH: 'C:\temp_publish\hozur_backend'
+  TELEGRAM_CHAT_ID: "-1003492895671"
+
+jobs:
+  # -------------------------------------------------------------
+  # جاب اول: تست، بیلد و کپی به IIS (روی سرور خودتان)
+  # -------------------------------------------------------------
+  build-and-deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run Tests (TDD Guard)
+        run: |
+          dotnet test "$env:TEST_PROJECT" -c Release --no-restore
+
+      - name: Publish App
+        run: |
+          if (Test-Path "$env:TEMP_PUBLISH_PATH") {
+              Remove-Item "$env:TEMP_PUBLISH_PATH" -Recurse -Force
+          }
+          dotnet publish "$env:MAIN_PROJECT" -c Release -o "$env:TEMP_PUBLISH_PATH"
+
+      - name: Deploy to IIS
+        run: |
+          $offlineFile = Join-Path $env:DEPLOY_PATH "app_offline.htm"
+          Set-Content -Path $offlineFile -Value "<html><body><h2>Updating $env:PROJECT_NAME...</h2></body></html>" -Encoding UTF8
+          Start-Sleep -Seconds 3
+          Copy-Item -Path "$env:TEMP_PUBLISH_PATH\*" -Destination $env:DEPLOY_PATH -Recurse -Force
+          Remove-Item -Path $offlineFile -Force
+
+      - name: Cleanup Temp Publish
+        if: always()
+        run: |
+          if (Test-Path "$env:TEMP_PUBLISH_PATH") {
+              Remove-Item "$env:TEMP_PUBLISH_PATH" -Recurse -Force
+          }
+
+  # -------------------------------------------------------------
+  # جاب دوم: ارسال پیام به تلگرام (روی سرورهای ابری گیتهاب در خارج)
+  # -------------------------------------------------------------
+  notify:
+    needs: build-and-deploy # منتظر اتمام جاب دیپلوی میماند
+    if: always()            # چه دیپلوی موفق شود چه با خطا متوقف شود، پیام میفرستد
+    runs-on: ubuntu-latest  # روی کلود گیتهاب (اینترنت بدون فیلتر خارج)
+
+    steps:
+      - name: Send Telegram Notification via GitHub Cloud
+        run: |
+          STATUS="${{ needs.build-and-deploy.result }}"
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          
+          if [ "$STATUS" = "success" ]; then
+            ICON="✅"
+          else
+            ICON="❌"
+          fi
+          
+          TEXT="$ICON *Deployment $STATUS!*%0A📁 *Project:* ${{ env.PROJECT_NAME }}%0A📝 *Commit:* $COMMIT_MSG"
+          
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d "chat_id=${{ env.TELEGRAM_CHAT_ID }}" \
+            -d "text=$TEXT" \
+            -d "parse_mode=Markdown"
