@@ -5,7 +5,7 @@ on:
     branches:
       - react-app
       - main
-  workflow_dispatch:
+  workflow_dispatch: # امکان اجرای دستی با یک کلیک از تب Actions گیت‌هاب
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -13,16 +13,15 @@ concurrency:
 
 env:
   PROJECT_NAME: "Hozur Frontend"
-  DEPLOY_PATH: 'C:\vc2' # مسیر پوشه ریشه فرانت‌اند در IIS سرور (در صورت تفاوت نام، این مسیر را تغییر دهید)
+  DEPLOY_PATH: 'C:\vc2' # مسیر پوشه ریشه فرانت‌اند در IIS سرور
   TELEGRAM_CHAT_ID: "-1003492895671"
 
 jobs:
-  # -------------------------------------------------------------
-  # جاب اول: نصب پکیج‌ها، بیلد Vite و کپی به مسیر IIS روی سرور
-  # -------------------------------------------------------------
-  build-and-deploy:
+  # =============================================================
+  # جاب ۱: نصب وابستگی‌ها و بیلد فرانت‌اند (Build)
+  # =============================================================
+  build:
     runs-on: self-hosted
-
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -34,43 +33,97 @@ jobs:
 
       - name: Install Dependencies
         run: |
+          Write-Host "Installing npm dependencies..."
           npm install
 
-      - name: Build Frontend
+      - name: Build Vite Project
         run: |
+          Write-Host "Building React project with Vite..."
           npm run build
           # ایجاد فایل index.htm برای سازگاری کامل با IIS
           Copy-Item -Path "dist\index.html" -Destination "dist\index.htm" -Force
+          Write-Host "Vite build completed successfully."
+
+  # =============================================================
+  # جاب ۲: بکاپ و استقرار روی سرور IIS (Deploy & Health Check)
+  # =============================================================
+  deploy:
+    needs: build
+    runs-on: self-hosted
+    steps:
+      - name: Pre-Deploy Backup
+        run: |
+          $backupRoot = "C:\backups\hozur_frontend"
+          if (!(Test-Path $backupRoot)) {
+              New-Item -ItemType Directory -Path $backupRoot -Force | Out-Null
+          }
+          $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+          $backupDir = Join-Path $backupRoot "backup_$timestamp"
+          
+          if (Test-Path $env:DEPLOY_PATH) {
+              Write-Host "Creating pre-deploy backup at $backupDir..."
+              Copy-Item -Path "$env:DEPLOY_PATH\*" -Destination $backupDir -Recurse -Force -ErrorAction SilentlyContinue
+              Write-Host "Backup created successfully."
+              
+              # نگهداری فقط ۵ بکاپ آخر جهت صرفه‌جویی در دیسک
+              $oldBackups = Get-ChildItem -Path $backupRoot -Directory | Sort-Object CreationTime -Descending | Select-Object -Skip 5
+              foreach ($old in $oldBackups) {
+                  Write-Host "Removing old backup: $($old.FullName)"
+                  Remove-Item -Path $old.FullName -Recurse -Force -ErrorAction SilentlyContinue
+              }
+          }
 
       - name: Deploy to IIS
         run: |
           if (!(Test-Path "$env:DEPLOY_PATH")) {
-              New-Item -ItemType Directory -Path "$env:DEPLOY_PATH" -Force
+              New-Item -ItemType Directory -Path "$env:DEPLOY_PATH" -Force | Out-Null
           }
-          # کپی فایل‌های بیلد شده به پوشه لایو در سرور
+          
+          Write-Host "Deploying dist files to $env:DEPLOY_PATH..."
           Copy-Item -Path "dist\*" -Destination $env:DEPLOY_PATH -Recurse -Force
+          Write-Host "Frontend files copied successfully."
 
-  # -------------------------------------------------------------
-  # جاب دوم: ارسال پیام به تلگرام (روی سرورهای ابری گیتهاب در خارج)
-  # -------------------------------------------------------------
+      - name: Post-Deploy Health Check
+        run: |
+          Start-Sleep -Seconds 3
+          try {
+              [System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}
+              $healthUrl = "https://vc2.hekmateislami.com"
+              Write-Host "Pinging frontend URL: $healthUrl"
+              $res = Invoke-WebRequest -Uri $healthUrl -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop
+              Write-Host "Health Check SUCCESS: HTTP Status $($res.StatusCode)"
+          } catch {
+              Write-Warning "Health check warning: $($_.Exception.Message)"
+          }
+
+  # =============================================================
+  # جاب ۳: ارسال گزارش تلگرام (کلود گیتهاب با متد GET)
+  # =============================================================
   notify:
-    needs: build-and-deploy
+    needs: [build, deploy]
     if: always()
     runs-on: ubuntu-latest
 
     steps:
-      - name: Send Telegram Notification via GitHub Cloud
+      - name: Send Rich Telegram Notification via GitHub Cloud (GET)
         run: |
-          STATUS="${{ needs.build-and-deploy.result }}"
-          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          B_RES="${{ needs.build.result }}"
+          D_RES="${{ needs.deploy.result }}"
           
-          if [ "$STATUS" = "success" ]; then
-            ICON="✅"
+          [ "$B_RES" = "success" ] && B_ICON="✅" || B_ICON="❌"
+          [ "$D_RES" = "success" ] && D_ICON="✅" || D_ICON="❌"
+          
+          if [ "$D_RES" = "success" ]; then
+            TITLE="🚀 *Frontend Deployment Successful!*"
           else
-            ICON="❌"
+            TITLE="⚠️ *Frontend Deployment Failed!*"
           fi
           
-          TEXT="$ICON *Deployment $STATUS!*%0A📁 *Project:* ${{ env.PROJECT_NAME }}%0A📝 *Commit:* $COMMIT_MSG"
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          AUTHOR="${{ github.actor }}"
+          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          
+          TEXT="$TITLE%0A%0A📁 *Project:* ${{ env.PROJECT_NAME }}%0A🔨 *Build:* $B_ICON $B_RES%0A📦 *Deploy:* $D_ICON $D_RES%0A%0A📝 *Commit:* $COMMIT_MSG%0A👤 *Author:* $AUTHOR%0A🔗 [View Run]($RUN_URL)"
           
           curl -s -G "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
             --data-urlencode "chat_id=${{ env.TELEGRAM_CHAT_ID }}" \
