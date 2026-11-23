@@ -38,6 +38,7 @@ import RoomDetail from './Pages/RoomDetail';
 import CacheManagement from './Pages/Adminlay/CacheManagement';
 import RecordingsInquiry from './Pages/Adminlay/RecordingsInquiry';
 import { ToastProvider } from './Tools/ToastProvider';
+import EitaaWarningModal from './Component/EitaaWarningModal';
 
 function App() {
   const [count, setCount] = useState(0)
@@ -47,6 +48,7 @@ function App() {
 
       <AuthProvider>
         <ToastProvider>
+          <EitaaWarningModal />
 
           <Routes>
             {/* صفحات عمومی */}
