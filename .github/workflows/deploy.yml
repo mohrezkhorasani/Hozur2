@@ -5,6 +5,7 @@ on:
     branches:
       - CoreMe2
       - main
+  workflow_dispatch: # امکان اجرای دستی با یک کلیک از تب Actions گیت‌هاب
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
