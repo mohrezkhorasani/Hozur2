@@ -23,18 +23,20 @@ jobs:
   build:
     runs-on: self-hosted
     steps:
-      - name: Checkout Code
+      - name: Checkout Code (Fast Shallow Clone)
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Install Dependencies
+      - name: Install Dependencies (Fast with Cache)
         run: |
-          Write-Host "Installing npm dependencies..."
-          npm install
+          Write-Host "Installing npm dependencies (prefer-offline)..."
+          npm install --prefer-offline --no-audit --no-fund
 
       - name: Build Vite Project
         run: |
@@ -51,7 +53,7 @@ jobs:
     needs: build
     runs-on: self-hosted
     steps:
-      - name: Pre-Deploy Backup
+      - name: Fast Pre-Deploy Backup
         run: |
           $backupRoot = "C:\backups\hozur_frontend"
           if (!(Test-Path $backupRoot)) {
@@ -61,8 +63,8 @@ jobs:
           $backupDir = Join-Path $backupRoot "backup_$timestamp"
           
           if (Test-Path $env:DEPLOY_PATH) {
-              Write-Host "Creating pre-deploy backup at $backupDir..."
-              Copy-Item -Path "$env:DEPLOY_PATH\*" -Destination $backupDir -Recurse -Force -ErrorAction SilentlyContinue
+              Write-Host "Creating fast pre-deploy backup at $backupDir..."
+              robocopy "$env:DEPLOY_PATH" "$backupDir" /E /XD "logs" "temp" "node_modules" /R:1 /W:1 /NDL /NFL /NJH /NJS | Out-Null
               Write-Host "Backup created successfully."
               
               # نگهداری فقط ۵ بکاپ آخر جهت صرفه‌جویی در دیسک
