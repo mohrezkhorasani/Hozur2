@@ -13,7 +13,7 @@ concurrency:
 
 env:
   PROJECT_NAME: "Hozur Frontend"
-  DEPLOY_PATH: 'C:\hekmat_frontend' # مسیر پوشه ریشه فرانت‌اند در IIS سرور (در صورت تفاوت نام، این مسیر را تغییر دهید)
+  DEPLOY_PATH: 'C:\vc2' # مسیر پوشه ریشه فرانت‌اند در IIS سرور (در صورت تفاوت نام، این مسیر را تغییر دهید)
   TELEGRAM_CHAT_ID: "-1003492895671"
 
 jobs:
@@ -72,7 +72,7 @@ jobs:
           
           TEXT="$ICON *Deployment $STATUS!*%0A📁 *Project:* ${{ env.PROJECT_NAME }}%0A📝 *Commit:* $COMMIT_MSG"
           
-          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
-            -d "chat_id=${{ env.TELEGRAM_CHAT_ID }}" \
-            -d "text=$TEXT" \
-            -d "parse_mode=Markdown"
+          curl -s -G "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            --data-urlencode "chat_id=${{ env.TELEGRAM_CHAT_ID }}" \
+            --data-urlencode "text=$TEXT" \
+            --data-urlencode "parse_mode=Markdown"
