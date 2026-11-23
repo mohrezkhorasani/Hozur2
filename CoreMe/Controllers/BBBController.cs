@@ -680,6 +680,31 @@ namespace CoreMe.Controllers
             await _IGetLivesOfProfileUseCase.handleAsync(req, _GetLivesOfProfileResponse);
             return _GetLivesOfProfileResponse.jsonContentResult;
         }
+
+        [AllowAnonymous]
+        [HttpGet("/user/check-client")]
+        public IActionResult CheckClient()
+        {
+            var reqWith = Request.Headers["X-Requested-With"].ToString();
+            var ua = Request.Headers["User-Agent"].ToString();
+            var secChUa = Request.Headers["sec-ch-ua"].ToString();
+
+            bool isEitaa = reqWith.IndexOf("ir.eitaa.messenger", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                           ua.IndexOf("ir.eitaa.messenger", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                           ua.IndexOf("eitaa", StringComparison.OrdinalIgnoreCase) >= 0;
+
+            bool isWebView = isEitaa ||
+                             !string.IsNullOrWhiteSpace(reqWith) ||
+                             secChUa.IndexOf("Android WebView", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                             ua.IndexOf("; wv", StringComparison.OrdinalIgnoreCase) >= 0;
+
+            return Ok(new
+            {
+                isEitaa,
+                isWebView,
+                client = reqWith
+            });
+        }
         [HttpGet("/user/GetLiveWithID")]
         public async Task<IActionResult> GetLiveWithID([FromQuery] string idRoom = "")
         {

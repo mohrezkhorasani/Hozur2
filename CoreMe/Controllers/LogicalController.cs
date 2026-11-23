@@ -639,7 +639,9 @@ namespace CoreMe.Controllers
                 .Where(p => p.IDRoomTBL == room.ID
                          && (p.Status == MainEntity_Status.Enabled || p.Status == MainEntity_Status.MEETING_STARTED_LATER)
                          && p.StartDate.HasValue
-                         && p.StartDate.Value >= now.AddMinutes(-30))
+                         && p.StartDate.Value >= now.AddMinutes(-30) 
+                         && !p.AddedByUnPlanned
+                         )
                 .OrderBy(p => p.StartDate)
                 .Select(p => new
                 {
