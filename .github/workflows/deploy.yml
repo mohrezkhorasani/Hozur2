@@ -170,4 +170,5 @@ jobs:
           curl -s -G "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
             --data-urlencode "chat_id=${{ env.TELEGRAM_CHAT_ID }}" \
             --data-urlencode "text=$TEXT" \
-            --data-urlencode "parse_mode=Markdown"
+            --data-urlencode "parse_mode=Markdown" \
+            --connect-timeout 10 --max-time 20 || echo "Telegram notification skipped or failed (Exit code: $?)."
