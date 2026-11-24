@@ -54,8 +54,7 @@ jobs:
               Remove-Item "$env:TEMP_PUBLISH_PATH" -Recurse -Force -ErrorAction SilentlyContinue
           }
           Write-Host "Publishing $env:PROJECT_NAME in Release mode..."
-          # استفاده از no-restore برای افزایش سرعت و عدم دانلود مجدد پکیج‌ها
-          dotnet publish "$env:MAIN_PROJECT" -c Release -o "$env:TEMP_PUBLISH_PATH" --no-restore
+          dotnet publish "$env:MAIN_PROJECT" -c Release -o "$env:TEMP_PUBLISH_PATH"
           
           # حذف پوشه‌های زبان اضافی ماهواره‌ای (جهت جلوگیری از قفل فایل در IIS)
           Get-ChildItem -Path "$env:TEMP_PUBLISH_PATH" -Directory -ErrorAction SilentlyContinue | Where-Object {
