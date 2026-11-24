@@ -83,12 +83,12 @@ const HomePage = () => {
   const [isUpcomingExpanded, setIsUpcomingExpanded] = useState(false);
 
   // Helper to determine plan remaining time & Jalali date
-  // «در حال برگزاری» صرفاً از طریق متد getlives تعیین می‌شود و در غیر این صورت چیزی نشان داده نمی‌شود
+  // «در حال پخش» صرفاً از طریق متد getlives و با تطابق موضوع جلسه تعیین می‌شود
   const getPlanTimingInfo = (startDateStr, isLive = false) => {
     const dateFormatted = startDateStr ? formatPersianDateTime(startDateStr) : '-';
     if (isLive) {
       return {
-        remainingText: 'در حال برگزاری',
+        remainingText: 'در حال پخش',
         dateStr: dateFormatted,
         isOngoing: true,
       };
@@ -128,20 +128,49 @@ const HomePage = () => {
     return { remainingText, dateStr: dateFormatted, isOngoing: false, isWaiting: false };
   };
 
-  // Helper to check if a plan's room has started (is live) from getlives (like roomcards do)
+  // تابع استانداردسازی و نرمال‌سازی عنوان جلسات جهت مقایسه دقیق
+  const normalizeMeetingTitle = (str) => {
+    if (!str) return '';
+    return String(str)
+      .trim()
+      .toLowerCase()
+      .replace(/[\u200B-\u200D\uFEFF]/g, '') // حذف نیم‌فاصله‌ها و کاراکترهای نامرئی
+      .replace(/\s+/g, ' ')
+      .replace(/ي/g, 'ی')
+      .replace(/ك/g, 'ک')
+      .replace(/[ـ]/g, ''); // حذف کشیدگی حروف
+  };
+
+  // Helper to check if a plan's room has started (is live) from getlives
+  // شرط قطعی: اتاق جلسه مطابقت داشته باشد و موضوع جلسه جاری با موضوع جلسه در plantbl یکی باشد
   const isPlanLive = (plan) => {
     if (!plan || !Array.isArray(roomLive) || roomLive.length === 0) return false;
-    const fid = String(plan.roomFriendlyId || plan.roomObj?.friendlyID || plan.roomObj?.roomID || '').toLowerCase().trim();
-    const bbbId = String(plan.roomObj?.BBB_MeetID || plan.roomObj?.bbbMeetID || '').toLowerCase().trim();
-    const numId = String(plan.roomObj?.id || plan.roomObj?.ID || '').trim();
+    const planFid = String(plan.roomFriendlyId || plan.roomObj?.friendlyID || plan.roomObj?.roomID || '').toLowerCase().trim();
+    const planBbbId = String(plan.roomObj?.BBB_MeetID || plan.roomObj?.bbbMeetID || '').toLowerCase().trim();
+    const planNumId = String(plan.roomObj?.id || plan.roomObj?.ID || '').trim();
+    const planNormTitle = normalizeMeetingTitle(plan.title);
+
+    if (!planNormTitle) return false;
 
     return roomLive.some(r => {
       if (!r) return false;
       const liveId = String(r.roomID || r.RoomID || '').toLowerCase().trim();
       const liveBbb = String(r.bbb_MeetID || r.BBB_MeetID || '').toLowerCase().trim();
-      return (fid && (liveId === fid || liveBbb === fid)) ||
-             (bbbId && (liveId === bbbId || liveBbb === bbbId)) ||
-             (numId && liveId === numId);
+      const liveNormTitle = normalizeMeetingTitle(r.title || r.Title || r.MeetingName || r.meetingName);
+
+      // تطابق شناسه یا نام گروه / اتاق
+      const isRoomMatch = (planFid && (liveId === planFid || liveBbb === planFid)) ||
+                          (planBbbId && (liveId === planBbbId || liveBbb === planBbbId)) ||
+                          (planNumId && liveId === planNumId);
+
+      if (!isRoomMatch) return false;
+
+      // شرط اصلی: موضوع جلسه باید دقیقا با موضوع در plantbl یکی باشد
+      return liveNormTitle && (
+        liveNormTitle === planNormTitle ||
+        liveNormTitle.includes(planNormTitle) ||
+        planNormTitle.includes(liveNormTitle)
+      );
     });
   };
 
@@ -149,6 +178,7 @@ const HomePage = () => {
   // Strictly filters out test rooms (only keeps rooms with Type in [1, 2] and Status === 100)
   const activeUpcomingPlans = useMemo(() => {
     const plansMap = new Map();
+    const now = new Date();
 
     // Fast lookup map of loaded rooms
     const roomsLookup = new Map();
@@ -210,6 +240,7 @@ const HomePage = () => {
     }
 
     // 2. Also aggregate from all loaded rooms (fall-back & enrichment)
+    // فقط برنامه‌های پیش‌رو (آینده یا نهایتاً ۳ ساعت اخیر) خوانده می‌شوند تا جلسات منقضی‌شده قدیمی هرگز اضافه نشوند
     if (Array.isArray(rooms)) {
       rooms.forEach(r => {
         if (!r) return;
@@ -230,7 +261,14 @@ const HomePage = () => {
             if (pType === -99 || pType === 99) return;
 
             const start = p.startAt || p.startDate || p.StartAt || p.StartDate;
-            if (start && !plansMap.has(String(pId))) {
+            if (!start) return;
+
+            // اعتبارسنجی تاریخ: جلسات منقضی‌شده ماه‌ها و هفته‌های قبل اصلاً در لیست پیش‌رو قرار نمی‌گیرند
+            const parsedStart = parseUtcDate(start);
+            if (!parsedStart) return;
+            if ((parsedStart.getTime() - now.getTime()) <= (-3 * 3600 * 1000)) return;
+
+            if (!plansMap.has(String(pId))) {
               const teacherStr = typeof p.teacher === 'string'
                 ? p.teacher
                 : (p.teacher?.name || (Array.isArray(p.teachers) ? p.teachers.map(t => typeof t === 'string' ? t : t.name).filter(Boolean).join('، ') : ''));
@@ -251,8 +289,7 @@ const HomePage = () => {
       });
     }
 
-    // 3. Filter out plans that are already expired!
-    const now = new Date();
+    // 3. Filter: اگر جلسه در حال پخش است (با تطابق موضوع) حتماً نمایش داده شود؛ در غیر این صورت نباید منقضی باشد
     const list = Array.from(plansMap.values()).filter(plan => {
       if (isPlanLive(plan)) return true;
       if (!plan.startDate) return false;
@@ -262,7 +299,7 @@ const HomePage = () => {
       return (start.getTime() - now.getTime()) > (-3 * 3600 * 1000);
     });
 
-    // 4. Sort: Live sessions first, then ascending by startDate
+    // 4. Sort: جلسات در حال پخش در ابتدای لیست، سپس به ترتیب صعودی تاریخ شروع
     list.sort((a, b) => {
       const aLive = isPlanLive(a);
       const bLive = isPlanLive(b);
@@ -697,7 +734,7 @@ const HomePage = () => {
                                 ? "bg-[#f3f4f6] text-[#9ca3af] cursor-not-allowed"
                                 : "bg-[#16a34a] hover:bg-[#15803d] text-[#ffffff] ring-2 ring-[#16a34a]/30"
                             }`}
-                            title="ورود به جلسه آنلاین (در حال برگزاری)"
+                            title="ورود به جلسه آنلاین (در حال پخش)"
                           >
                             {isStarting ? (
                               <svg className="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -775,7 +812,7 @@ const HomePage = () => {
                     {timing.isOngoing && (
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#dcfce7] text-[#15803d] border border-[#86efac] text-[11px] font-black rounded-full shrink-0">
                         <span className="w-2 h-2 rounded-full bg-[#16a34a] animate-ping shrink-0" />
-                        در حال برگزاری
+                        در حال پخش
                       </span>
                     )}
                   </div>
