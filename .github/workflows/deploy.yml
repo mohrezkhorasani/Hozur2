@@ -88,14 +88,34 @@ jobs:
               }
           }
 
-      - name: Deploy to IIS
+      - name: Deploy to IIS (Safe Overwrite & Robocopy)
         run: |
           if (!(Test-Path "$env:DEPLOY_PATH")) {
               New-Item -ItemType Directory -Path "$env:DEPLOY_PATH" -Force | Out-Null
           }
           
-          Write-Host "Deploying build files from $env:TEMP_PUBLISH_PATH to $env:DEPLOY_PATH..."
-          Copy-Item -Path "$env:TEMP_PUBLISH_PATH\*" -Destination $env:DEPLOY_PATH -Recurse -Force
+          # رفع صفت فقط‌خواندنی (Read-Only) احتمالی روی فایل‌های موجود
+          Get-ChildItem -Path "$env:DEPLOY_PATH" -Recurse -Force -ErrorAction SilentlyContinue | Where-Object { $_.IsReadOnly } | ForEach-Object {
+              $_.IsReadOnly = $false
+          }
+          
+          # بازنشانی AppPool در صورت دسترسی به appcmd جهت آزادسازی قفل فایل‌های باز
+          $appcmd = "$env:SystemRoot\system32\inetsrv\appcmd.exe"
+          if (Test-Path $appcmd) {
+              try {
+                  & $appcmd recycle apppool /apppool.name:"vc2.hekmateislami.com" -ErrorAction SilentlyContinue | Out-Null
+                  & $appcmd recycle apppool /apppool.name:"vc2" -ErrorAction SilentlyContinue | Out-Null
+              } catch { }
+          }
+          
+          Write-Host "Deploying build files from $env:TEMP_PUBLISH_PATH to $env:DEPLOY_PATH using Robocopy..."
+          # روبوکپی فایل‌های بدون تغییر (Same) را بازنویسی نمی‌کند و در صورت قفل موقت ۵ بار تلاش مجدد می‌کند
+          robocopy "$env:TEMP_PUBLISH_PATH" "$env:DEPLOY_PATH" /E /R:5 /W:2 /NDL /NFL /NJH /NJS | Out-Null
+          if ($LASTEXITCODE -lt 8) {
+              $LASTEXITCODE = 0
+          } else {
+              throw "Robocopy deployment failed with error code $LASTEXITCODE"
+          }
           Write-Host "Frontend files copied successfully."
 
       - name: Post-Deploy Health Check
@@ -109,6 +129,13 @@ jobs:
               Write-Host "Health Check SUCCESS: HTTP Status $($res.StatusCode)"
           } catch {
               Write-Warning "Health check warning: $($_.Exception.Message)"
+          }
+
+      - name: Cleanup Temp Publish
+        if: always()
+        run: |
+          if (Test-Path "$env:TEMP_PUBLISH_PATH") {
+              Remove-Item "$env:TEMP_PUBLISH_PATH" -Recurse -Force -ErrorAction SilentlyContinue
           }
 
   # =============================================================
