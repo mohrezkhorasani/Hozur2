@@ -14,6 +14,7 @@ concurrency:
 env:
   PROJECT_NAME: "Hozur Frontend"
   DEPLOY_PATH: 'C:\vc2' # مسیر پوشه ریشه فرانت‌اند در IIS سرور
+  TEMP_PUBLISH_PATH: 'C:\temp_publish\hozur_frontend' # مسیر موقت استیجینگ فایل‌های بیلد
   TELEGRAM_CHAT_ID: "-1003492895671"
 
 jobs:
@@ -44,7 +45,14 @@ jobs:
           npm run build
           # ایجاد فایل index.htm برای سازگاری کامل با IIS
           Copy-Item -Path "dist\index.html" -Destination "dist\index.htm" -Force
-          Write-Host "Vite build completed successfully."
+          
+          # استیجینگ فایل‌های بیلد در مسیر موقت جهت انتقال به جاب Deploy
+          if (Test-Path "$env:TEMP_PUBLISH_PATH") {
+              Remove-Item "$env:TEMP_PUBLISH_PATH" -Recurse -Force -ErrorAction SilentlyContinue
+          }
+          New-Item -ItemType Directory -Path "$env:TEMP_PUBLISH_PATH" -Force | Out-Null
+          Copy-Item -Path "dist\*" -Destination "$env:TEMP_PUBLISH_PATH" -Recurse -Force
+          Write-Host "Vite build completed and staged to $env:TEMP_PUBLISH_PATH."
 
   # =============================================================
   # جاب ۲: بکاپ و استقرار روی سرور IIS (Deploy & Health Check)
@@ -86,8 +94,8 @@ jobs:
               New-Item -ItemType Directory -Path "$env:DEPLOY_PATH" -Force | Out-Null
           }
           
-          Write-Host "Deploying dist files to $env:DEPLOY_PATH..."
-          Copy-Item -Path "dist\*" -Destination $env:DEPLOY_PATH -Recurse -Force
+          Write-Host "Deploying build files from $env:TEMP_PUBLISH_PATH to $env:DEPLOY_PATH..."
+          Copy-Item -Path "$env:TEMP_PUBLISH_PATH\*" -Destination $env:DEPLOY_PATH -Recurse -Force
           Write-Host "Frontend files copied successfully."
 
       - name: Post-Deploy Health Check
