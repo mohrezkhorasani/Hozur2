@@ -104,68 +104,55 @@ jobs:
               }
           }
 
-      - name: Deploy to IIS (Safe Lock Handling & Robocopy)
+      - name: Deploy to IIS (Safe Lock Handling & Retry)
         run: |
           $offlineFile = Join-Path $env:DEPLOY_PATH "app_offline.htm"
           Set-Content -Path $offlineFile -Value "<html><head><meta charset='utf-8'></head><body><h2>Updating $env:PROJECT_NAME...</h2><p>Please wait a moment.</p></body></html>" -Encoding UTF8
           
-          Write-Host "Placed app_offline.htm. Waiting 5 seconds for IIS to release file handles..."
-          Start-Sleep -Seconds 5
+          Write-Host "Placed app_offline.htm. Waiting 7 seconds for IIS to release file handles..."
+          Start-Sleep -Seconds 7
           
           # رفع صفت فقط‌خواندنی (Read-Only) احتمالی روی فایل‌های موجود
           Get-ChildItem -Path "$env:DEPLOY_PATH" -Recurse -Force -ErrorAction SilentlyContinue | Where-Object { $_.IsReadOnly } | ForEach-Object {
-              $_.IsReadOnly = $false
+              try { $_.IsReadOnly = $false } catch { }
           }
           
-          # بستن پروسه‌های معلق احتمالی دات‌نت مرتبط با این مسیر
-          Get-CimInstance Win32_Process -Filter "Name = 'dotnet.exe'" -ErrorAction SilentlyContinue | Where-Object {
-              $_.CommandLine -like "*$env:DEPLOY_PATH*"
-          } | ForEach-Object {
-              Write-Host "Stopping lingering dotnet process (PID: $($_.ProcessId))..."
-              Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
-          }
-          
-          # بازنشانی تمامی استخرهای برنامه IIS جهت آزادسازی هندل‌ها و لود کد جدید
-          $appcmd = "$env:SystemRoot\system32\inetsrv\appcmd.exe"
-          if (Test-Path $appcmd) {
+          Write-Host "Deploying files from $env:TEMP_PUBLISH_PATH to $env:DEPLOY_PATH..."
+          $maxAttempts = 5
+          $success = $false
+          for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
               try {
-                  $apppools = & $appcmd list apppool /text:name
-                  foreach ($ap in $apppools) {
-                      Write-Host "Recycling IIS AppPool: $ap"
-                      & $appcmd recycle apppool /apppool.name:"$ap" -ErrorAction SilentlyContinue | Out-Null
+                  Write-Host "Copy attempt $attempt of $maxAttempts..."
+                  Get-ChildItem -Path "$env:TEMP_PUBLISH_PATH" | Where-Object { $_.Name -ne "app_offline.htm" } | ForEach-Object {
+                      Copy-Item -Path $_.FullName -Destination $env:DEPLOY_PATH -Recurse -Force -ErrorAction Stop
                   }
-              } catch { }
+                  $success = $true
+                  Write-Host "All files deployed successfully!"
+                  break
+              } catch {
+                  Write-Warning "Attempt $attempt warning: $($_.Exception.Message)"
+                  if ($attempt -lt $maxAttempts) {
+                      Start-Sleep -Seconds 3
+                  }
+              }
           }
           
-          Write-Host "Deploying files from $env:TEMP_PUBLISH_PATH to $env:DEPLOY_PATH using Robocopy..."
-          # انتقال هوشمند همراه با گزارش خلاصه فایل‌های کپی‌شده
-          robocopy "$env:TEMP_PUBLISH_PATH" "$env:DEPLOY_PATH" /E /XF "app_offline.htm" /R:5 /W:2 /NP
-          if ($LASTEXITCODE -lt 8) {
-              $LASTEXITCODE = 0
-          } else {
-              throw "Robocopy deployment failed with error code $LASTEXITCODE"
-          }
-          
-          # حذف فایل آفلاین جهت راه‌اندازی مجدد برنامه در IIS
+          # حذف فایل آفلاین جهت راه‌اندازی مجدد خودکار برنامه در IIS
           if (Test-Path $offlineFile) {
               Remove-Item -Path $offlineFile -Force -ErrorAction SilentlyContinue
               Write-Host "Removed app_offline.htm. Application is back online."
           }
           
-          # لمس web.config جهت تضمین صددرصدی لود مجدد DLLها توسط IIS
-          $webConfig = Join-Path $env:DEPLOY_PATH "web.config"
-          if (Test-Path $webConfig) {
-              (Get-Item $webConfig).LastWriteTime = Get-Date
-              Write-Host "Touched web.config to trigger immediate IIS application reload."
+          if (-not $success) {
+              throw "Deployment failed to copy files to $env:DEPLOY_PATH"
           }
           
-          # تایید نهایی و گزارش زمان CoreMe.dll مستقر شده در سرور
+          # تایید نهایی و گزارش زمان و حجم CoreMe.dll مستقر شده در سرور
           $deployedDll = Join-Path $env:DEPLOY_PATH "CoreMe.dll"
           if (Test-Path $deployedDll) {
               $dInfo = Get-Item $deployedDll
               Write-Host "DEPLOY VERIFIED -> Deployed CoreMe.dll LastWriteTime: $($dInfo.LastWriteTime) Size: $($dInfo.Length) bytes"
           }
-          Write-Host "All files deployed successfully!"
 
       - name: Post-Deploy Warmup & Health Check
         run: |
