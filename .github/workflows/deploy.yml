@@ -60,6 +60,13 @@ jobs:
           Get-ChildItem -Path "$env:TEMP_PUBLISH_PATH" -Directory -ErrorAction SilentlyContinue | Where-Object {
               $_.Name -match '^(cs|de|es|fr|it|ja|ko|pl|pt-BR|ru|tr|zh-Hans|zh-Hant)$'
           } | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+          
+          # تایید و چاپ مشخصات فایل کامپایل‌شده اصلی
+          $pubDll = Join-Path $env:TEMP_PUBLISH_PATH "CoreMe.dll"
+          if (Test-Path $pubDll) {
+              $pubDllInfo = Get-Item $pubDll
+              Write-Host "BUILD SUCCESS: CoreMe.dll created at $($pubDllInfo.LastWriteTime) (Size: $($pubDllInfo.Length) bytes)"
+          }
           Write-Host "Build & Publish completed successfully."
 
   # =============================================================
@@ -118,30 +125,47 @@ jobs:
               Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
           }
           
-          # بازنشانی AppPool در صورت دسترسی به appcmd جهت آزادسازی سریع هندل‌ها
+          # بازنشانی تمامی استخرهای برنامه IIS جهت آزادسازی هندل‌ها و لود کد جدید
           $appcmd = "$env:SystemRoot\system32\inetsrv\appcmd.exe"
           if (Test-Path $appcmd) {
               try {
-                  & $appcmd recycle apppool /apppool.name:"core.hekmateislami.com" -ErrorAction SilentlyContinue | Out-Null
-                  & $appcmd recycle apppool /apppool.name:"hekmat" -ErrorAction SilentlyContinue | Out-Null
+                  $apppools = & $appcmd list apppool /text:name
+                  foreach ($ap in $apppools) {
+                      Write-Host "Recycling IIS AppPool: $ap"
+                      & $appcmd recycle apppool /apppool.name:"$ap" -ErrorAction SilentlyContinue | Out-Null
+                  }
               } catch { }
           }
           
-          Write-Host "Deploying files using Robocopy..."
-          # انتقال هوشمند: فایل‌های بدون تغییر بازنویسی نمی‌شوند و در صورت قفل موقت ۵ بار تلاش مجدد می‌شود
-          robocopy "$env:TEMP_PUBLISH_PATH" "$env:DEPLOY_PATH" /E /XF "app_offline.htm" /R:5 /W:2 /NDL /NFL /NJH /NJS | Out-Null
+          Write-Host "Deploying files from $env:TEMP_PUBLISH_PATH to $env:DEPLOY_PATH using Robocopy..."
+          # انتقال هوشمند همراه با گزارش خلاصه فایل‌های کپی‌شده
+          robocopy "$env:TEMP_PUBLISH_PATH" "$env:DEPLOY_PATH" /E /XF "app_offline.htm" /R:5 /W:2 /NP
           if ($LASTEXITCODE -lt 8) {
               $LASTEXITCODE = 0
           } else {
               throw "Robocopy deployment failed with error code $LASTEXITCODE"
           }
-          Write-Host "All files deployed successfully!"
           
           # حذف فایل آفلاین جهت راه‌اندازی مجدد برنامه در IIS
           if (Test-Path $offlineFile) {
               Remove-Item -Path $offlineFile -Force -ErrorAction SilentlyContinue
               Write-Host "Removed app_offline.htm. Application is back online."
           }
+          
+          # لمس web.config جهت تضمین صددرصدی لود مجدد DLLها توسط IIS
+          $webConfig = Join-Path $env:DEPLOY_PATH "web.config"
+          if (Test-Path $webConfig) {
+              (Get-Item $webConfig).LastWriteTime = Get-Date
+              Write-Host "Touched web.config to trigger immediate IIS application reload."
+          }
+          
+          # تایید نهایی و گزارش زمان CoreMe.dll مستقر شده در سرور
+          $deployedDll = Join-Path $env:DEPLOY_PATH "CoreMe.dll"
+          if (Test-Path $deployedDll) {
+              $dInfo = Get-Item $deployedDll
+              Write-Host "DEPLOY VERIFIED -> Deployed CoreMe.dll LastWriteTime: $($dInfo.LastWriteTime) Size: $($dInfo.Length) bytes"
+          }
+          Write-Host "All files deployed successfully!"
 
       - name: Post-Deploy Warmup & Health Check
         run: |
@@ -198,4 +222,5 @@ jobs:
           curl -s -G "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
             --data-urlencode "chat_id=${{ env.TELEGRAM_CHAT_ID }}" \
             --data-urlencode "text=$TEXT" \
-            --data-urlencode "parse_mode=Markdown"
+            --data-urlencode "parse_mode=Markdown" \
+            --connect-timeout 10 --max-time 20 || echo "Telegram notification skipped or failed (Exit code: $?)."
