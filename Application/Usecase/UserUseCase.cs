@@ -2031,8 +2031,31 @@ namespace Application.Usecase
             var meets = await IBBBGetMeetings.Request(message, user);
             foreach (var m in meets)
             {
-                var r = _db.RoomTBLs.First(e => e.BBB_MeetID == m.BBB_MeetID);
-                m.RoomID = r.FriendlyID;
+                var r = _db.RoomTBLs.FirstOrDefault(e => e.BBB_MeetID == m.BBB_MeetID || e.FriendlyID == m.RoomID);
+                if (r != null)
+                {
+                    m.RoomID = r.FriendlyID;
+
+                    // واکشی آخرین جلسه فعال برای انطباق موضوع جلسه با plantbl
+                    var activeMeet = _db.MeetingTBLs
+                        .Include(x => x.RoomTBLPlanTBL)
+                        .Where(x => (x.RoomFriendlyID == r.FriendlyID || (x.RoomTBL != null && x.RoomTBL.FriendlyID == r.FriendlyID) || x.MeetID == m.BBB_MeetID) &&
+                                    x.DateInsert >= DateTime.UtcNow.AddHours(-12))
+                        .OrderByDescending(x => x.ID)
+                        .FirstOrDefault();
+
+                    if (activeMeet != null)
+                    {
+                        if (!string.IsNullOrWhiteSpace(activeMeet.Title))
+                        {
+                            m.Title = activeMeet.Title;
+                        }
+                        else if (activeMeet.RoomTBLPlanTBL != null && !string.IsNullOrWhiteSpace(activeMeet.RoomTBLPlanTBL.Title))
+                        {
+                            m.Title = activeMeet.RoomTBLPlanTBL.Title;
+                        }
+                    }
+                }
             }
             //var r = await IBBBGetMeetings.GetRecordingsByMeetingId("1khe4quugbx7ziilyojrvapwebknxbn1jydcjozl");
 
@@ -2159,8 +2182,31 @@ namespace Application.Usecase
             var meets = await IBBBGetMeetings.Request(message);
             foreach (var m in meets)
             {
-                var r = _db.RoomTBLs.First(e => e.BBB_MeetID == m.BBB_MeetID);
-                m.RoomID = r.FriendlyID;
+                var r = _db.RoomTBLs.FirstOrDefault(e => e.BBB_MeetID == m.BBB_MeetID || e.FriendlyID == m.RoomID);
+                if (r != null)
+                {
+                    m.RoomID = r.FriendlyID;
+
+                    // واکشی آخرین جلسه فعال برای انطباق موضوع جلسه با plantbl
+                    var activeMeet = _db.MeetingTBLs
+                        .Include(x => x.RoomTBLPlanTBL)
+                        .Where(x => (x.RoomFriendlyID == r.FriendlyID || (x.RoomTBL != null && x.RoomTBL.FriendlyID == r.FriendlyID) || x.MeetID == m.BBB_MeetID) &&
+                                    x.DateInsert >= DateTime.UtcNow.AddHours(-12))
+                        .OrderByDescending(x => x.ID)
+                        .FirstOrDefault();
+
+                    if (activeMeet != null)
+                    {
+                        if (!string.IsNullOrWhiteSpace(activeMeet.Title))
+                        {
+                            m.Title = activeMeet.Title;
+                        }
+                        else if (activeMeet.RoomTBLPlanTBL != null && !string.IsNullOrWhiteSpace(activeMeet.RoomTBLPlanTBL.Title))
+                        {
+                            m.Title = activeMeet.RoomTBLPlanTBL.Title;
+                        }
+                    }
+                }
             }
             //var r = await IBBBGetMeetings.GetRecordingsByMeetingId("1khe4quugbx7ziilyojrvapwebknxbn1jydcjozl");
 
@@ -2213,8 +2259,31 @@ namespace Application.Usecase
             var meets = await IBBBGetMeetings.Request(message);
             foreach (var m in meets)
             {
-                var r = _db.RoomTBLs.First(e => e.BBB_MeetID == m.BBB_MeetID);
-                m.RoomID = r.FriendlyID;
+                var r = _db.RoomTBLs.FirstOrDefault(e => e.BBB_MeetID == m.BBB_MeetID || e.FriendlyID == m.RoomID);
+                if (r != null)
+                {
+                    m.RoomID = r.FriendlyID;
+
+                    // واکشی آخرین جلسه فعال برای انطباق موضوع جلسه با plantbl
+                    var activeMeet = _db.MeetingTBLs
+                        .Include(x => x.RoomTBLPlanTBL)
+                        .Where(x => (x.RoomFriendlyID == r.FriendlyID || (x.RoomTBL != null && x.RoomTBL.FriendlyID == r.FriendlyID) || x.MeetID == m.BBB_MeetID) &&
+                                    x.DateInsert >= DateTime.UtcNow.AddHours(-12))
+                        .OrderByDescending(x => x.ID)
+                        .FirstOrDefault();
+
+                    if (activeMeet != null)
+                    {
+                        if (!string.IsNullOrWhiteSpace(activeMeet.Title))
+                        {
+                            m.Title = activeMeet.Title;
+                        }
+                        else if (activeMeet.RoomTBLPlanTBL != null && !string.IsNullOrWhiteSpace(activeMeet.RoomTBLPlanTBL.Title))
+                        {
+                            m.Title = activeMeet.RoomTBLPlanTBL.Title;
+                        }
+                    }
+                }
             }
             //var r = await IBBBGetMeetings.GetRecordingsByMeetingId("1khe4quugbx7ziilyojrvapwebknxbn1jydcjozl");
 

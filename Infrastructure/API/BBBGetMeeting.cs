@@ -192,9 +192,13 @@ namespace Infrastructure.API
     <meta name=""bbb-context-id"">y3x-nhd-imk-7wu</meta>
     <meta name=""public"">{room.IsPublicRoom.ToString()}</meta>";
 
+            string meetingName = (plan != null && !string.IsNullOrWhiteSpace(plan.Title))
+                ? plan.Title
+                : room.Title;
+
             // همه مقادیر باید UrlEncoded شوند
             string queryString = $"meetingID={Uri.EscapeDataString(room.BBB_MeetID)}" +
-                                 $"&name={Uri.EscapeDataString(room.Title)}" +
+                                 $"&name={Uri.EscapeDataString(meetingName)}" +
                                  $"&attendeePW={Uri.EscapeDataString(room.ViewerCode)}" +     // اصلاح شد
                                  $"&moderatorPW={Uri.EscapeDataString(room.ModeratorCode)}" + // اصلاح شد
                                  $"&loginURL={Uri.EscapeDataString(joinUrl)}" +
@@ -225,6 +229,8 @@ namespace Infrastructure.API
 
             if (plan != null)
             {
+                queryString += $"&meta_planTitle={Uri.EscapeDataString(plan.Title ?? "")}";
+                queryString += $"&meta_planId={plan.ID}";
                 var parsedTeachers = plan.GetParsedTeachers();
                 if (parsedTeachers.Any())
                 {
