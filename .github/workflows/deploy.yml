@@ -65,6 +65,11 @@ jobs:
           if (Test-Path $env:DEPLOY_PATH) {
               Write-Host "Creating fast pre-deploy backup at $backupDir..."
               robocopy "$env:DEPLOY_PATH" "$backupDir" /E /XD "logs" "temp" "node_modules" /R:1 /W:1 /NDL /NFL /NJH /NJS | Out-Null
+              if ($LASTEXITCODE -lt 8) {
+                  $LASTEXITCODE = 0
+              } else {
+                  throw "Robocopy failed with error code $LASTEXITCODE"
+              }
               Write-Host "Backup created successfully."
               
               # نگهداری فقط ۵ بکاپ آخر جهت صرفه‌جویی در دیسک
