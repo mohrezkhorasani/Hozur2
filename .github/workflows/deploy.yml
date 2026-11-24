@@ -83,6 +83,11 @@ jobs:
               Write-Host "Creating fast pre-deploy backup at $backupDir..."
               # استفاده از robocopy با استثنا کردن پوشه‌های حجیم لاگ و آپلود برای کاهش زمان به ۱ ثانیه
               robocopy "$env:DEPLOY_PATH" "$backupDir" /E /XD "logs" "temp" "uploads" "App_Data" /R:1 /W:1 /NDL /NFL /NJH /NJS | Out-Null
+              if ($LASTEXITCODE -lt 8) {
+                  $LASTEXITCODE = 0
+              } else {
+                  throw "Robocopy failed with error code $LASTEXITCODE"
+              }
               Write-Host "Backup created successfully."
               
               # نگهداری فقط ۵ بکاپ آخر جهت بهینه‌سازی فضای دیسک
