@@ -29,6 +29,7 @@ const AdminDashboard = () => {
     // مدیریت اصلی
     { id: 1, name: "مدیریت کاربران", icon: <FaUsers />, path: "/admin/users", category: "مدیریت اصلی", color: "from-blue-500 to-blue-600" },
     { id: 2, name: "مدیریت نظرسنجی‌ها", icon: <FaPoll />, path: "/admin/polls", category: "مدیریت اصلی", color: "from-green-500 to-green-600" },
+    { id: 29, name: "گزارش نظرسنجی", icon: <FaChartPie />, path: "/admin/polls/reports", category: "مدیریت اصلی", color: "from-emerald-500 to-teal-600" },
     { id: 3, name: "مدیریت اسلایدشو", icon: <FaImage />, path: "/admin/slideshow", category: "مدیریت اصلی", color: "from-purple-500 to-purple-600" },
     { id: 4, name: "مدیریت اتاق‌ها", icon: <FaVideo />, path: "/admin/rooms", category: "مدیریت اصلی", color: "from-red-500 to-red-600" },
     { id: 5, name: "مدیریت جلسات", icon: <FaCalendarAlt />, path: "/admin/sessions", category: "مدیریت اصلی", color: "from-orange-500 to-orange-600" },

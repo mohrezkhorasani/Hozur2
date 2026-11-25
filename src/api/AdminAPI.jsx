@@ -534,6 +534,28 @@ export async function GetPollReport(meetID, qid = null, userid = null) {
     return json; 
 }
 
+export async function GetGlobalPollReport(filters = {}) {
+    const params = new URLSearchParams();
+    if (filters.qid) params.set("qid", filters.qid);
+    if (filters.roomFriendlyId) params.set("roomFriendlyId", filters.roomFriendlyId);
+    if (filters.meetId) params.set("meetId", filters.meetId);
+    if (filters.fromDate) params.set("fromDate", filters.fromDate);
+    if (filters.toDate) params.set("toDate", filters.toDate);
+    if (filters.search) params.set("search", filters.search);
+    if (filters.includeInactive) params.set("includeInactive", "true");
+
+    const queryString = params.toString();
+    const url = combinePath(BaseURL, `/admin/poll/GetGlobalPollReport${queryString ? `?${queryString}` : ""}`);
+
+    const res = await fetch(url, {
+        method: "GET",
+        headers: NormalHeaderAPI
+    });
+
+    if (!res.ok) throw new Error("Failed to fetch global poll report");
+    return await res.json();
+}
+
 export async function EditRoom(friendlyID, roomTitle, logoFile = null, najmIDBoss = null) {
     const url = combinePath(
         BaseURL,

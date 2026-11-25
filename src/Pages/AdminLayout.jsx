@@ -15,6 +15,7 @@ import {
   FaShoppingCart,
   FaBox,
   FaChartBar,
+  FaChartPie,
   FaCloud,
   FaLink
 } from "react-icons/fa";
@@ -33,6 +34,7 @@ const AdminLayout = () => {
     { id: 1, name: "مدیریت کاربران", icon: <FaUsers />, path: "/adminlay/users", category: "مدیریت اصلی", color: "from-blue-500 to-blue-600" },
     { id: 27, name: "مدیریت هوک‌ها", icon: <FaLink />, path: "/adminlay/webhooks", category: "مدیریت اصلی", color: "from-indigo-500 to-indigo-600" },
     { id: 2, name: "مدیریت نظرسنجی‌ها", icon: <FaPoll />, path: "/adminlay/polls", category: "مدیریت اصلی", color: "from-green-500 to-green-600" },
+    { id: 30, name: "گزارش نظرسنجی", icon: <FaChartPie />, path: "/adminlay/polls/reports", category: "مدیریت اصلی", color: "from-emerald-500 to-teal-600" },
     { id: 3, name: "مدیریت اسلایدشو", icon: <FaImage />, path: "/adminlay/slideshow", category: "مدیریت اصلی", color: "from-purple-500 to-purple-600" },
     { id: 4, name: "مدیریت اتاق‌ها", icon: <FaVideo />, path: "/adminlay/rooms", category: "مدیریت اصلی", color: "from-red-500 to-red-600" },
     { id: 5, name: "مدیریت جلسات", icon: <FaCalendarAlt />, path: "/adminlay/meetings", category: "مدیریت اصلی", color: "from-orange-500 to-orange-600" },

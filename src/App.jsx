@@ -30,6 +30,7 @@ import WebhooksManagement from './Pages/Adminlay/HookManagement';
 import MeetingManagement from './Pages/Adminlay/MeetingManagement';
 import ParticipantManagement from './Pages/Adminlay/ParticipantManagement';
 import PollReportPage from './Pages/Profile/SeeMeetingPollReport';
+import GlobalPollReport from './Pages/Adminlay/GlobalPollReport';
 import FileManagerPage from './Pages/Dashboard/FTPManagement';
 import PaymentForm from './Pages/tools/PaymentForm';
 import PaymentManagement from './Pages/tools/PaymentManagement';
@@ -125,9 +126,13 @@ function App() {
             </Route>
             <Route element={<ProtectedRoute requiredPermissions={['view_poll_reports']} />}>
               <Route element={<BaseLayout />}>
-                {/* <Route path="/admin" element={<AdminPanel />}> */}
                 <Route path="polls/:meetid/report" element={<PollReportPage />} />
-                {/* </Route> */}
+                <Route path="/adminlay" element={<AdminLayout />}>
+                  <Route path="polls/reports" element={<GlobalPollReport />} />
+                </Route>
+                <Route path="/admin" element={<AdminLayout />}>
+                  <Route path="polls/reports" element={<GlobalPollReport />} />
+                </Route>
               </Route>
             </Route>
             <Route element={<ProtectedRoute requiredPermissions={['pay_request']} />} >

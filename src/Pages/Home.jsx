@@ -44,6 +44,142 @@ import EditRoomLargeModal from "../Modal/Admin/EditRoomLargeModal";
 
 
 
+// ==========================================
+// کامپوننت اسکلتون ریسپانسیو صفحه داشبورد (HomeDashboardSkeleton)
+// ==========================================
+const HomeDashboardSkeleton = () => {
+  return (
+    <div dir="rtl" className="container mx-auto px-4 py-8 max-w-7xl animate-pulse">
+      {/* ۱. اسکلتون نوار دسترسی سریع */}
+      <div className="bg-white rounded-lg shadow-sm border border-[#e5e7eb] mb-6 p-3">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 bg-[#e5e7eb] rounded" />
+            <div className="h-4 w-20 bg-[#e5e7eb] rounded" />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {[1, 2, 3, 4, 5].map((item, idx) => (
+              <div
+                key={item}
+                className={`h-9 w-24 sm:w-28 bg-[#e5e7eb] rounded-lg ${idx >= 3 ? 'hidden sm:block' : ''}`}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ۲. اسکلتون بخش جلسات پیش‌رو */}
+      <div className="mb-10 bg-white rounded-3xl border border-[#e5e7eb] shadow-sm p-5 sm:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-5 pb-4 border-b border-[#f3f4f6]">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 bg-[#e5e7eb] rounded-2xl shrink-0" />
+            <div className="space-y-2">
+              <div className="h-5 w-32 bg-[#e5e7eb] rounded-lg" />
+              <div className="h-3 w-44 sm:w-56 bg-[#f3f4f6] rounded" />
+            </div>
+          </div>
+          <div className="h-7 w-24 bg-[#e5e7eb] rounded-full" />
+        </div>
+
+        {/* نمای جدول دسکتاپ */}
+        <div className="hidden md:block">
+          <div className="bg-[#f9fafb] border-b border-[#e5e7eb] h-10 rounded-t-xl mb-2 flex items-center px-4 gap-6">
+            <div className="h-3 w-1/3 bg-[#e5e7eb] rounded" />
+            <div className="h-3 w-1/5 bg-[#e5e7eb] rounded" />
+            <div className="h-3 w-1/5 bg-[#e5e7eb] rounded" />
+            <div className="h-3 w-1/6 bg-[#e5e7eb] rounded mr-auto" />
+          </div>
+          <div className="divide-y divide-[#f3f4f6]">
+            {[1, 2, 3].map((row) => (
+              <div key={row} className="py-4 px-4 flex items-center justify-between gap-4">
+                <div className="w-1/3 space-y-2">
+                  <div className="h-4 bg-[#e5e7eb] rounded w-11/12" />
+                  <div className="h-3 bg-[#f3f4f6] rounded w-2/3" />
+                </div>
+                <div className="w-1/5">
+                  <div className="h-7 w-28 bg-[#f3f4f6] rounded-xl" />
+                </div>
+                <div className="w-1/5 space-y-1.5">
+                  <div className="h-3.5 w-24 bg-[#e5e7eb] rounded" />
+                  <div className="h-3 w-20 bg-[#f3f4f6] rounded" />
+                </div>
+                <div className="w-1/6 flex justify-center mr-auto">
+                  <div className="h-9 w-28 bg-[#e5e7eb] rounded-xl" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* نمای کارتی موبایل */}
+        <div className="block md:hidden space-y-3">
+          {[1, 2, 3].map((card) => (
+            <div
+              key={card}
+              className="bg-[#f9fafb] border border-[#e5e7eb] rounded-2xl p-4 flex flex-col gap-3"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="space-y-1.5 flex-1">
+                  <div className="h-4 bg-[#e5e7eb] rounded w-4/5" />
+                  <div className="h-3.5 bg-[#f3f4f6] rounded w-1/2" />
+                </div>
+                <div className="h-6 w-20 bg-[#e5e7eb] rounded-full shrink-0" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-[#f3f4f6]">
+                <div className="h-3.5 bg-[#e5e7eb] rounded w-2/3" />
+                <div className="h-3.5 bg-[#e5e7eb] rounded w-1/2" />
+                <div className="h-3.5 bg-[#f3f4f6] rounded w-3/4 col-span-full" />
+              </div>
+              <div className="pt-1">
+                <div className="h-10 w-full bg-[#e5e7eb] rounded-xl" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ۳. اسکلتون هدر اتاق‌های جلسات */}
+      <div className="mb-8 text-right space-y-2">
+        <div className="h-7 w-40 bg-[#e5e7eb] rounded-lg" />
+        <div className="h-4 w-48 bg-[#f3f4f6] rounded" />
+      </div>
+
+      {/* ۴. اسکلتون گرید کارت‌های اتاق‌ها (۱ ستون موبایل، ۲ تبلت، ۳ دسکتاپ) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {[1, 2, 3, 4, 5, 6].map((item) => (
+          <div
+            key={item}
+            className="bg-white rounded-2xl border border-[#e5e7eb] shadow-sm p-5 flex flex-col justify-between gap-4 min-h-[260px]"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="w-12 h-12 rounded-2xl bg-[#e5e7eb] shrink-0" />
+                <div className="space-y-2 flex-1">
+                  <div className="h-5 bg-[#e5e7eb] rounded-lg w-3/4" />
+                  <div className="h-3.5 bg-[#f3f4f6] rounded w-1/2" />
+                </div>
+              </div>
+              <div className="w-8 h-8 rounded-xl bg-[#f3f4f6] shrink-0" />
+            </div>
+
+            <div className="bg-[#f9fafb] border border-[#f3f4f6] rounded-xl p-3 space-y-2">
+              <div className="h-3.5 bg-[#e5e7eb] rounded w-1/3" />
+              <div className="h-3 bg-[#f3f4f6] rounded w-4/5" />
+              <div className="h-3 bg-[#f3f4f6] rounded w-2/3" />
+            </div>
+
+            <div className="flex items-center gap-2 pt-2 border-t border-[#f3f4f6]">
+              <div className="h-10 flex-1 bg-[#e5e7eb] rounded-xl" />
+              <div className="h-10 w-10 bg-[#f3f4f6] rounded-xl shrink-0" />
+              <div className="h-10 w-10 bg-[#f3f4f6] rounded-xl shrink-0" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const HomePage = () => {
   const navigate = useNavigate();
   const [rooms, setRooms] = useState(null);
@@ -411,11 +547,7 @@ const HomePage = () => {
 
 
   if (loadingRooms) {
-    return (
-      <div className="container py-5">
-        <div className="row">در حال دریافت اطلاعات...</div>
-      </div>
-    );
+    return <HomeDashboardSkeleton />;
   }
 
   if (!rooms || rooms.length === 0) {
