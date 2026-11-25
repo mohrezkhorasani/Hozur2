@@ -90,6 +90,12 @@ jobs:
 
       - name: Deploy to IIS (Robust File Sync)
         run: |
+          $currentUser = whoami
+          Write-Host "Running frontend deployment as user: $currentUser"
+          if (!(Test-Path "$env:TEMP_PUBLISH_PATH") -or @(Get-ChildItem "$env:TEMP_PUBLISH_PATH" -Recurse -File).Count -eq 0) {
+              throw "Staging directory $env:TEMP_PUBLISH_PATH is missing or empty! Ensure build and deploy runners share the same server."
+          }
+
           if (!(Test-Path "$env:DEPLOY_PATH")) {
               New-Item -ItemType Directory -Path "$env:DEPLOY_PATH" -Force | Out-Null
           }
@@ -102,7 +108,8 @@ jobs:
           Write-Host "Deploying build files from $env:TEMP_PUBLISH_PATH to $env:DEPLOY_PATH..."
           
           $copiedCount = 0
-          $skippedCount = 0
+          $skippedAssetCount = 0
+          $skipAllowedExtensions = @('.png', '.jpg', '.jpeg', '.webp', '.svg', '.gif', '.woff', '.woff2', '.ttf', '.eot', '.mp4')
           
           $sourceFiles = Get-ChildItem -Path "$env:TEMP_PUBLISH_PATH" -Recurse -File
           $sourceRootLength = $env:TEMP_PUBLISH_PATH.TrimEnd('\', '/').Length
@@ -116,22 +123,33 @@ jobs:
                   New-Item -ItemType Directory -Path $destDir -Force | Out-Null
               }
               
-              try {
-                  Copy-Item -Path $file.FullName -Destination $destPath -Force -ErrorAction Stop
-                  $copiedCount++
-              } catch {
-                  # اگر فایلی در حال استفاده توسط وب‌سرور است ولی قبلاً در مقصد وجود دارد، آن را حفظ کن
-                  if (Test-Path $destPath) {
-                      Write-Warning "File in use, kept existing version: $relPath"
-                      $skippedCount++
+              $copied = $false
+              $lastErr = $null
+              for ($attempt = 1; $attempt -le 2; $attempt++) {
+                  try {
+                      Copy-Item -Path $file.FullName -Destination $destPath -Force -ErrorAction Stop
+                      $copied = $true
+                      $copiedCount++
+                      break
+                  } catch {
+                      $lastErr = $_
+                      Start-Sleep -Seconds 1
+                  }
+              }
+              
+              if (-not $copied) {
+                  $ext = $file.Extension.ToLowerInvariant()
+                  if (($relPath -like "assets*") -and ($skipAllowedExtensions -contains $ext) -and (Test-Path $destPath)) {
+                      Write-Warning "Hashed static asset in use, kept existing: $relPath"
+                      $skippedAssetCount++
                   } else {
-                      Write-Error "Failed to copy new file $relPath : $($_.Exception.Message)"
-                      throw $_
+                      throw "Access/Lock error copying '$relPath' to '$destPath' as '$currentUser': $($lastErr.Exception.Message). Run runner as Local System or grant Full Control on '$env:DEPLOY_PATH' to '$currentUser'."
                   }
               }
           }
           
-          Write-Host "Frontend sync complete: $copiedCount copied, $skippedCount kept existing."
+          $idxInfo = Get-Item (Join-Path $env:DEPLOY_PATH "index.html") -ErrorAction SilentlyContinue
+          Write-Host "Frontend sync complete: $copiedCount copied, $skippedAssetCount static assets kept. index.html LastWriteTime: $($idxInfo.LastWriteTime)"
 
       - name: Post-Deploy Health Check
         run: |
