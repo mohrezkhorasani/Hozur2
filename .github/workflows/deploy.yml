@@ -106,6 +106,12 @@ jobs:
 
       - name: Deploy to IIS (Safe Lock Handling & Robust File Sync)
         run: |
+          $currentUser = whoami
+          Write-Host "Running deployment as user: $currentUser"
+          if (!(Test-Path "$env:TEMP_PUBLISH_PATH") -or @(Get-ChildItem "$env:TEMP_PUBLISH_PATH" -Recurse -File).Count -eq 0) {
+              throw "Staging directory $env:TEMP_PUBLISH_PATH is missing or empty! Ensure build and deploy runners share the same server."
+          }
+
           $offlineFile = Join-Path $env:DEPLOY_PATH "app_offline.htm"
           Set-Content -Path $offlineFile -Value "<html><head><meta charset='utf-8'></head><body><h2>Updating $env:PROJECT_NAME...</h2><p>Please wait a moment.</p></body></html>" -Encoding UTF8
           
@@ -120,7 +126,8 @@ jobs:
           Write-Host "Deploying files from $env:TEMP_PUBLISH_PATH to $env:DEPLOY_PATH..."
           
           $copiedCount = 0
-          $skippedCount = 0
+          $skippedFontCount = 0
+          $fontExtensions = @('.ttf', '.otf', '.woff', '.woff2', '.eot')
           
           $sourceFiles = Get-ChildItem -Path "$env:TEMP_PUBLISH_PATH" -Recurse -File | Where-Object { $_.Name -ne "app_offline.htm" }
           $sourceRootLength = $env:TEMP_PUBLISH_PATH.TrimEnd('\', '/').Length
@@ -134,22 +141,35 @@ jobs:
                   New-Item -ItemType Directory -Path $destDir -Force | Out-Null
               }
               
-              try {
-                  Copy-Item -Path $file.FullName -Destination $destPath -Force -ErrorAction Stop
-                  $copiedCount++
-              } catch {
-                  # اگر فایل از قبل در مقصد وجود دارد و قفل است (مانند فونت‌های مقیم حافظه ویندوز)، نسخه موجود را حفظ کن
-                  if (Test-Path $destPath) {
-                      Write-Warning "File in use, kept existing version: $relPath"
-                      $skippedCount++
+              $copied = $false
+              $lastErr = $null
+              for ($attempt = 1; $attempt -le 3; $attempt++) {
+                  try {
+                      Copy-Item -Path $file.FullName -Destination $destPath -Force -ErrorAction Stop
+                      $copied = $true
+                      $copiedCount++
+                      break
+                  } catch {
+                      $lastErr = $_
+                      Start-Sleep -Seconds 2
+                  }
+              }
+              
+              if (-not $copied) {
+                  $ext = $file.Extension.ToLowerInvariant()
+                  if (($fontExtensions -contains $ext) -and (Test-Path $destPath)) {
+                      Write-Warning "Locked font file kept existing: $relPath"
+                      $skippedFontCount++
                   } else {
-                      Write-Error "Failed to copy new file $relPath : $($_.Exception.Message)"
-                      throw $_
+                      if (Test-Path $offlineFile) {
+                          Remove-Item -Path $offlineFile -Force -ErrorAction SilentlyContinue
+                      }
+                      throw "Access/Lock error copying '$relPath' to '$destPath' as '$currentUser': $($lastErr.Exception.Message). Run runner as Local System or grant Full Control on '$env:DEPLOY_PATH' to '$currentUser'."
                   }
               }
           }
           
-          Write-Host "File sync complete: $copiedCount copied, $skippedCount kept existing."
+          Write-Host "File sync complete: $copiedCount copied, $skippedFontCount locked fonts kept existing."
           
           # حذف فایل آفلاین جهت راه‌اندازی مجدد خودکار برنامه در IIS
           if (Test-Path $offlineFile) {
