@@ -248,6 +248,7 @@ builder.Services.AddScoped<IUpdateWebhookCallbackURLAsyncUseCase, UpdateWebhookC
 builder.Services.AddScoped<IBBBWebhookLogUseCase, BBBWebhookLogUseCase>();
 builder.Services.AddScoped<IGetAllRoomsMiniUseCase, GetAllRoomsMiniUseCase>();
 builder.Services.AddScoped<IGetPollReportUseCase, GetPollReportUseCase>();
+builder.Services.AddScoped<IAdminPollReportService, AdminPollReportService>();
 builder.Services.AddScoped<IUploadFileStorageUseCase, UploadFileStorageUseCase>();
 builder.Services.AddScoped<IGetSingleFileUseCase, GetSingleFileUseCase>();
 builder.Services.AddScoped<IGetFileStorageUseCase, GetFileStorageUseCase>();

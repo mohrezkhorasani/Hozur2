@@ -814,8 +814,36 @@ namespace CoreMe.Controllers
 
             await _IGetPollReportUseCase.handleAsync(req, _GetPollReportResponse);
 
-            return _GetPollReportResponse.jsonContentResult;
-
+            return _GetPollReportResponse.jsonContentResult;
+
+        }
+
+        [HttpGet("poll/GetGlobalPollReport")]
+        [Authorize(AuthenticationSchemes = "vc2AuthNorm")]
+        public async Task<IActionResult> GetGlobalPollReport(
+            [FromServices] Application.Services.IAdminPollReportService pollReportService,
+            [FromQuery] long? qid = null,
+            [FromQuery] string? roomFriendlyId = null,
+            [FromQuery] string? meetId = null,
+            [FromQuery] DateTime? fromDate = null,
+            [FromQuery] DateTime? toDate = null,
+            [FromQuery] string? search = null,
+            [FromQuery] bool includeInactive = false)
+        {
+            var headers = HttpContext.GetGeneralHeaders();
+            var filter = new GlobalPollReportFilterDTO
+            {
+                QID = qid,
+                RoomFriendlyId = roomFriendlyId,
+                MeetId = meetId,
+                FromDate = fromDate,
+                ToDate = toDate,
+                Search = search,
+                IncludeInactive = includeInactive
+            };
+
+            var result = await pollReportService.GetGlobalPollReportAsync(headers?.UserTBL, filter);
+            return Ok(result);
         }
 
 
