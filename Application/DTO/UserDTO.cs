@@ -188,6 +188,7 @@ namespace Application.DTO
     public class GetTeacherListRequest : NewUserRequest, IUseCaseRequest<GenericResponse<GetTeacherListResponse>>
     {
         public string Query { get; set; }
+        public bool IncludeDabir { get; set; } = false;
     }
 
     public class GetTeacherListResponse : BaseParentResponce

@@ -2,6 +2,7 @@ using Application.DTO;
 using Application.Interfaces;
 using Domain.Entity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,19 +13,26 @@ namespace Application.Services
     public interface IAdminPollReportService
     {
         bool CanUserViewGlobalPollReports(UserTBL? user);
+        bool CanUserManagePolls(UserTBL? user);
         Task<GlobalPollReportResponseDTO> GetGlobalPollReportAsync(UserTBL? user, GlobalPollReportFilterDTO? filter = null);
+        Task<PollQuizActionResponseDTO> TogglePollStatusAsync(UserTBL? user, long pollId, int? targetStatus = null);
+        Task<PollQuizActionResponseDTO> UpdatePollQuizAsync(UserTBL? user, long pollId, PollQuizUpdateDTO dto);
+        Task<PollQuizActionResponseDTO> DeletePollQuizAsync(UserTBL? user, long pollId);
     }
 
     /// <summary>
-    /// Service for generating comprehensive reports for global poll questions (IDMeetingTBL == null).
+    /// Service for generating comprehensive reports for global poll questions (IDMeetingTBL == null)
+    /// and managing poll status/updates.
     /// </summary>
     public class AdminPollReportService : IAdminPollReportService
     {
         private readonly IDBContext _db;
+        private readonly IMemoryCache? _memoryCache;
 
-        public AdminPollReportService(IDBContext db)
+        public AdminPollReportService(IDBContext db, IMemoryCache? memoryCache = null)
         {
             _db = db;
+            _memoryCache = memoryCache;
         }
 
         public bool CanUserViewGlobalPollReports(UserTBL? user)
@@ -34,6 +42,177 @@ namespace Application.Services
                    user.VerifyUserPermissions("manage_admins") ||
                    user.VerifyUserPermissions("view_poll_reports") ||
                    user.VerifyUserPermissions("edit_poll");
+        }
+
+        public bool CanUserManagePolls(UserTBL? user)
+        {
+            if (user == null) return false;
+            return user.Type == MainEntity_Types.USER_ADMINSTRATOR ||
+                   user.VerifyUserPermissions("manage_admins") ||
+                   user.VerifyUserPermissions("edit_poll");
+        }
+
+        public async Task<PollQuizActionResponseDTO> TogglePollStatusAsync(UserTBL? user, long pollId, int? targetStatus = null)
+        {
+            if (!CanUserManagePolls(user))
+            {
+                return new PollQuizActionResponseDTO { Status = 403, Message = "دسترسی ندارید" };
+            }
+
+            var poll = await _db.MeetPollQuizTBLs
+                .Include(p => p.MeetingTBL)
+                .FirstOrDefaultAsync(p => p.ID == pollId);
+
+            if (poll == null)
+            {
+                return new PollQuizActionResponseDTO { Status = 404, Message = "نظرسنجی یافت نشد" };
+            }
+
+            if (targetStatus.HasValue)
+            {
+                poll.Status = (MainEntity_Status)targetStatus.Value;
+            }
+            else
+            {
+                poll.Status = poll.Status == MainEntity_Status.LOG_NORMAL
+                    ? MainEntity_Status.Disable
+                    : MainEntity_Status.LOG_NORMAL;
+            }
+
+            await _db.SaveChangesAsync();
+            await InvalidatePollCachesAsync(poll);
+
+            return new PollQuizActionResponseDTO
+            {
+                Status = 200,
+                Message = "ok",
+                PollID = poll.ID,
+                PollStatus = (int)poll.Status
+            };
+        }
+
+        public async Task<PollQuizActionResponseDTO> UpdatePollQuizAsync(UserTBL? user, long pollId, PollQuizUpdateDTO dto)
+        {
+            if (!CanUserManagePolls(user))
+            {
+                return new PollQuizActionResponseDTO { Status = 403, Message = "دسترسی ندارید" };
+            }
+
+            var poll = await _db.MeetPollQuizTBLs
+                .Include(p => p.MeetPollQuizAnsTBLs)
+                .Include(p => p.MeetingTBL)
+                .FirstOrDefaultAsync(p => p.ID == pollId);
+
+            if (poll == null)
+            {
+                return new PollQuizActionResponseDTO { Status = 404, Message = "نظرسنجی یافت نشد" };
+            }
+
+            if (string.IsNullOrWhiteSpace(dto?.Question))
+            {
+                return new PollQuizActionResponseDTO { Status = 400, Message = "متن سوال الزامی است" };
+            }
+
+            poll.Question = dto.Question.Trim();
+            poll.Type = dto.Type;
+
+            var existingAnswers = poll.MeetPollQuizAnsTBLs?.ToList() ?? new List<MeetPollQuizAnsTBL>();
+            var incomingAnswers = dto.AnsPollRequestJSONs ?? new List<AnsPollRequestJSON>();
+
+            for (int i = 0; i < incomingAnswers.Count; i++)
+            {
+                var inc = incomingAnswers[i];
+                if (i < existingAnswers.Count)
+                {
+                    existingAnswers[i].Answer = inc.Content;
+                    existingAnswers[i].Score = inc.Score;
+                    existingAnswers[i].Type = poll.Type;
+                    existingAnswers[i].Status = poll.Status;
+                }
+                else
+                {
+                    _db.MeetPollQuizAnsTBLs.Add(new MeetPollQuizAnsTBL
+                    {
+                        Answer = inc.Content,
+                        Score = inc.Score,
+                        IDQuizTBL = poll.ID,
+                        Type = poll.Type,
+                        Status = poll.Status,
+                        DateInsert = DateTime.UtcNow
+                    });
+                }
+            }
+
+            for (int i = incomingAnswers.Count; i < existingAnswers.Count; i++)
+            {
+                existingAnswers[i].Status = MainEntity_Status.LOG_REMOVED;
+            }
+
+            await _db.SaveChangesAsync();
+            await InvalidatePollCachesAsync(poll);
+
+            return new PollQuizActionResponseDTO
+            {
+                Status = 200,
+                Message = "ok",
+                PollID = poll.ID,
+                PollStatus = (int)poll.Status
+            };
+        }
+
+        public async Task<PollQuizActionResponseDTO> DeletePollQuizAsync(UserTBL? user, long pollId)
+        {
+            if (!CanUserManagePolls(user))
+            {
+                return new PollQuizActionResponseDTO { Status = 403, Message = "دسترسی ندارید" };
+            }
+
+            var poll = await _db.MeetPollQuizTBLs
+                .Include(p => p.MeetingTBL)
+                .FirstOrDefaultAsync(p => p.ID == pollId);
+
+            if (poll == null)
+            {
+                return new PollQuizActionResponseDTO { Status = 404, Message = "نظرسنجی یافت نشد" };
+            }
+
+            poll.Status = MainEntity_Status.LOG_REMOVED;
+            await _db.SaveChangesAsync();
+            await InvalidatePollCachesAsync(poll);
+
+            return new PollQuizActionResponseDTO
+            {
+                Status = 200,
+                Message = "ok",
+                PollID = poll.ID,
+                PollStatus = (int)poll.Status
+            };
+        }
+
+        private async Task InvalidatePollCachesAsync(MeetPollQuizTBL poll)
+        {
+            if (_memoryCache == null) return;
+
+            if (poll.MeetingTBL != null && !string.IsNullOrWhiteSpace(poll.MeetingTBL.MeetID))
+            {
+                _memoryCache.Remove($"PollList_{poll.MeetingTBL.MeetID}");
+            }
+
+            if (poll.IsForAll || poll.IDMeetingTBL == null)
+            {
+                var activeMeetIds = await _db.MeetingTBLs.AsNoTracking()
+                    .Where(m => m.Status == MainEntity_Status.MEETING_LIVE || m.Status == MainEntity_Status.MEETING_STARTED_LATER)
+                    .Select(m => m.MeetID)
+                    .ToListAsync();
+
+                foreach (var meetId in activeMeetIds)
+                {
+                    if (!string.IsNullOrWhiteSpace(meetId))
+                    {
+                        _memoryCache.Remove($"PollList_{meetId}");
+                    }
+                }
+            }
         }
 
         public async Task<GlobalPollReportResponseDTO> GetGlobalPollReportAsync(UserTBL? user, GlobalPollReportFilterDTO? filter = null)

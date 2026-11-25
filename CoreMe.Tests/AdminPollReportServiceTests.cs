@@ -355,5 +355,112 @@ namespace CoreMe.Tests
             Assert.Single(resBySearch.Questions);
             Assert.Equal(1002, resBySearch.Questions[0].ID);
         }
+
+        [Fact]
+        public async Task TogglePollStatus_TogglesBetweenActiveAndDisabled_AndChecksPermission()
+        {
+            using var db = CreateInMemoryContext(nameof(TogglePollStatus_TogglesBetweenActiveAndDisabled_AndChecksPermission));
+            var (admin, viewer) = SeedPollData(db);
+            var service = new AdminPollReportService(db);
+
+            // Unauthorized viewer gets 403
+            var forbidden = await service.TogglePollStatusAsync(viewer, 1001);
+            Assert.Equal(403, forbidden.Status);
+
+            // Admin toggles active (300) -> disabled (-100)
+            var disabledRes = await service.TogglePollStatusAsync(admin, 1001);
+            Assert.Equal(200, disabledRes.Status);
+            Assert.Equal((int)MainEntity_Status.Disable, disabledRes.PollStatus);
+
+            // Toggle again -> active (300)
+            var activeRes = await service.TogglePollStatusAsync(admin, 1001);
+            Assert.Equal(200, activeRes.Status);
+            Assert.Equal((int)MainEntity_Status.LOG_NORMAL, activeRes.PollStatus);
+
+            // Missing poll -> 404
+            var notFound = await service.TogglePollStatusAsync(admin, 999999);
+            Assert.Equal(404, notFound.Status);
+        }
+
+        [Fact]
+        public async Task UpdateAndDeletePollQuiz_UpdatesFieldsAndSoftDeletes()
+        {
+            using var db = CreateInMemoryContext(nameof(UpdateAndDeletePollQuiz_UpdatesFieldsAndSoftDeletes));
+            var (admin, _) = SeedPollData(db);
+            var service = new AdminPollReportService(db);
+
+            var updateRes = await service.UpdatePollQuizAsync(admin, 1001, new PollQuizUpdateDTO
+            {
+                Question = "سوال ویرایش‌شده؟",
+                Type = MainEntity_Types.QUIZ_OPTIONAL,
+                AnsPollRequestJSONs = new List<AnsPollRequestJSON>
+                {
+                    new AnsPollRequestJSON { Content = "خیلی خوب", Score = 95 },
+                    new AnsPollRequestJSON { Content = "ضعیف", Score = 20 }
+                }
+            });
+            Assert.Equal(200, updateRes.Status);
+            var updatedPoll = await db.MeetPollQuizTBLs.Include(p => p.MeetPollQuizAnsTBLs).FirstAsync(p => p.ID == 1001);
+            Assert.Equal("سوال ویرایش‌شده؟", updatedPoll.Question);
+
+            var delRes = await service.DeletePollQuizAsync(admin, 1001);
+            Assert.Equal(200, delRes.Status);
+            Assert.Equal((int)MainEntity_Status.LOG_REMOVED, delRes.PollStatus);
+        }
+
+        [Fact]
+        public async Task GetTeacherList_WithIncludeDabir_ReturnsTeachersAndDabirs()
+        {
+            using var db = CreateInMemoryContext(nameof(GetTeacherList_WithIncludeDabir_ReturnsTeachersAndDabirs));
+            db.UserTBLs.AddRange(
+                new UserTBL
+                {
+                    ID = 50,
+                    UUID = "t-1",
+                    Username = "t1",
+                    Firstname = "حسن",
+                    LastName = "علوی",
+                    Type = MainEntity_Types.USER_TEACHER,
+                    Status = MainEntity_Status.USER_ACTIVE
+                },
+                new UserTBL
+                {
+                    ID = 51,
+                    UUID = "d-1",
+                    Username = "d1",
+                    Firstname = "مهدی",
+                    LastName = "نوری",
+                    Type = MainEntity_Types.USER_DABIR,
+                    Status = MainEntity_Status.USER_ACTIVE
+                }
+            );
+            await db.SaveChangesAsync();
+
+            var useCase = new Application.Usecase.GetTeacherListUseCase(db, null!);
+
+            Application.DTO.GetTeacherListResponse? onlyTeachersRes = null;
+            var outPort1 = new TestOutputPort<Application.DTO.Generals.GenericResponse<Application.DTO.GetTeacherListResponse>>(r => onlyTeachersRes = r.data);
+            await useCase.handleAsync(new Application.DTO.GetTeacherListRequest { Query = "", IncludeDabir = false }, outPort1);
+
+            Assert.NotNull(onlyTeachersRes);
+            Assert.Single(onlyTeachersRes!.Data);
+            Assert.Equal("حسن علوی", onlyTeachersRes.Data[0].Fullname);
+
+            Application.DTO.GetTeacherListResponse? withDabirRes = null;
+            var outPort2 = new TestOutputPort<Application.DTO.Generals.GenericResponse<Application.DTO.GetTeacherListResponse>>(r => withDabirRes = r.data);
+            await useCase.handleAsync(new Application.DTO.GetTeacherListRequest { Query = "", IncludeDabir = true }, outPort2);
+
+            Assert.NotNull(withDabirRes);
+            Assert.Equal(2, withDabirRes!.Data.Count);
+            Assert.Contains(withDabirRes.Data, x => x.Fullname == "حسن علوی" && x.Role == "استاد");
+            Assert.Contains(withDabirRes.Data, x => x.Fullname == "مهدی نوری" && x.Role == "دبیر");
+        }
+
+        private class TestOutputPort<T> : Application.Interface.IUsecase.IOutPutPort<T>
+        {
+            private readonly Action<T> _onHandle;
+            public TestOutputPort(Action<T> onHandle) => _onHandle = onHandle;
+            public void Handle(T response) => _onHandle(response);
+        }
     }
 }

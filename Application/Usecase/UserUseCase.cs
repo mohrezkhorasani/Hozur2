@@ -1306,17 +1306,34 @@ namespace Application.Usecase
             //    return;
             //}
 
+            var query = _db.UserTBLs.AsNoTracking()
+                .Where(e => e.Type == MainEntity_Types.USER_TEACHER ||
+                            (message.IncludeDabir && e.Type == MainEntity_Types.USER_DABIR));
+
+            if (!string.IsNullOrWhiteSpace(message.Query))
+            {
+                var q = message.Query.Trim();
+                query = query.Where(e =>
+                    ((e.Firstname ?? "") + " " + (e.LastName ?? "")).Contains(q) ||
+                    (e.Username != null && e.Username.Contains(q)));
+            }
+
+            var teachers = query
+                .Select(e => new DTO.Models.MiniUserJSON
+                {
+                    Fullname = ((e.Firstname ?? "") + " " + (e.LastName ?? "")).Trim(),
+                    ID = e.ID,
+                    UID = "",
+                    Role = e.Type == MainEntity_Types.USER_DABIR ? "دبیر" : "استاد"
+                })
+                .OrderBy(e => e.Fullname)
+                .ToList();
+
             outputPort.Handle(new GenericResponse<GetTeacherListResponse>(new GetTeacherListResponse
             {
                 Message = "ok",
                 Status = 200,
-                Data = _db.UserTBLs.Where(e => e.Type == MainEntity_Types.USER_TEACHER)
-                .Select(e => new DTO.Models.MiniUserJSON
-                {
-                    Fullname = $"{e.Firstname} {e.LastName}",
-                    ID = e.ID,
-                    UID = ""
-                }).ToList()
+                Data = teachers
             }));
 
         }

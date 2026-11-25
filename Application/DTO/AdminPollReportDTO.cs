@@ -119,4 +119,24 @@ namespace Application.DTO
         public string FriendlyID { get; set; } = "";
         public string Title { get; set; } = "";
     }
+
+    public class PollQuizActionResponseDTO
+    {
+        public int Status { get; set; } = 200;
+        public string Message { get; set; } = "ok";
+        public long PollID { get; set; }
+        public int PollStatus { get; set; }
+    }
+
+    public class PollStatusUpdateDTO
+    {
+        public int? Status { get; set; }
+    }
+
+    public class PollQuizUpdateDTO
+    {
+        public string Question { get; set; } = "";
+        public MainEntity_Types Type { get; set; } = MainEntity_Types.QUIZ_OPTIONAL;
+        public List<AnsPollRequestJSON> AnsPollRequestJSONs { get; set; } = new List<AnsPollRequestJSON>();
+    }
 }

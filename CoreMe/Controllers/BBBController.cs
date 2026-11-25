@@ -583,13 +583,14 @@ namespace CoreMe.Controllers
 
 
         [HttpGet("/user/GetTeacherList")]
-        public async Task<IActionResult> GetTeacherList([FromQuery] string q = "")
+        public async Task<IActionResult> GetTeacherList([FromQuery] string q = "", [FromQuery] bool includeDabir = false)
         {
             Statics.Log("GetTeacherList", string.Join("\n", Request.Headers));
             Statics.Log("GetTeacherList", string.Join("\n", Request.Headers.Select(e => e.Key).ToList()));
             GetTeacherListRequest req = new GetTeacherListRequest
             {
-                Query = q
+                Query = q,
+                IncludeDabir = includeDabir
             };
             req.GeneralHeaders = HttpContext.GetGeneralHeaders();
             await _IGetTeacherListUseCase.handleAsync(req, _GetTeacherListResponse);

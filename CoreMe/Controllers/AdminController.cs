@@ -844,6 +844,41 @@ namespace CoreMe.Controllers
 
             var result = await pollReportService.GetGlobalPollReportAsync(headers?.UserTBL, filter);
             return Ok(result);
+        }
+
+        [HttpPost("poll/TogglePollStatus/{id}")]
+        [Authorize(AuthenticationSchemes = "vc2AuthNorm")]
+        public async Task<IActionResult> TogglePollStatus(
+            long id,
+            [FromServices] Application.Services.IAdminPollReportService pollReportService,
+            [FromBody] PollStatusUpdateDTO? dto = null)
+        {
+            var headers = HttpContext.GetGeneralHeaders();
+            var result = await pollReportService.TogglePollStatusAsync(headers?.UserTBL, id, dto?.Status);
+            return Ok(result);
+        }
+
+        [HttpPost("poll/UpdatePollQuiz/{id}")]
+        [Authorize(AuthenticationSchemes = "vc2AuthNorm")]
+        public async Task<IActionResult> UpdatePollQuiz(
+            long id,
+            [FromBody] PollQuizUpdateDTO dto,
+            [FromServices] Application.Services.IAdminPollReportService pollReportService)
+        {
+            var headers = HttpContext.GetGeneralHeaders();
+            var result = await pollReportService.UpdatePollQuizAsync(headers?.UserTBL, id, dto);
+            return Ok(result);
+        }
+
+        [HttpPost("poll/DeletePollQuiz/{id}")]
+        [Authorize(AuthenticationSchemes = "vc2AuthNorm")]
+        public async Task<IActionResult> DeletePollQuiz(
+            long id,
+            [FromServices] Application.Services.IAdminPollReportService pollReportService)
+        {
+            var headers = HttpContext.GetGeneralHeaders();
+            var result = await pollReportService.DeletePollQuizAsync(headers?.UserTBL, id);
+            return Ok(result);
         }
 
 

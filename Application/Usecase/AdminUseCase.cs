@@ -3765,51 +3765,32 @@ namespace Application.Usecase
 
 
 
-                var q = _db.MeetPollQuizTBLs.Include(e => e.MeetPollQuizAnsTBLs).Select(e => new PollJSON
-
-
-
-                {
-
-
-
-                    ID = e.ID,
-
-
-
-                    Question = e.Question,
-
-
-
-                    Status = e.Status,
-
-
-
-                    Type = e.Type,
-
-
-
-                    Answers = e.MeetPollQuizAnsTBLs != null & e.MeetPollQuizAnsTBLs.Count > 0 ? e.MeetPollQuizAnsTBLs.Select(r => new PoolAnsJSON
-
-
-
+                var q = _db.MeetPollQuizTBLs
+                    .Where(e => e.Status != MainEntity_Status.Delete && e.Status != MainEntity_Status.LOG_REMOVED)
+                    .OrderByDescending(e => e.ID)
+                    .Select(e => new PollJSON
                     {
-
-
-
-                        Content = r.Answer,
-
-
-
-                        ID = r.ID
-
-
-
-                    }).ToList() : new List<PoolAnsJSON>(),
-
-
-
-                }).ToList();
+                        ID = e.ID,
+                        Question = e.Question,
+                        Status = e.Status,
+                        Type = e.Type,
+                        IDMeetingTBL = e.IDMeetingTBL,
+                        MeetID = e.MeetingTBL != null ? e.MeetingTBL.MeetID : null,
+                        MeetingTitle = e.MeetingTBL != null ? e.MeetingTBL.Title : null,
+                        IsForAll = e.IsForAll,
+                        DateInsert = e.DateInsert,
+                        VotesCount = e.MeetPollQuizAnsTBLs.SelectMany(a => a.MeetPollQuizAnsTBLToUserMeetTBLs).Count(v => v.Status == MainEntity_Status.Default || v.Status == MainEntity_Status.LOG_NORMAL),
+                        Answers = e.MeetPollQuizAnsTBLs
+                            .Where(r => r.Status != MainEntity_Status.Delete && r.Status != MainEntity_Status.LOG_REMOVED)
+                            .OrderBy(r => r.Score)
+                            .ThenBy(r => r.ID)
+                            .Select(r => new PoolAnsJSON
+                            {
+                                Content = r.Answer,
+                                ID = r.ID,
+                                Score = r.Score
+                            }).ToList()
+                    }).ToList();
 
 
 

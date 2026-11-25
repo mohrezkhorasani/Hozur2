@@ -108,11 +108,18 @@ namespace Application.DTO.Models
         public MainEntity_Status Status { get; set; } = MainEntity_Status.LOG_NORMAL;
         public List<PoolAnsJSON> Answers { get; set; }
         public MainEntity_Types Type { get; set; }
+        public long? IDMeetingTBL { get; set; }
+        public string? MeetID { get; set; }
+        public string? MeetingTitle { get; set; }
+        public bool IsForAll { get; set; } = true;
+        public DateTime DateInsert { get; set; }
+        public int VotesCount { get; set; }
     }
     public class PoolAnsJSON
     {
         public long ID { get; set; }
         public string Content { get; set; }
+        public int Score { get; set; }
     }
     public class MiniLogJSON
     {
