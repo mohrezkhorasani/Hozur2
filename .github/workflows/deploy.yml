@@ -104,7 +104,7 @@ jobs:
               }
           }
 
-      - name: Deploy to IIS (Safe Lock Handling & Retry)
+      - name: Deploy to IIS (Safe Lock Handling & Robust File Sync)
         run: |
           $offlineFile = Join-Path $env:DEPLOY_PATH "app_offline.htm"
           Set-Content -Path $offlineFile -Value "<html><head><meta charset='utf-8'></head><body><h2>Updating $env:PROJECT_NAME...</h2><p>Please wait a moment.</p></body></html>" -Encoding UTF8
@@ -118,24 +118,38 @@ jobs:
           }
           
           Write-Host "Deploying files from $env:TEMP_PUBLISH_PATH to $env:DEPLOY_PATH..."
-          $maxAttempts = 5
-          $success = $false
-          for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+          
+          $copiedCount = 0
+          $skippedCount = 0
+          
+          $sourceFiles = Get-ChildItem -Path "$env:TEMP_PUBLISH_PATH" -Recurse -File | Where-Object { $_.Name -ne "app_offline.htm" }
+          $sourceRootLength = $env:TEMP_PUBLISH_PATH.TrimEnd('\', '/').Length
+          
+          foreach ($file in $sourceFiles) {
+              $relPath = $file.FullName.Substring($sourceRootLength).TrimStart('\', '/')
+              $destPath = Join-Path $env:DEPLOY_PATH $relPath
+              $destDir = Split-Path -Parent $destPath
+              
+              if (!(Test-Path $destDir)) {
+                  New-Item -ItemType Directory -Path $destDir -Force | Out-Null
+              }
+              
               try {
-                  Write-Host "Copy attempt $attempt of $maxAttempts..."
-                  Get-ChildItem -Path "$env:TEMP_PUBLISH_PATH" | Where-Object { $_.Name -ne "app_offline.htm" } | ForEach-Object {
-                      Copy-Item -Path $_.FullName -Destination $env:DEPLOY_PATH -Recurse -Force -ErrorAction Stop
-                  }
-                  $success = $true
-                  Write-Host "All files deployed successfully!"
-                  break
+                  Copy-Item -Path $file.FullName -Destination $destPath -Force -ErrorAction Stop
+                  $copiedCount++
               } catch {
-                  Write-Warning "Attempt $attempt warning: $($_.Exception.Message)"
-                  if ($attempt -lt $maxAttempts) {
-                      Start-Sleep -Seconds 3
+                  # اگر فایل از قبل در مقصد وجود دارد و قفل است (مانند فونت‌های مقیم حافظه ویندوز)، نسخه موجود را حفظ کن
+                  if (Test-Path $destPath) {
+                      Write-Warning "File in use, kept existing version: $relPath"
+                      $skippedCount++
+                  } else {
+                      Write-Error "Failed to copy new file $relPath : $($_.Exception.Message)"
+                      throw $_
                   }
               }
           }
+          
+          Write-Host "File sync complete: $copiedCount copied, $skippedCount kept existing."
           
           # حذف فایل آفلاین جهت راه‌اندازی مجدد خودکار برنامه در IIS
           if (Test-Path $offlineFile) {
@@ -143,15 +157,13 @@ jobs:
               Write-Host "Removed app_offline.htm. Application is back online."
           }
           
-          if (-not $success) {
-              throw "Deployment failed to copy files to $env:DEPLOY_PATH"
-          }
-          
           # تایید نهایی و گزارش زمان و حجم CoreMe.dll مستقر شده در سرور
           $deployedDll = Join-Path $env:DEPLOY_PATH "CoreMe.dll"
           if (Test-Path $deployedDll) {
               $dInfo = Get-Item $deployedDll
               Write-Host "DEPLOY VERIFIED -> Deployed CoreMe.dll LastWriteTime: $($dInfo.LastWriteTime) Size: $($dInfo.Length) bytes"
+          } else {
+              throw "Verification failed: CoreMe.dll not found in $env:DEPLOY_PATH"
           }
 
       - name: Post-Deploy Warmup & Health Check
