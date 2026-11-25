@@ -168,6 +168,22 @@ export async function DeletePollQuiz(id) {
     return json;
 }
 
+export async function TogglePollStatus(id, status = null) {
+    const url = combinePath(BaseURL, `/admin/poll/TogglePollStatus/${id}`);
+    const res = await fetch(url, {
+        method: "POST",
+        headers: {
+            ...NormalHeaderAPI,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(status !== null ? { status } : {})
+    });
+    if (!res.ok) throw new Error("Failed to toggle poll status");
+    const json = await res.json();
+    if (json.status !== 200) throw new Error(json.message || "خطا در تغییر وضعیت نظرسنجی");
+    return json;
+}
+
 export async function NewPlanRoom(data) {
     //console.log(data)
     const url = combinePath(BaseURL, `/user/NewPlanRoom`);

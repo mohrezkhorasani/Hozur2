@@ -291,8 +291,13 @@ export async function getEmojis(name) {
     return json; // چون ساختار ریسپانس تو همین شکله
 }
 
-export async function GetTeacherList(name) {
-    const res = await fetch(combinePath(BaseURL, `/user/GetTeacherList?q=${name}`), {
+export async function GetTeacherList(name = "", includeDabir = false) {
+    const params = new URLSearchParams();
+    params.set("q", name ?? "");
+    if (includeDabir) {
+        params.set("includeDabir", "true");
+    }
+    const res = await fetch(combinePath(BaseURL, `/user/GetTeacherList?${params.toString()}`), {
         method: "GET",
         headers: NormalHeaderAPI
 
